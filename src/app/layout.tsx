@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Personal Tracker",
   description:
-    "A mobile-first personal tracker for workouts, weekly check-ins, and progress over time.",
+    "A single-user personal dashboard that makes hitting a muscle-gain goal the path of least resistance.",
 };
 
 export default function RootLayout({
@@ -14,9 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-bg text-neutral-100 antialiased min-h-screen">
-        {children}
-      </body>
+      <body className="min-h-screen">{children}</body>
     </html>
   );
 }
