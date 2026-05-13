@@ -28,6 +28,10 @@ import {
 import { computeLocalDate } from "@/lib/workout/scheduling";
 
 import RatingChip from "./RatingChip";
+import DatePicker, {
+  backfillMinDate,
+  isWithinBackfillWindow,
+} from "./DatePicker";
 
 /**
  * Daily check-in form.
@@ -49,6 +53,18 @@ import RatingChip from "./RatingChip";
 
 export interface CheckInFormProps {
   profile: Profile;
+  /**
+   * Override the active `localDate`. When set (and within the 7-day backfill
+   * window), the form operates on that day's doc instead of "today". The
+   * parent passes a callback so the picker can change the URL `?date=` param.
+   */
+  initialLocalDate?: string;
+  /**
+   * Called when the user picks a different date in the backfill picker. The
+   * parent is expected to update the URL (router.replace) so the selection
+   * survives reload and back/forward.
+   */
+  onDateChange?: (next: string) => void;
 }
 
 type FormState = {
@@ -120,17 +136,38 @@ function formatSavedAt(updatedAt: DailyDoc["updatedAt"] | undefined): string | n
   return date.toLocaleDateString();
 }
 
-export default function CheckInForm({ profile }: CheckInFormProps) {
+export default function CheckInForm({
+  profile,
+  initialLocalDate,
+  onDateChange,
+}: CheckInFormProps) {
   const { user } = useAuth();
 
   // ---- Local date anchor -----------------------------------------------------
-  // We recompute `localDate` on each render: it's cheap (one Intl call) and it
-  // means a user who leaves the page open across midnight will roll over on
-  // the next interaction without needing a manual refresh.
-  const localDate = useMemo(
+  // `today` is the timezone-aware "now" anchor used as the upper bound of the
+  // backfill window. It's cheap to recompute on every render (one Intl call)
+  // and ensures a user who leaves the page open across midnight rolls over on
+  // the next interaction.
+  const today = useMemo(
     () => computeLocalDate(new Date(), profile.timezone),
     [profile.timezone],
   );
+  const minBackfill = useMemo(() => backfillMinDate(today), [today]);
+
+  // Resolve the *active* localDate. We honor `initialLocalDate` only when it
+  // sits inside the 7-day backfill window; anything else silently falls back
+  // to today (the parent page is responsible for surfacing the "use History"
+  // message before it gets here, but we double-guard here to avoid writing to
+  // an out-of-window doc if a stale URL is hit).
+  const localDate = useMemo(() => {
+    if (
+      initialLocalDate &&
+      isWithinBackfillWindow(initialLocalDate, today, minBackfill)
+    ) {
+      return initialLocalDate;
+    }
+    return today;
+  }, [initialLocalDate, today, minBackfill]);
 
   // ---- Form state -----------------------------------------------------------
   const [state, setState] = useState<FormState>(EMPTY_STATE);
@@ -307,7 +344,9 @@ export default function CheckInForm({ profile }: CheckInFormProps) {
       <header className="flex items-baseline justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-neutral-100">Check-in</h1>
-          <p className="mt-1 text-xs text-muted">{localDate}</p>
+          <p className="mt-1 text-xs text-muted">
+            {localDate === today ? "Today" : "Backfill"} · {localDate}
+          </p>
         </div>
         {savedAgo ? (
           <span aria-live="polite" className="text-xs text-muted">
@@ -326,7 +365,21 @@ export default function CheckInForm({ profile }: CheckInFormProps) {
         </div>
       ) : null}
 
-      <div className="mt-5 space-y-5 rounded-xl border border-border bg-neutral-900/40 p-4">
+      <div className="mt-5 rounded-xl border border-border bg-neutral-900/40 p-4">
+        <DatePicker
+          value={localDate}
+          today={today}
+          min={minBackfill}
+          onPick={(next) => {
+            // Hand off URL changes to the parent — the snapshot effect keyed
+            // on `localDate` will rehydrate the form for the new day.
+            hydratedRef.current = false;
+            onDateChange?.(next);
+          }}
+        />
+      </div>
+
+      <div className="mt-4 space-y-5 rounded-xl border border-border bg-neutral-900/40 p-4">
         {/* Bodyweight */}
         <NumericField
           id="checkin-bodyweight"
