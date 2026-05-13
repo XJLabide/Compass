@@ -1,0 +1,149 @@
+rules_version = '2';
+
+// Personal Tracker Firestore Security Rules
+//
+// Model:
+//   - Default-deny at root.
+//   - All app data lives under `users/{uid}/...`.
+//   - Access requires `request.auth.uid == uid` AND the signed-in email is on
+//     the hard-coded allowlist (`allowed()` below).
+//   - Per-collection write validators enforce field shapes (numeric ranges,
+//     required fields). See `docs/FIRESTORE_RULES.md` for deploy + edit notes.
+//
+// IMPORTANT: To add or remove an allowed user, edit `allowed()` below and
+// redeploy via `firebase deploy --only firestore:rules`.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------
+    // Allowlist (v1: hard-coded; promote to script-generated if it grows).
+    // -------------------------------------------------------------------
+    function allowed() {
+      return [
+        'labide.xj@gmail.com'
+      ];
+    }
+
+    function isOwner(uid) {
+      return request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.email in allowed();
+    }
+
+    // -------------------------------------------------------------------
+    // Field validators
+    // -------------------------------------------------------------------
+    function isNumOpt(data, field, lo, hi) {
+      // Field is either absent or a number in [lo, hi].
+      return !(field in data)
+        || (data[field] is number && data[field] >= lo && data[field] <= hi);
+    }
+
+    function isIntOpt(data, field, lo, hi) {
+      return !(field in data)
+        || (data[field] is int && data[field] >= lo && data[field] <= hi);
+    }
+
+    function dailyValid(data) {
+      // Optional numeric fields with sane ranges.
+      // bodyweightKg must be strictly > 0 if present (use small epsilon).
+      return (!('bodyweightKg' in data)
+              || (data.bodyweightKg is number && data.bodyweightKg > 0 && data.bodyweightKg < 1000))
+        && isNumOpt(data, 'sleepHours', 0, 24)
+        && isIntOpt(data, 'sleepQuality', 1, 5)
+        && isIntOpt(data, 'calories', 0, 100000)
+        && isNumOpt(data, 'proteinG', 0, 100000)
+        && isNumOpt(data, 'waterMl', 0, 100000)
+        && isIntOpt(data, 'steps', 0, 1000000)
+        && isIntOpt(data, 'mood', 1, 5)
+        && (!('note' in data) || data.note is string)
+        && data.localDate is string;
+    }
+
+    function setValid(s) {
+      return s.weightKg is number && s.weightKg >= 0
+        && s.reps is int && s.reps >= 0
+        && (!('rpe' in s) || (s.rpe is number && s.rpe >= 1 && s.rpe <= 10))
+        && s.exerciseId is string
+        && s.order is int && s.order >= 0;
+    }
+
+    function sessionValid(data) {
+      // sets must be a list; per-set validation handled at write time on client.
+      // We at least require it to be a list and the metadata to be well-shaped.
+      return data.localDate is string
+        && data.name is string
+        && data.sets is list
+        && (!('durationMin' in data)
+            || (data.durationMin is number && data.durationMin >= 0 && data.durationMin <= 1440))
+        && (!('notes' in data) || data.notes is string);
+    }
+
+    function prValid(data) {
+      return data.exerciseId is string
+        && data.exerciseName is string
+        && data.weightKg is number && data.weightKg >= 0
+        && data.reps is int && data.reps >= 0
+        && data.e1RMKg is number && data.e1RMKg >= 0
+        && data.sessionId is string
+        && data.localDate is string;
+    }
+
+    function profileValid(data) {
+      return data.displayName is string
+        && data.unitSystem in ['imperial', 'metric']
+        && data.proteinTargetG is number && data.proteinTargetG >= 0
+        && data.weeklyGainLb is number
+        && data.timezone is string;
+    }
+
+    function exerciseValid(data) {
+      return data.name is string
+        && data.primaryMuscle is string
+        && data.category is string;
+    }
+
+    function programValid(data) {
+      return data.name is string
+        && data.sessions is list;
+    }
+
+    // -------------------------------------------------------------------
+    // /users/{uid} — root for all user-owned data.
+    // -------------------------------------------------------------------
+    match /users/{uid} {
+      // No top-level user doc reads/writes (we use subcollections only).
+      allow read, write: if false;
+
+      match /profile/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if isOwner(uid) && profileValid(request.resource.data);
+      }
+
+      match /program/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if isOwner(uid) && programValid(request.resource.data);
+      }
+
+      match /exercises/{exerciseId} {
+        allow read: if isOwner(uid);
+        allow write: if isOwner(uid) && exerciseValid(request.resource.data);
+      }
+
+      match /sessions/{sessionId} {
+        allow read: if isOwner(uid);
+        allow write: if isOwner(uid) && sessionValid(request.resource.data);
+      }
+
+      match /daily/{dateId} {
+        allow read: if isOwner(uid);
+        allow write: if isOwner(uid) && dailyValid(request.resource.data);
+      }
+
+      match /prs/{prId} {
+        allow read: if isOwner(uid);
+        allow write: if isOwner(uid) && prValid(request.resource.data);
+      }
+    }
+  }
+}
