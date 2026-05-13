@@ -1,4 +1,5 @@
 import BottomTabBar from "@/components/BottomTabBar";
+import OfflineIndicator from "@/components/OfflineIndicator";
 import AuthGate from "@/components/auth/AuthGate";
 
 export default function AppShellLayout({
@@ -9,6 +10,7 @@ export default function AppShellLayout({
   return (
     <AuthGate>
       <div className="flex min-h-screen flex-col">
+        <OfflineIndicator />
         <main className="mx-auto w-full max-w-md flex-1 px-4 pb-20 pt-6">
           {children}
         </main>

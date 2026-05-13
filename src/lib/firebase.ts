@@ -5,7 +5,13 @@ import {
   setPersistence,
   type Auth,
 } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 
 /**
  * Firebase client singleton.
@@ -26,6 +32,7 @@ type FirebaseHandles = {
 
 let handles: FirebaseHandles | null = null;
 let persistencePromise: Promise<void> | null = null;
+let firestorePersistenceWarned = false;
 
 function readConfig(): FirebaseOptions {
   const config: FirebaseOptions = {
@@ -61,9 +68,35 @@ function readConfig(): FirebaseOptions {
 function init(): FirebaseHandles {
   if (handles) return handles;
 
-  const app = getApps().length ? getApp() : initializeApp(readConfig());
+  const isNewApp = getApps().length === 0;
+  const app = isNewApp ? initializeApp(readConfig()) : getApp();
   const auth = getAuth(app);
-  const db = getFirestore(app);
+
+  // Try to enable persistent IndexedDB cache with multi-tab support. Safari
+  // private mode and some embedded webviews block IndexedDB; fall back to the
+  // default in-memory Firestore in that case so the app still works.
+  let db: Firestore;
+  if (isNewApp) {
+    try {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      });
+    } catch (err) {
+      if (!firestorePersistenceWarned) {
+        firestorePersistenceWarned = true;
+        // eslint-disable-next-line no-console
+        console.warn(
+          "Firestore offline persistence unavailable; falling back to in-memory cache.",
+          err,
+        );
+      }
+      db = getFirestore(app);
+    }
+  } else {
+    db = getFirestore(app);
+  }
 
   // Set persistence once; fire-and-forget. Errors are swallowed because the
   // auth instance still works with in-memory persistence as a fallback.
