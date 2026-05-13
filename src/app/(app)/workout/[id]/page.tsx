@@ -30,6 +30,7 @@ import {
   type PrefillMap,
 } from "@/lib/workout/prefill";
 import { finishSession as runPRDetection } from "@/lib/workout/finishSession";
+import { isPastEditWindow } from "@/lib/workout/recovery";
 
 /**
  * `/workout/[id]` — live session logger.
@@ -335,6 +336,12 @@ export default function WorkoutSessionPage() {
   // ---------------------------------------------------------------------------
   const unitSystem = profile?.unitSystem ?? "metric";
   const inProgress = session?.status === "in_progress";
+  // 48h edit window: once a session has been completed for >48h, the UI
+  // becomes read-only. Edit affordances (quick-add, set logging) are gated
+  // by `inProgress` so they're already hidden for completed sessions; this
+  // flag surfaces an explicit banner and disables anything that might
+  // otherwise allow late edits (e.g. rules-level guard mirrors this).
+  const isLocked = session ? isPastEditWindow(session) : false;
   const totalSets = (session?.sets ?? []).filter(
     (s) => !(s.weightKg === 0 && s.reps === 0),
   ).length;
@@ -371,6 +378,17 @@ export default function WorkoutSessionPage() {
           className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
         >
           {error}
+        </div>
+      ) : null}
+
+      {isLocked ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mt-4 rounded-lg border border-neutral-700 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-300"
+        >
+          Read-only — this session finished more than 48 hours ago and can no
+          longer be edited.
         </div>
       ) : null}
 

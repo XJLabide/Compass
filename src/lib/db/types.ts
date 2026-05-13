@@ -125,8 +125,9 @@ export interface LoggedSet {
   order: number;
 }
 
-/** Session lifecycle. `in_progress` is the live-logger state; `completed` is finalized. */
-export type SessionStatus = "in_progress" | "completed";
+/** Session lifecycle. `in_progress` is the live-logger state; `completed` is finalized;
+ *  `discarded` is a user-abandoned in-progress session (kept for audit, hidden from feeds). */
+export type SessionStatus = "in_progress" | "completed" | "discarded";
 
 export interface SessionDoc {
   /** Client-computed `YYYY-MM-DD` in user tz. */
@@ -143,6 +144,8 @@ export interface SessionDoc {
   startedAt?: Timestamp;
   /** Server timestamp when the user finished the session. */
   finishedAt?: Timestamp;
+  /** Server timestamp when the session was auto-finalized after 24h of inactivity (recovery path). */
+  autoFinalizedAt?: Timestamp;
   durationMin?: number;
   notes?: string;
   sets: LoggedSet[];

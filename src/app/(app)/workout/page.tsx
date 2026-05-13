@@ -9,6 +9,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  where,
   type QuerySnapshot,
 } from "firebase/firestore";
 
@@ -24,7 +25,9 @@ import {
   getLocalDayOfWeek,
   getTodayScheduled,
 } from "@/lib/workout/scheduling";
+import { checkAndAutoFinalize } from "@/lib/workout/recovery";
 import SessionListItem from "@/components/workout/SessionListItem";
+import ResumeBanner from "@/components/workout/ResumeBanner";
 
 type RecentRow = { id: string; session: SessionDoc };
 
@@ -49,6 +52,7 @@ export default function WorkoutPage() {
   const [program, setProgram] = useState<ProgramDoc | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [recent, setRecent] = useState<RecentRow[] | null>(null);
+  const [inProgress, setInProgress] = useState<RecentRow | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [starting, setStarting] = useState(false);
@@ -102,6 +106,71 @@ export default function WorkoutPage() {
       (err) => setLoadError(err.message),
     );
     return () => unsub();
+  }, [user?.uid]);
+
+  // ---------------------------------------------------------------------------
+  // Subscribe to any in-progress sessions for the resume banner. We pick the
+  // most-recently-started one if there are somehow multiple.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(
+      sessionsPath(user.uid),
+      where("status", "==", "in_progress"),
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap: QuerySnapshot<SessionDoc>) => {
+        if (snap.empty) {
+          setInProgress(null);
+          return;
+        }
+        // Pick the most recently started; fall back to first doc.
+        let best: RecentRow | null = null;
+        let bestMs = -Infinity;
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          const ts = data.startedAt as unknown as
+            | { toMillis?: () => number }
+            | undefined;
+          const ms =
+            ts && typeof ts.toMillis === "function" ? ts.toMillis() : 0;
+          if (ms > bestMs) {
+            bestMs = ms;
+            best = { id: d.id, session: data };
+          }
+        });
+        setInProgress(best);
+      },
+      (err) => setLoadError(err.message),
+    );
+    return () => unsub();
+  }, [user?.uid]);
+
+  // ---------------------------------------------------------------------------
+  // On mount (per uid), scan for in-progress sessions older than 24h and
+  // auto-finalize them. Best-effort; we don't block render or surface errors
+  // beyond the existing loadError channel for the query failure case.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!user?.uid) return;
+    let cancelled = false;
+    checkAndAutoFinalize(user.uid)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.errors.length > 0) {
+          // eslint-disable-next-line no-console
+          console.warn("Auto-finalize encountered errors:", result.errors);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // eslint-disable-next-line no-console
+        console.warn("Auto-finalize failed:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user?.uid]);
 
   // ---------------------------------------------------------------------------
@@ -170,6 +239,11 @@ export default function WorkoutPage() {
         >
           {loadError}
         </div>
+      ) : null}
+
+      {/* Resume in-progress session (if any) */}
+      {user?.uid ? (
+        <ResumeBanner uid={user.uid} inProgress={inProgress} />
       ) : null}
 
       {/* Today */}
