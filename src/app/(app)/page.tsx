@@ -10,6 +10,7 @@ import type { Profile } from "@/lib/db/types";
 import TodayCard from "@/components/dashboard/TodayCard";
 import GoalBanner from "@/components/dashboard/GoalBanner";
 import ThisWeekCard from "@/components/dashboard/ThisWeekCard";
+import Trends from "@/components/dashboard/Trends";
 import RecentPRsStrip from "@/components/dashboard/RecentPRsStrip";
 import EmptyState from "@/components/dashboard/EmptyState";
 
@@ -23,10 +24,9 @@ import EmptyState from "@/components/dashboard/EmptyState";
  *      empty-state CTA when <3 weigh-ins exist.
  *   3. ThisWeekCard — Mon-anchored weekly counters (workouts, protein, sleep,
  *      weight delta). Realtime listeners on `daily` + `sessions`.
- *   4. RecentPRsStrip — last 3 PRs, realtime on `prs`.
- *
- * The Trends section (mini line charts) lands between ThisWeekCard and
- * RecentPRsStrip in sibling task fn-6-kra.3.
+ *   4. Trends — 4 mini line charts (bodyweight, weekly volume, protein,
+ *      sleep) over the last 8 weeks. One-shot fetch + refetch on tab focus.
+ *   5. RecentPRsStrip — last 3 PRs, realtime on `prs`.
  *
  * The page itself owns the profile subscription so child components don't
  * each open one; TodayCard and GoalBanner then own their own per-doc /
@@ -102,6 +102,14 @@ export default function HomePage() {
 
       {profileLoaded && profile ? (
         <ThisWeekCard
+          uid={user.uid}
+          timezone={profile.timezone}
+          unitSystem={profile.unitSystem}
+        />
+      ) : null}
+
+      {profileLoaded && profile ? (
+        <Trends
           uid={user.uid}
           timezone={profile.timezone}
           unitSystem={profile.unitSystem}
