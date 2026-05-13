@@ -65,6 +65,10 @@ function readConfig(): FirebaseOptions {
   return config;
 }
 
+// Firestore database ID. Defaults to "(default)" but can be overridden via
+// NEXT_PUBLIC_FIREBASE_DB_ID to support multi-database projects.
+const DB_ID = process.env.NEXT_PUBLIC_FIREBASE_DB_ID || "(default)";
+
 function init(): FirebaseHandles {
   if (handles) return handles;
 
@@ -78,11 +82,15 @@ function init(): FirebaseHandles {
   let db: Firestore;
   if (isNewApp) {
     try {
-      db = initializeFirestore(app, {
-        localCache: persistentLocalCache({
-          tabManager: persistentMultipleTabManager(),
-        }),
-      });
+      db = initializeFirestore(
+        app,
+        {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager(),
+          }),
+        },
+        DB_ID,
+      );
     } catch (err) {
       if (!firestorePersistenceWarned) {
         firestorePersistenceWarned = true;
@@ -92,10 +100,10 @@ function init(): FirebaseHandles {
           err,
         );
       }
-      db = getFirestore(app);
+      db = getFirestore(app, DB_ID);
     }
   } else {
-    db = getFirestore(app);
+    db = getFirestore(app, DB_ID);
   }
 
   // Set persistence once; fire-and-forget. Errors are swallowed because the
