@@ -125,6 +125,9 @@ export interface LoggedSet {
   order: number;
 }
 
+/** Session lifecycle. `in_progress` is the live-logger state; `completed` is finalized. */
+export type SessionStatus = "in_progress" | "completed";
+
 export interface SessionDoc {
   /** Client-computed `YYYY-MM-DD` in user tz. */
   localDate: LocalDate;
@@ -134,6 +137,12 @@ export interface SessionDoc {
   programSessionId?: string;
   /** Display name, e.g. `"Upper A"` or a free-form label. */
   name: string;
+  /** Lifecycle state. Optional for backward compat with seeded/legacy docs. */
+  status?: SessionStatus;
+  /** Server timestamp when the user tapped "Start session". */
+  startedAt?: Timestamp;
+  /** Server timestamp when the user finished the session. */
+  finishedAt?: Timestamp;
   durationMin?: number;
   notes?: string;
   sets: LoggedSet[];
