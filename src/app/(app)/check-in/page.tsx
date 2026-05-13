@@ -14,6 +14,7 @@ import {
   backfillMinDate,
   isWithinBackfillWindow,
 } from "@/components/checkin/DatePicker";
+import { detectTimezone } from "@/components/settings/TimezoneSelect";
 
 /**
  * `/check-in` route.
@@ -38,6 +39,7 @@ export default function CheckInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,20 +47,35 @@ export default function CheckInPage() {
     const unsub = onSnapshot(
       profilePath(user.uid),
       (snap) => {
-        const data = snap.data();
-        if (data) {
-          setProfile(data);
-          setError(null);
-        } else {
-          setError(
-            "Profile not found. Sign out and back in to re-run setup.",
-          );
-        }
+        setProfile(snap.data() ?? null);
+        setProfileLoaded(true);
+        setError(null);
       },
-      (err) => setError(err.message),
+      (err) => {
+        setError(err.message);
+        setProfileLoaded(true);
+      },
     );
     return () => unsub();
   }, [user?.uid]);
+
+  // Build an effective profile: if the snapshot has resolved but the doc
+  // doesn't exist yet (brand-new user, seed pending), fall back to sensible
+  // defaults so the check-in form is still usable instead of hanging on a
+  // loading spinner.
+  const effectiveProfile: Profile | null = useMemo(() => {
+    if (profile) return profile;
+    if (!profileLoaded) return null;
+    return {
+      displayName: user?.displayName ?? "",
+      unitSystem: "imperial",
+      proteinTargetG: 0,
+      weeklyGainLb: 0,
+      timezone: detectTimezone(),
+      createdAt: undefined as unknown as Profile["createdAt"],
+      updatedAt: undefined as unknown as Profile["updatedAt"],
+    };
+  }, [profile, profileLoaded, user?.displayName]);
 
   // ---- Parse + validate the `?date=` param ----------------------------------
   // We resolve it relative to the profile's IANA tz so a user travelling
@@ -66,19 +83,19 @@ export default function CheckInPage() {
   // they'd get on their primary device.
   const rawDateParam = searchParams.get(DATE_PARAM);
   const { activeDate, outOfRange } = useMemo(() => {
-    if (!profile || !rawDateParam) {
+    if (!effectiveProfile || !rawDateParam) {
       return { activeDate: undefined, outOfRange: null as string | null };
     }
     if (!DATE_RE.test(rawDateParam)) {
       return { activeDate: undefined, outOfRange: rawDateParam };
     }
-    const today = computeLocalDate(new Date(), profile.timezone);
+    const today = computeLocalDate(new Date(), effectiveProfile.timezone);
     const min = backfillMinDate(today);
     if (isWithinBackfillWindow(rawDateParam, today, min)) {
       return { activeDate: rawDateParam, outOfRange: null };
     }
     return { activeDate: undefined, outOfRange: rawDateParam };
-  }, [profile, rawDateParam]);
+  }, [effectiveProfile, rawDateParam]);
 
   // Picker callback: write the new date back into the URL so reload / share
   // / back-forward all work. `router.replace` (not push) keeps the back-stack
@@ -92,32 +109,36 @@ export default function CheckInPage() {
     [router, searchParams],
   );
 
-  if (error) {
+  if (!effectiveProfile) {
     return (
       <section>
         <h1 className="text-2xl font-semibold text-neutral-100">Check-in</h1>
-        <div
-          role="alert"
-          aria-live="polite"
-          className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
-        >
-          {error}
-        </div>
-      </section>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <section>
-        <h1 className="text-2xl font-semibold text-neutral-100">Check-in</h1>
-        <p className="mt-2 text-sm text-muted">Loading…</p>
+        {error ? (
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+          >
+            {error}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-muted">Loading…</p>
+        )}
       </section>
     );
   }
 
   return (
     <>
+      {error ? (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+        >
+          {error}
+        </div>
+      ) : null}
       {outOfRange ? (
         <div
           role="alert"
@@ -135,7 +156,7 @@ export default function CheckInPage() {
         </div>
       ) : null}
       <CheckInForm
-        profile={profile}
+        profile={effectiveProfile}
         initialLocalDate={activeDate}
         onDateChange={handleDateChange}
       />

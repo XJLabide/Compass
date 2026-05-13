@@ -53,6 +53,7 @@ export default function QuickAddExercise({
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
   const [rows, setRows] = useState<Row[]>([]);
+  const [rowsLoaded, setRowsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -72,8 +73,12 @@ export default function QuickAddExercise({
           a.ex.name.localeCompare(b.ex.name, undefined, { sensitivity: "base" }),
         );
         setRows(next);
+        setRowsLoaded(true);
       },
-      (err) => setError(err.message),
+      (err) => {
+        setError(err.message);
+        setRowsLoaded(true);
+      },
     );
     return () => unsub();
   }, [uid]);
@@ -219,7 +224,11 @@ export default function QuickAddExercise({
             <ul className="min-h-[10rem] flex-1 overflow-y-auto py-1">
               {filtered.length === 0 ? (
                 <li className="px-3 py-6 text-center text-sm text-muted">
-                  {rows.length === 0 ? "Loading exercises…" : "No matches."}
+                  {!rowsLoaded
+                    ? "Loading exercises…"
+                    : rows.length === 0
+                      ? "No exercises in your library yet."
+                      : "No matches."}
                 </li>
               ) : (
                 filtered.map((row, i) => {

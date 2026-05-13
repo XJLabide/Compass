@@ -50,8 +50,10 @@ export default function WorkoutPage() {
   const { user } = useAuth();
 
   const [program, setProgram] = useState<ProgramDoc | null>(null);
+  const [programLoaded, setProgramLoaded] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [recent, setRecent] = useState<RecentRow[] | null>(null);
+  const [recentLoaded, setRecentLoaded] = useState(false);
   const [inProgress, setInProgress] = useState<RecentRow | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -79,8 +81,12 @@ export default function WorkoutPage() {
       programPath(user.uid),
       (snap) => {
         setProgram(snap.data() ?? null);
+        setProgramLoaded(true);
       },
-      (err) => setLoadError(err.message),
+      (err) => {
+        setLoadError(err.message);
+        setProgramLoaded(true);
+      },
     );
     return () => unsub();
   }, [user?.uid]);
@@ -102,8 +108,13 @@ export default function WorkoutPage() {
         setRecent(
           snap.docs.map((d) => ({ id: d.id, session: d.data() })),
         );
+        setRecentLoaded(true);
       },
-      (err) => setLoadError(err.message),
+      (err) => {
+        setLoadError(err.message);
+        setRecent([]);
+        setRecentLoaded(true);
+      },
     );
     return () => unsub();
   }, [user?.uid]);
@@ -222,7 +233,6 @@ export default function WorkoutPage() {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
-  const programLoaded = program !== null || loadError !== null;
 
   return (
     <section>
@@ -253,6 +263,15 @@ export default function WorkoutPage() {
         </h2>
         {!programLoaded ? (
           <p className="mt-2 text-sm text-muted">Loading…</p>
+        ) : !program ? (
+          <>
+            <p className="mt-1 text-lg font-semibold text-neutral-100">
+              No program yet
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              Set up your program in Settings to see today&apos;s session.
+            </p>
+          </>
         ) : today.scheduled.kind === "session" ? (
           <>
             <p className="mt-1 text-lg font-semibold text-neutral-100">
@@ -297,11 +316,11 @@ export default function WorkoutPage() {
         <h2 className="text-xs font-medium uppercase tracking-wide text-muted">
           Recent sessions
         </h2>
-        {recent === null ? (
+        {!recentLoaded ? (
           <p className="mt-2 text-sm text-muted">Loading…</p>
-        ) : recent.length === 0 ? (
+        ) : !recent || recent.length === 0 ? (
           <p className="mt-2 text-sm text-muted">
-            No sessions logged yet. Start one above.
+            No sessions logged yet. Start your first one above.
           </p>
         ) : (
           <ul className="mt-2 space-y-2">

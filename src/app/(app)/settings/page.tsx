@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const { user, signOut } = useAuth();
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -50,20 +51,13 @@ export default function SettingsPage() {
       ref,
       (snap) => {
         const data = snap.data();
-        if (data) {
-          setProfile(data);
-          setLoadError(null);
-        } else {
-          // Profile doc should exist after first-run seed (fn-3-167.3). If it
-          // is missing we surface the error rather than auto-creating, since
-          // the seed flow owns initial defaults.
-          setLoadError(
-            "Profile not found. Sign out and back in to re-run setup.",
-          );
-        }
+        setProfile(data ?? null);
+        setProfileLoaded(true);
+        setLoadError(null);
       },
       (err) => {
         setLoadError(err.message);
+        setProfileLoaded(true);
       },
     );
     return () => unsub();
@@ -117,7 +111,7 @@ export default function SettingsPage() {
 
   const handleUnitChange = useCallback(
     (next: UnitSystem) => {
-      if (!profile || profile.unitSystem === next) return;
+      if (profile?.unitSystem === next) return;
       void persist({ unitSystem: next });
     },
     [profile, persist],
@@ -125,7 +119,7 @@ export default function SettingsPage() {
 
   const handleTimezoneChange = useCallback(
     (next: Timezone) => {
-      if (!profile || profile.timezone === next) return;
+      if (profile?.timezone === next) return;
       void persist({ timezone: next });
     },
     [profile, persist],
@@ -133,7 +127,7 @@ export default function SettingsPage() {
 
   const handleProteinCommit = useCallback(
     (next: number) => {
-      if (!profile || profile.proteinTargetG === next) return;
+      if (profile?.proteinTargetG === next) return;
       void persist({ proteinTargetG: next });
     },
     [profile, persist],
@@ -141,7 +135,7 @@ export default function SettingsPage() {
 
   const handleWeeklyGainCommit = useCallback(
     (next: number) => {
-      if (!profile || profile.weeklyGainLb === next) return;
+      if (profile?.weeklyGainLb === next) return;
       void persist({ weeklyGainLb: next });
     },
     [profile, persist],
@@ -165,7 +159,10 @@ export default function SettingsPage() {
   };
 
   const detectedTz = profile ? null : detectTimezone();
-  const disabled = !profile;
+  // Disable inputs only while we haven't yet heard back from the snapshot.
+  // After loading, even a missing profile doc renders the form with sensible
+  // defaults so the user can configure their preferences.
+  const disabled = !profileLoaded;
 
   return (
     <section>

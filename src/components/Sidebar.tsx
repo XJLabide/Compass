@@ -26,7 +26,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/workout", label: "Workout", Icon: Dumbbell },
   { href: "/check-in", label: "Check-in", Icon: ClipboardCheck },
   { href: "/history", label: "History", Icon: LineChart },
-  { href: "/workout", label: "Exercises", Icon: Dumbbell },
   { href: "/settings", label: "Settings", Icon: Settings },
 ];
 
