@@ -1,0 +1,15 @@
+{
+  "branch_name": "fn-7-ar5",
+  "created_at": "2026-05-13T10:39:18.689285Z",
+  "depends_on_epics": [
+    "fn-6-kra"
+  ],
+  "id": "fn-7-ar5",
+  "next_task": 1,
+  "plan_review_status": "unknown",
+  "plan_reviewed_at": null,
+  "spec_path": ".flow/specs/fn-7-ar5.md",
+  "status": "open",
+  "title": "Deploy + PWA Polish: Vercel, offline, install, docs",
+  "updated_at": "2026-05-13T10:53:55.889811Z"
+}

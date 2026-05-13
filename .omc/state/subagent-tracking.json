@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "agent_id": "ac43e8d56547d2ad5",
+      "agent_type": "0.20.1:repo-scout",
+      "started_at": "2026-05-13T10:33:18.939Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-05-13T10:33:39.588Z",
+      "duration_ms": 20649
+    },
+    {
+      "agent_id": "afebb59a9779b0db5",
+      "agent_type": "0.20.1:practice-scout",
+      "started_at": "2026-05-13T10:33:23.906Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-05-13T10:36:49.017Z",
+      "duration_ms": 205111
+    },
+    {
+      "agent_id": "a295728c4323f2894",
+      "agent_type": "0.20.1:docs-scout",
+      "started_at": "2026-05-13T10:33:26.952Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-05-13T10:33:35.417Z",
+      "duration_ms": 8465
+    },
+    {
+      "agent_id": "ab7356759bcf76c2a",
+      "agent_type": "0.20.1:github-scout",
+      "started_at": "2026-05-13T10:33:29.240Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-05-13T10:36:33.154Z",
+      "duration_ms": 183914
+    },
+    {
+      "agent_id": "ac2560836ff96667c",
+      "agent_type": "0.20.1:memory-scout",
+      "started_at": "2026-05-13T10:33:30.846Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-05-13T10:36:14.815Z",
+      "duration_ms": 163969
+    },
+    {
+      "agent_id": "a4d5b2c3dbc38121d",
+      "agent_type": "0.20.1:epic-scout",
+      "started_at": "2026-05-13T10:33:31.983Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-05-13T10:38:20.762Z",
+      "duration_ms": 288779
+    },
+    {
+      "agent_id": "a398f8e14704714dc",
+      "agent_type": "0.20.1:docs-gap-scout",
+      "started_at": "2026-05-13T10:33:34.715Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-05-13T10:36:16.092Z",
+      "duration_ms": 161377
+    },
+    {
+      "agent_id": "a79cf04de67c0bd6e",
+      "agent_type": "0.20.1:flow-gap-analyst",
+      "started_at": "2026-05-13T10:33:39.726Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-05-13T10:34:00.070Z",
+      "duration_ms": 20344
+    }
+  ],
+  "total_spawned": 8,
+  "total_completed": 0,
+  "total_failed": 8,
+  "last_updated": "2026-05-13T10:38:20.762Z"
+}

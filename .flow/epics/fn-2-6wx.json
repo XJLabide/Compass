@@ -1,0 +1,15 @@
+{
+  "branch_name": "fn-2-6wx",
+  "created_at": "2026-05-13T10:39:18.193834Z",
+  "depends_on_epics": [
+    "fn-1-n5p"
+  ],
+  "id": "fn-2-6wx",
+  "next_task": 1,
+  "plan_review_status": "unknown",
+  "plan_reviewed_at": null,
+  "spec_path": ".flow/specs/fn-2-6wx.md",
+  "status": "open",
+  "title": "Auth: Firebase Auth + allowlist + protected shell",
+  "updated_at": "2026-05-13T10:53:54.612838Z"
+}

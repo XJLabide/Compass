@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-05-13T10:48:50.773167Z",
+  "depends_on": [
+    "fn-5-5tt.1"
+  ],
+  "epic": "fn-5-5tt",
+  "id": "fn-5-5tt.2",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-5-5tt.2.md",
+  "status": "todo",
+  "title": "Backfill (<=7 days) + edit-history read-only mode",
+  "updated_at": "2026-05-13T10:53:53.640284Z"
+}

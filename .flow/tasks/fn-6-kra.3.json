@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-05-13T10:48:51.156128Z",
+  "depends_on": [
+    "fn-6-kra.1"
+  ],
+  "epic": "fn-6-kra",
+  "id": "fn-6-kra.3",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-6-kra.3.md",
+  "status": "todo",
+  "title": "Trends: 4 mini line charts (bodyweight, volume, protein, sleep)",
+  "updated_at": "2026-05-13T10:53:54.145431Z"
+}

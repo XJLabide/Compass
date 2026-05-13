@@ -1,0 +1,14 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-05-13T10:48:51.445510Z",
+  "depends_on": [],
+  "epic": "fn-7-ar5",
+  "id": "fn-7-ar5.2",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-7-ar5.2.md",
+  "status": "todo",
+  "title": "Offline persistence + connection-aware UX indicator",
+  "updated_at": "2026-05-13T10:53:54.368412Z"
+}

@@ -1,0 +1,14 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-05-13T10:45:37.836522Z",
+  "depends_on": [],
+  "epic": "fn-2-6wx",
+  "id": "fn-2-6wx.1",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-2-6wx.1.md",
+  "status": "todo",
+  "title": "Firebase client init + AuthProvider + useAuth hook",
+  "updated_at": "2026-05-13T10:53:52.151414Z"
+}
