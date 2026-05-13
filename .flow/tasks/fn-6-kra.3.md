@@ -16,7 +16,8 @@ Trends section: four mini line charts (bodyweight, weekly training volume, prote
 - [ ] No layout shift when charts render
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added dashboard Trends section: 4 mini line charts (bodyweight, weekly volume, protein, sleep) over the last 8 weeks with one-shot fetch + tab-focus refresh and a <3-point empty state. Mounted between ThisWeekCard and RecentPRsStrip.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: 5e2834dc3e7e089cc828d39500808ab1e08533ee
+- Tests: npx tsc --noEmit, npx next lint
+- PRs:

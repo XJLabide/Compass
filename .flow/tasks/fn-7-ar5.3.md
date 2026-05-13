@@ -18,7 +18,8 @@ PWA polish: real 192/512 icons + apple-touch-icon, custom install prompt UX, ful
 - [ ] No element overlaps the iOS home indicator
 
 ## Done summary
-_To be filled in when the task is completed._
-
+PWA polish: branded P-mark icons (192/512/180) on dark bg, new InstallPrompt component with iOS fallback mounted in Settings, safe-area audit (main padding, offline indicator top, QuickAdd bottom-sheet), and Lighthouse >=90 verification section appended to docs/DEPLOYMENT.md.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: 0d2a388abf5b1f6b867efbda0c1b158b1d3e3d65
+- Tests: npm run typecheck (src clean; pre-existing test/ TS noise unrelated), npm run lint (clean)
+- PRs:

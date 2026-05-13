@@ -14,7 +14,8 @@ Per-exercise history page: list of sessions touching this exercise (date + best 
 - [ ] Tapping a session entry routes to the read-only session detail
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added /exercise/[id] per-exercise history page with a Recharts e1RM line chart and a list of completed sessions (last 26 weeks) linking to /workout/[id]; ExerciseCard header now links to that page so the lifter can drill in from the live logger.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: e83288c7fc065f4742aca80545e08362c6c14f56
+- Tests: npx tsc --noEmit (src clean), npx next lint --dir src (no warnings)
+- PRs:

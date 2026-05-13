@@ -17,7 +17,8 @@ PR detection module: compute heaviest weight per (exerciseId, repBucket) AND bes
 - [ ] PR detection runs <500ms for sessions up to 50 sets
 
 ## Done summary
-_To be filled in when the task is completed._
-
+PR detection wired into finish-session: pure `src/lib/pr.ts` (rep buckets [1,3,5,8,12] nearest assignment, Epley e1RM, candidate compute, diff-vs-existing, deterministic doc ids), orchestrator `finishSession.ts` (loads session, diffs against `prs/{exerciseId}` docs by exerciseId, batched upsert with denormalized exercise name + session-anchored date), and `recomputePRs.ts` (destructive per-exercise rebuild from completed history for the edit/delete path). The `/workout/[id]` finish handler now calls the real `finishSession()` non-fatally, replacing the .3 placeholder.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: f17017fd8a25dd892cffc9d8257e4cfe7c31ba7f
+- Tests: npx tsc --noEmit (src/ clean), npx next lint --dir src (no warnings/errors)
+- PRs:

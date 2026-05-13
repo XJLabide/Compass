@@ -19,7 +19,8 @@ Build the mobile-first app shell: a route group `(app)` whose layout renders chi
 - [ ] Typecheck + lint + build remain green
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added the mobile-first app shell: route group `(app)` with a shared layout that renders a max-w-md content area and a fixed `BottomTabBar` client component (lucide icons, safe-area padding, active-route highlight via `usePathname`). Five placeholder pages (Home, Workout, Check-in, History, Settings) all build clean.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: f90870eb7ebb4b554bd01d14d8637913fde52266
+- Tests: npm run typecheck, npm run build
+- PRs:

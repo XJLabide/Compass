@@ -16,7 +16,8 @@ Add the minimum PWA surface using Next.js native conventions: `app/manifest.ts`,
 - [ ] Lighthouse mobile PWA category passes "Web app manifest meets installability requirements"
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added PWA basics: `src/app/manifest.ts` exposing `/manifest.webmanifest` with standalone display + `#0a0a0b` theme/background, `viewport` export on the root layout with `viewportFit: 'cover'` and matching themeColor, Apple PWA meta, and placeholder 192/512 PNG icons in `public/` (to be replaced in E7).
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: 291d222b4dfe5deabf88cf24f0593bc5b0d020ba
+- Tests: npm run typecheck, npm run build
+- PRs:

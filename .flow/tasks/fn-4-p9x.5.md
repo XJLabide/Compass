@@ -16,7 +16,8 @@ In-progress session recovery banner, 48-hour edit window for finished sessions, 
 - [ ] Soft-deleted sets disappear from PR calculations
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added in-progress session recovery (ResumeBanner + checkAndAutoFinalize), 24h auto-finalize on /workout mount, and 48h read-only edit window on /workout/[id]. Extended SessionDoc with autoFinalizedAt and added discarded status.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: 383e6ee4bfacb94319a3e64acd0eebe799d65a52
+- Tests: npx tsc --noEmit, npx next lint
+- PRs:

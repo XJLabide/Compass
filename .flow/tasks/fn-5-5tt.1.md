@@ -19,7 +19,8 @@ Build the daily check-in form: all PRD section 5.3 fields on one screen, sticky 
 - [ ] Sticky submit clears the iOS home indicator
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Built `/check-in` daily form: single-screen layout with sticky submit footer (clears tab bar + safe-area inset), all PRD §5.3 fields (bodyweight, sleep h/quality, calories, protein, water, steps, mood, note), `setDoc({merge:true})` upsert per `localDate` (computed in `profile.timezone`), canonical storage with display in `profile.unitSystem`, 44px chip selectors for 1–5 ratings, and protein target shown as placeholder.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: fe3b001e3e2a11df0c8230326389e164e45322cc
+- Tests: npx tsc --noEmit (src/ clean), npx next lint --dir src/app/(app)/check-in --dir src/components/checkin (no warnings/errors)
+- PRs:

@@ -14,7 +14,8 @@ Backfill mode: a date picker on the check-in page lets the user pick any of the 
 - [ ] History list shows all check-in docs newest first
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added 7-day backfill picker to /check-in (URL-driven via ?date=), implemented /history newest-first list of daily docs, and built /history/[date] read-only day view. Out-of-window dates surface a banner linking to History instead of silently routing.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: e5a785b1327555d9545fb724310a16cf108d747a
+- Tests: npx tsc --noEmit (src clean), npx next lint (clean), npx next build (passes; /check-in, /history, /history/[date] all compiled)
+- PRs:

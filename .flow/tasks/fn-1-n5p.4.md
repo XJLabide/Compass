@@ -13,7 +13,8 @@ Add a minimal ESLint config so `npm run lint` works without prompts, then verify
 - [ ] `npm run build` exits 0 and outputs `.next/`
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added minimal `.eslintrc.json` extending `next/core-web-vitals` so `npm run lint` runs non-interactively. Verified all three M0 quality gates green: `npm run typecheck`, `npm run lint`, and `npm run build` (outputs `.next/`).
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: a00e9e23dcdf7dc91692bc72af3252ec168db579
+- Tests: npm run typecheck, npm run lint, npm run build
+- PRs:

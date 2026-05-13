@@ -17,7 +17,8 @@
 - [ ] No flicker between empty -> populated render
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added Monday-anchored weekly bucketing helpers (src/lib/dashboard/weekly.ts), a realtime ThisWeekCard with workouts/protein/sleep/weight-delta counters (em-dash for zero-data), and a RecentPRsStrip listening to the last 3 PRs. Both cards are mounted on the dashboard below TodayCard + GoalBanner.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: 5140708b5e8aa05184df8ebed60e8373b8b7751b
+- Tests: npx tsc --noEmit (src/ clean), npx next lint --dir src (clean)
+- PRs:

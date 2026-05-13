@@ -16,7 +16,8 @@ Add the client-side auth gate inside the `(app)` route group, the allowlist chec
 - [ ] No `useAuth()` call inside a server component
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added client-side AuthGate to the `(app)` route group with email allowlist enforcement, a `/not-authorized` page, and a sign-out action on the Settings page. While loading the gate shows a centered spinner; signed-out users are routed to `/login`, and signed-in but non-allowlisted users are signed out and routed to `/not-authorized`. Codex review verdict: SHIP. typecheck, lint, and build all pass.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: 193415900522b2e80e300aaf29a0f3e1d0bc4a01
+- Tests: npm run typecheck, npm run lint, npm run build
+- PRs:

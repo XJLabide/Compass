@@ -18,7 +18,8 @@ Build the `/login` page: Google sign-in button and an email/password sign-in for
 - [ ] Page renders cleanly on 375px viewport, no overflow
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added /login page with Google sign-in (popup with redirect fallback for PWA standalone mode) and email/password sign-in/sign-up, including loading states, error mapping, and post-auth redirect handling. Mounted via existing AuthProvider; build/lint/typecheck pass; codex impl-review returned SHIP.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: c5cb555
+- Tests: npm run typecheck, npm run lint, npm run build
+- PRs:

@@ -16,7 +16,8 @@ Build the `/workout` index: shows today's scheduled session per program slot map
 - [ ] Tapping a recent session routes to its detail page (read-only view in v1)
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Built /workout index showing today's scheduled session from active program (day-of-week round-robin) or Rest day, with a Start session CTA that writes an in_progress session doc and routes to /workout/[id], plus a realtime recent-sessions list (limit 5).
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: e79b6be5b269628f018d9753c8e87c7acbbc6858
+- Tests: npm run typecheck, npm run lint, npm run build
+- PRs:

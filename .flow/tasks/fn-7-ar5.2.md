@@ -16,7 +16,8 @@ Enable Firestore offline persistence with multi-tab support; add a connection-aw
 - [ ] Init failure is graceful (logged once, app still works without persistence)
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Enabled Firestore offline persistence via `initializeFirestore` with `persistentLocalCache` + `persistentMultipleTabManager`, wrapped in try/catch for environments without IndexedDB. Added `OfflineIndicator` component subscribing to `online`/`offline` window events; mounted in the `(app)` shell layout.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: 6ecc06c022cf2d7be3c132d32cf172546e4e2f43
+- Tests: npx tsc --noEmit (changed files clean), npx next lint (no warnings/errors on changed files)
+- PRs:

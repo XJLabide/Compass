@@ -16,7 +16,8 @@ Create the Next.js 14 App Router skeleton under `src/`. Add `globals.css` with T
 - [ ] `npm run typecheck` and `npm run build` succeed
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Scaffolded the Next.js 14 App Router skeleton under `src/app/`: root `layout.tsx` with PRD-vision metadata, `globals.css` wiring Tailwind directives and dark-token body defaults, a temporary `page.tsx`, and a readable `not-found.tsx`. `npm run typecheck` and `npm run build` both pass; codex review verdict SHIP.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: 783ab62, 669a5b879ae579654cfde46decca263436c4298b
+- Tests: npm run typecheck, npm run build
+- PRs:

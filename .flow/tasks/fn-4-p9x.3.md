@@ -17,7 +17,8 @@ Last-session prefill (heaviest set of most-recent **completed** session of the s
 - [ ] Dashboard "this week" counters tick up after finish
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added cross-session ghost prefill (heaviest set of last completed session for the same program slot, rendered as a tappable "Last: w × r ↩" hint and never auto-filled), searchable QuickAddExercise picker over the master exercise list, and a Finish-session action that writes status=completed/finishedAt/durationMin, prunes placeholder anchors, calls a PR-detection placeholder hook (real logic in fn-4-p9x.4), and routes back to /workout.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: 163f1f419c86f002fbb4143f739dd918b7e90f15
+- Tests: npx tsc --noEmit (clean for src/), npx next build (success, /workout/[id] route compiled)
+- PRs:

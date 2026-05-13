@@ -17,7 +17,8 @@ Set up Vercel deployment connected to GitHub, configure all env vars, and write 
 - [ ] DEPLOYMENT doc covers Firebase project + rules deploy
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added README.md (quick start, env vars, scripts, layout, security TL;DR) and docs/DEPLOYMENT.md (end-to-end Firebase + Vercel setup, rules deploy, env wiring, verification, troubleshooting). Docs-only task; no app code touched.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: 8baced79e3cc19522598929ca3994d1fda04619d
+- Tests:
+- PRs:

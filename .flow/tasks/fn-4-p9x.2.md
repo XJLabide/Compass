@@ -18,7 +18,8 @@ Build the session logger UI: list of planned exercises (one card each, sticky he
 - [ ] Multi-tab edits do not clobber each other (verify in 2 tabs)
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Built the live workout session logger at /workout/[id]: ExerciseCard with sticky per-exercise header, SetRow with +/- steppers (smart deltas reps=1, weight=2.5kg/5lb), direct decimal entry, RPE 1..10, auto-advance focus, and 44px touch targets. Sets persist via updateDoc with immutable replacement of sets[] (no whole-doc overwrites, no arrayUnion) for multi-tab safety. Weight stored canonical kg; display follows profile.unitSystem.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: fedfa12cbcfad836b489b430e60f88536a768cff
+- Tests: npx tsc --noEmit (src/ clean), npx next lint --dir src (no warnings or errors)
+- PRs:

@@ -21,7 +21,8 @@ Initialize the Firebase client SDK as a singleton, expose typed handles for `aut
 - [ ] Typecheck passes; no `any` exported from the module
 
 ## Done summary
-_To be filled in when the task is completed._
-
+Added HMR-safe Firebase client singleton (src/lib/firebase.ts) with lazy env validation, a `"use client"` AuthProvider exposing `{ user, loading, signInGoogle, signInEmail, signOut }` with browserLocalPersistence and PWA-aware popup/redirect, a `useAuth` hook, and mounted the provider in the root layout. Typecheck + lint green; codex impl-review SHIP.
 ## Evidence
-_Commands run, outputs, screenshots — added during work._
+- Commits: 64ccde4d23593f53dc814cc4d1a44cb0824ff436, 18fad39175a081082eac21332c0ace9210d369cd
+- Tests: npm run typecheck, npm run lint
+- PRs:
