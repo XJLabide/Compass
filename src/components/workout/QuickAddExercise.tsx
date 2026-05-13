@@ -170,7 +170,12 @@ export default function QuickAddExercise({
             if (e.target === e.currentTarget) closePicker();
           }}
         >
-          <div className="flex max-h-[80vh] w-full max-w-md flex-col rounded-t-2xl border border-border bg-panel2 shadow-2xl sm:rounded-2xl">
+          <div
+            className="flex max-h-[80vh] w-full max-w-md flex-col rounded-t-2xl border border-border bg-panel2 shadow-2xl sm:rounded-2xl"
+            // As a bottom-sheet on mobile, reserve the iOS home-indicator
+            // inset so the panel's last interactive row never sits under it.
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
             <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
               <h2 className="text-sm font-semibold text-neutral-100">
                 Add exercise

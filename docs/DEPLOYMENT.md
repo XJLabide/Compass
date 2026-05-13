@@ -241,3 +241,43 @@ allowlist will see the UI but every write will fail with `permission-denied`.
 | Sign-in + dashboard works, but every write fails | Email isn't in `allowed()` in `firestore.rules`, or rules weren't deployed.  |
 | Vercel build fails on type errors                | Run `npm run typecheck` locally — production builds run a full type check.  |
 | Local writes fail with "Missing or insufficient permissions" | Rules deployed to a different Firebase project than the one your `.env.local` points at. |
+
+## Lighthouse verification
+
+The PWA targets a Lighthouse **PWA / Best Practices score >= 90** on
+mobile. Verify after every deploy that meaningfully touches the shell,
+manifest, icons, or service worker.
+
+1. Open the **deployed** Vercel URL (production, not a preview) in a fresh
+   Chrome incognito window. Incognito disables extensions that otherwise
+   skew the audit.
+2. DevTools → **Lighthouse** tab.
+3. Configure the run:
+   - **Mode:** Navigation
+   - **Device:** Mobile
+   - **Categories:** check **Progressive Web App**, **Performance**,
+     **Accessibility**, **Best Practices** (uncheck SEO; this is a
+     single-user app)
+4. Click **Analyze page load** and wait for the report.
+5. Confirm the **PWA** score is **>= 90**. Common failures and fixes:
+
+| Audit failure                                 | Fix                                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------------- |
+| Manifest doesn't have a maskable icon         | `src/app/manifest.ts` already includes a `purpose: "maskable"` entry — verify the deployed `/manifest.webmanifest` matches. |
+| Icons are not the right size                  | Re-run `node /tmp/gen-icons.mjs "$(pwd)"` (or your icon pipeline) to regenerate `public/icon-192.png`, `public/icon-512.png`, `public/apple-touch-icon.png`. |
+| Page is not served over HTTPS                 | Vercel handles this automatically; check you're hitting the `*.vercel.app` URL, not a local proxy. |
+| Does not respond with a 200 when offline      | Firestore offline persistence + Next.js asset caching handle in-app state. The PWA audit only requires the app shell to render, which it does via Next's build output. |
+| Missing apple-touch-icon                      | Confirm `public/apple-touch-icon.png` exists and is referenced via the default Next.js convention (Next auto-serves `apple-touch-icon.png` from `/public`). |
+
+CLI alternative — run from any machine with Node 18+:
+
+```bash
+npx lighthouse https://<your-vercel-url> \
+  --only-categories=pwa,performance,accessibility,best-practices \
+  --preset=desktop=false \
+  --form-factor=mobile \
+  --view
+```
+
+The `--view` flag opens the HTML report in your browser. Treat any score
+below 90 on PWA as a deploy blocker.

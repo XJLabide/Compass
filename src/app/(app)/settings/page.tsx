@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth/useAuth";
 import { profilePath } from "@/lib/db/paths";
 import type { Profile, Timezone, UnitSystem } from "@/lib/db/types";
 
+import InstallPrompt from "@/components/InstallPrompt";
 import TargetInput from "@/components/settings/TargetInput";
 import TimezoneSelect, {
   detectTimezone,
@@ -263,6 +264,9 @@ export default function SettingsPage() {
           {saveError}
         </div>
       ) : null}
+
+      {/* PWA install affordance (renders nothing when already installed). */}
+      <InstallPrompt />
 
       {/* Account */}
       <div className="mt-6 space-y-3 rounded-xl border border-border bg-neutral-900/40 p-4">

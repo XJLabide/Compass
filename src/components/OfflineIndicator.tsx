@@ -40,7 +40,10 @@ export default function OfflineIndicator() {
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 top-2 z-50 flex justify-center px-4"
+      // Top inset respects the iOS notch / Dynamic Island so the pill never
+      // collides with the status bar when launched standalone.
+      className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
+      style={{ top: "calc(env(safe-area-inset-top) + 0.5rem)" }}
     >
       <div className="pointer-events-auto rounded-full bg-amber-500/95 px-3 py-1 text-xs font-medium text-white shadow-md ring-1 ring-amber-700/30">
         Offline — changes will sync when you reconnect
