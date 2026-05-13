@@ -78,27 +78,31 @@ export default function HomePage() {
         </div>
       ) : null}
 
-      <TodayCard uid={user.uid} timezone={profile?.timezone ?? "UTC"} />
+      {/* On lg+: TodayCard and GoalBanner sit side by side.
+          Mobile: stack vertically (default). */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
+        <TodayCard uid={user.uid} timezone={profile?.timezone ?? "UTC"} />
 
-      {profileLoaded && profile ? (
-        <GoalBanner
-          uid={user.uid}
-          timezone={profile.timezone}
-          weeklyGainLb={profile.weeklyGainLb}
-          unitSystem={profile.unitSystem}
-        />
-      ) : profileLoaded && !profile ? (
-        <EmptyState
-          title="Finish setup"
-          description="Set your weekly gain target to track your trend."
-          ctaLabel="Open settings"
-          href="/settings"
-        />
-      ) : (
-        <div className="rounded-xl border border-border bg-neutral-900/40 px-4 py-3 text-sm text-muted">
-          Loading…
-        </div>
-      )}
+        {profileLoaded && profile ? (
+          <GoalBanner
+            uid={user.uid}
+            timezone={profile.timezone}
+            weeklyGainLb={profile.weeklyGainLb}
+            unitSystem={profile.unitSystem}
+          />
+        ) : profileLoaded && !profile ? (
+          <EmptyState
+            title="Finish setup"
+            description="Set your weekly gain target to track your trend."
+            ctaLabel="Open settings"
+            href="/settings"
+          />
+        ) : (
+          <div className="rounded-xl border border-border bg-neutral-900/40 px-4 py-3 text-sm text-muted">
+            Loading…
+          </div>
+        )}
+      </div>
 
       {profileLoaded && profile ? (
         <ThisWeekCard

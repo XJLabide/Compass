@@ -153,7 +153,7 @@ export default function Trends({ uid, timezone, unitSystem }: TrendsProps) {
         <span className="text-xs text-muted">Last 8 weeks</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3">
+      <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <TrendCell
           label="Bodyweight"
           unit={weightUnit}

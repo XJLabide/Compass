@@ -223,7 +223,7 @@ export default function ThisWeekCard({
         <span className="text-xs text-muted">{rangeLabel}</span>
       </div>
 
-      <dl className="mt-3 grid grid-cols-2 gap-3">
+      <dl className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Cell label="Workouts" value={loaded ? workoutsLabel : "…"} />
         <Cell
           label="Avg protein"

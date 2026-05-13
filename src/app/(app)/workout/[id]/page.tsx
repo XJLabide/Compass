@@ -347,7 +347,7 @@ export default function WorkoutSessionPage() {
   ).length;
 
   return (
-    <section className="pb-24">
+    <section className="pb-24 lg:pb-8">
       <Link
         href="/workout"
         className="text-xs font-medium text-muted hover:text-neutral-200"
@@ -397,58 +397,78 @@ export default function WorkoutSessionPage() {
       ) : !session ? (
         <p className="mt-6 text-sm text-muted">Session not found.</p>
       ) : (
-        <>
-          {plannedExercises.length === 0 ? (
-            <p className="mt-6 text-sm text-muted">
-              No exercises planned for this session yet. Add one below.
-            </p>
-          ) : (
-            <div className="mt-6 space-y-4">
-              {plannedExercises.map((planned) => (
-                <ExerciseCard
-                  key={planned.exerciseId}
-                  planned={planned}
-                  loggedSetsForExercise={
-                    setsByExercise.get(planned.exerciseId) ?? []
-                  }
-                  unitSystem={unitSystem}
-                  lastSessionGhost={lastSessionPrefill.get(planned.exerciseId)}
-                  onLogSet={handleLogSet}
-                />
-              ))}
-            </div>
-          )}
+        /* On lg+: 2-column layout — exercise list left, active detail right.
+           Mobile: single column (default, no change). */
+        <div className="mt-6 lg:grid lg:grid-cols-[1fr_360px] lg:gap-6 lg:items-start">
+          {/* Left column: exercise cards */}
+          <div>
+            {plannedExercises.length === 0 ? (
+              <p className="text-sm text-muted">
+                No exercises planned for this session yet. Add one below.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {plannedExercises.map((planned) => (
+                  <ExerciseCard
+                    key={planned.exerciseId}
+                    planned={planned}
+                    loggedSetsForExercise={
+                      setsByExercise.get(planned.exerciseId) ?? []
+                    }
+                    unitSystem={unitSystem}
+                    lastSessionGhost={lastSessionPrefill.get(planned.exerciseId)}
+                    onLogSet={handleLogSet}
+                  />
+                ))}
+              </div>
+            )}
 
-          {user?.uid && inProgress ? (
-            <QuickAddExercise
-              uid={user.uid}
-              onSelect={handleQuickAdd}
-              disabled={finishing}
-            />
-          ) : null}
-
-          {inProgress ? (
-            <div className="mt-6 space-y-2">
-              <button
-                type="button"
-                onClick={handleFinish}
+            {user?.uid && inProgress ? (
+              <QuickAddExercise
+                uid={user.uid}
+                onSelect={handleQuickAdd}
                 disabled={finishing}
-                className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-accent2 px-4 text-sm font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {finishing ? "Finishing…" : "Finish session"}
-              </button>
-              {finishError ? (
-                <div
-                  role="alert"
-                  aria-live="polite"
-                  className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+              />
+            ) : null}
+          </div>
+
+          {/* Right column (lg+): session controls panel.
+              On mobile this renders below the exercise list in normal flow. */}
+          {inProgress ? (
+            <div className="mt-6 lg:mt-0 lg:sticky lg:top-20">
+              <div className="rounded-xl border border-border bg-neutral-900/40 p-4 space-y-3">
+                <h2 className="text-xs font-medium uppercase tracking-wide text-muted">
+                  Session controls
+                </h2>
+                <button
+                  type="button"
+                  onClick={handleFinish}
+                  disabled={finishing}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-accent2 px-4 text-sm font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {finishError}
+                  {finishing ? "Finishing…" : "Finish session"}
+                </button>
+                {finishError ? (
+                  <div
+                    role="alert"
+                    aria-live="polite"
+                    className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+                  >
+                    {finishError}
+                  </div>
+                ) : null}
+                <div className="border-t border-border pt-3">
+                  <p className="text-xs text-muted">
+                    {totalSets} {totalSets === 1 ? "set" : "sets"} logged
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted">
+                    {session.localDate}
+                  </p>
                 </div>
-              ) : null}
+              </div>
             </div>
           ) : null}
-        </>
+        </div>
       )}
     </section>
   );

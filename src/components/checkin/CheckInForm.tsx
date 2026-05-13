@@ -379,39 +379,25 @@ export default function CheckInForm({
         />
       </div>
 
-      <div className="mt-4 space-y-5 rounded-xl border border-border bg-neutral-900/40 p-4">
-        {/* Bodyweight */}
-        <NumericField
-          id="checkin-bodyweight"
-          label="Bodyweight"
-          unit={weightLabel}
-          value={state.bodyweight}
-          onChange={handleText("bodyweight")}
-          step="0.1"
-          placeholder={weightLabel}
-        />
-
-        {/* Sleep hours + quality side by side */}
-        <div className="grid grid-cols-2 gap-3">
+      {/* On md+: numeric inputs switch to a 2-column grid.
+          Left column: bodyweight + sleep. Right column: calories + protein.
+          Water, steps, mood, and note span full width below on all sizes. */}
+      <div className="mt-4 rounded-xl border border-border bg-neutral-900/40 p-4">
+        {/* 2-col grid on md+: bodyweight top-left, calories top-right;
+            sleep bottom-left, protein bottom-right */}
+        <div className="space-y-5 md:space-y-0 md:grid md:grid-cols-2 md:gap-x-6 md:gap-y-5">
+          {/* Bodyweight */}
           <NumericField
-            id="checkin-sleep-hours"
-            label="Sleep"
-            unit="hours"
-            value={state.sleepHours}
-            onChange={handleText("sleepHours")}
-            step="0.25"
-            placeholder="hrs"
+            id="checkin-bodyweight"
+            label="Bodyweight"
+            unit={weightLabel}
+            value={state.bodyweight}
+            onChange={handleText("bodyweight")}
+            step="0.1"
+            placeholder={weightLabel}
           />
-          <RatingChip
-            id="checkin-sleep-quality"
-            label="Sleep quality"
-            value={state.sleepQuality}
-            onChange={(v) => setField("sleepQuality", v)}
-          />
-        </div>
 
-        {/* Calories + Protein */}
-        <div className="grid grid-cols-2 gap-3">
+          {/* Calories */}
           <NumericField
             id="checkin-calories"
             label="Calories"
@@ -421,6 +407,30 @@ export default function CheckInForm({
             step="1"
             placeholder={caloriesPlaceholder}
           />
+
+          {/* Sleep hours (left on md+) */}
+          <div className="grid grid-cols-2 gap-3 md:col-span-1 md:grid-cols-1 md:gap-0">
+            <NumericField
+              id="checkin-sleep-hours"
+              label="Sleep"
+              unit="hours"
+              value={state.sleepHours}
+              onChange={handleText("sleepHours")}
+              step="0.25"
+              placeholder="hrs"
+            />
+            {/* Sleep quality chips — shown inline on mobile, below sleep on md */}
+            <div className="md:mt-5">
+              <RatingChip
+                id="checkin-sleep-quality"
+                label="Sleep quality"
+                value={state.sleepQuality}
+                onChange={(v) => setField("sleepQuality", v)}
+              />
+            </div>
+          </div>
+
+          {/* Protein (right on md+) */}
           <NumericField
             id="checkin-protein"
             label="Protein"
@@ -432,52 +442,55 @@ export default function CheckInForm({
           />
         </div>
 
-        {/* Water + Steps */}
-        <div className="grid grid-cols-2 gap-3">
-          <NumericField
-            id="checkin-water"
-            label="Water"
-            unit={waterUnitLabel}
-            value={state.water}
-            onChange={handleText("water")}
-            step="1"
-            placeholder={waterUnitLabel}
-          />
-          <NumericField
-            id="checkin-steps"
-            label="Steps"
-            unit=""
-            value={state.steps}
-            onChange={handleText("steps")}
-            step="1"
-            placeholder="steps"
-          />
-        </div>
+        {/* Full-width fields below the 2-col section */}
+        <div className="mt-5 space-y-5">
+          {/* Water + Steps side by side on all sizes */}
+          <div className="grid grid-cols-2 gap-3">
+            <NumericField
+              id="checkin-water"
+              label="Water"
+              unit={waterUnitLabel}
+              value={state.water}
+              onChange={handleText("water")}
+              step="1"
+              placeholder={waterUnitLabel}
+            />
+            <NumericField
+              id="checkin-steps"
+              label="Steps"
+              unit=""
+              value={state.steps}
+              onChange={handleText("steps")}
+              step="1"
+              placeholder="steps"
+            />
+          </div>
 
-        {/* Mood */}
-        <RatingChip
-          id="checkin-mood"
-          label="Mood"
-          value={state.mood}
-          onChange={(v) => setField("mood", v)}
-        />
-
-        {/* Note */}
-        <div>
-          <label
-            htmlFor="checkin-note"
-            className="block text-sm font-medium text-neutral-200"
-          >
-            Note
-          </label>
-          <textarea
-            id="checkin-note"
-            value={state.note}
-            onChange={handleText("note")}
-            rows={2}
-            className="mt-2 block w-full rounded-lg border border-border bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
-            placeholder="How did today feel?"
+          {/* Mood */}
+          <RatingChip
+            id="checkin-mood"
+            label="Mood"
+            value={state.mood}
+            onChange={(v) => setField("mood", v)}
           />
+
+          {/* Note */}
+          <div>
+            <label
+              htmlFor="checkin-note"
+              className="block text-sm font-medium text-neutral-200"
+            >
+              Note
+            </label>
+            <textarea
+              id="checkin-note"
+              value={state.note}
+              onChange={handleText("note")}
+              rows={2}
+              className="mt-2 block w-full rounded-lg border border-border bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
+              placeholder="How did today feel?"
+            />
+          </div>
         </div>
       </div>
 
@@ -492,30 +505,23 @@ export default function CheckInForm({
       ) : null}
 
       {/* Sticky submit footer.
-          Lives above the 64px tab bar (h-14) plus the device safe-area inset
-          so it clears the iOS home indicator regardless of orientation. */}
-      <div
-        className="fixed inset-x-0 z-30 mx-auto max-w-md px-4 pt-3"
-        style={{
-          bottom: "calc(env(safe-area-inset-bottom) + 56px)",
-        }}
-      >
-        <div className="rounded-xl border border-border bg-panel/95 p-3 shadow-lg backdrop-blur">
-          <button
-            type="submit"
-            disabled={saveState === "saving"}
-            className="flex h-12 w-full items-center justify-center rounded-lg bg-accent px-4 text-sm font-semibold text-neutral-950 transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saveState === "saving"
-              ? "Saving…"
-              : saveState === "saved"
-                ? "Saved"
-                : existing
-                  ? "Update check-in"
-                  : "Save check-in"}
-          </button>
-        </div>
-      </div>
+          Mobile: lives above the 56px bottom tab bar + iOS safe-area inset.
+          md+: no bottom tab bar — use a plain bottom-4 offset. */}
+      <MobileSubmitFooter>
+        <button
+          type="submit"
+          disabled={saveState === "saving"}
+          className="flex h-12 w-full items-center justify-center rounded-lg bg-accent px-4 text-sm font-semibold text-neutral-950 transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {saveState === "saving"
+            ? "Saving…"
+            : saveState === "saved"
+              ? "Saved"
+              : existing
+                ? "Update check-in"
+                : "Save check-in"}
+        </button>
+      </MobileSubmitFooter>
     </form>
   );
 }
@@ -523,6 +529,35 @@ export default function CheckInForm({
 // ---------------------------------------------------------------------------
 // Local UI helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Sticky submit footer that floats above the mobile bottom tab bar on small
+ * screens, and sits at the natural viewport bottom (bottom-4) on md+ where
+ * there is no bottom tab bar. The container also mirrors the responsive
+ * max-width of the main layout so the pill never overflows on wide viewports.
+ */
+function MobileSubmitFooter({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      {/* Mobile: fixed above the 56px tab bar + safe-area inset */}
+      <div
+        className="fixed inset-x-0 z-30 mx-auto max-w-md px-4 pt-3 md:hidden"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 56px)" }}
+      >
+        <div className="rounded-xl border border-border bg-panel/95 p-3 shadow-lg backdrop-blur">
+          {children}
+        </div>
+      </div>
+
+      {/* md+: fixed at viewport bottom, wider container, no tab-bar offset */}
+      <div className="hidden md:block fixed inset-x-0 bottom-4 z-30 mx-auto max-w-3xl px-8 lg:max-w-5xl xl:max-w-6xl">
+        <div className="rounded-xl border border-border bg-panel/95 p-3 shadow-lg backdrop-blur">
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
 
 interface NumericFieldProps {
   id: string;
