@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
 import type { LoggedSet, PlannedExercise, UnitSystem } from "@/lib/db/types";
 
@@ -122,9 +123,20 @@ export default function ExerciseCard({
           prevents row content bleeding through. */}
       <header className="sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-xl border-b border-border bg-bg/95 px-3 py-2 backdrop-blur">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-semibold text-neutral-100">
-            {planned.name}
-          </h3>
+          {/* Header doubles as a link to the per-exercise history page so the
+              lifter can pull up their e1RM chart for this lift without
+              leaving the session context. Wrapped in Link rather than a
+              full-card anchor to keep the rest of the card (set rows) as
+              its own interactive surface. */}
+          <Link
+            href={`/exercise/${planned.exerciseId}`}
+            className="block min-w-0 hover:text-accent"
+            aria-label={`View history for ${planned.name}`}
+          >
+            <h3 className="truncate text-sm font-semibold text-neutral-100 hover:text-accent">
+              {planned.name}
+            </h3>
+          </Link>
           <p className="mt-0.5 text-[11px] text-muted">
             Target: {targetSets} × {planned.repRangeLow}
             {planned.repRangeHigh !== planned.repRangeLow
