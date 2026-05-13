@@ -26,10 +26,10 @@ import QuickAddExercise from "@/components/workout/QuickAddExercise";
 import {
   computeDurationMin,
   loadLastSessionPrefill,
-  runPRDetectionPlaceholder,
   toMillis,
   type PrefillMap,
 } from "@/lib/workout/prefill";
+import { finishSession as runPRDetection } from "@/lib/workout/finishSession";
 
 /**
  * `/workout/[id]` — live session logger.
@@ -311,8 +311,15 @@ export default function WorkoutSessionPage() {
       };
       await updateDoc(sessionPath(user.uid, sessionId), patch);
 
-      // PR detection placeholder — real logic in fn-4-p9x.4.
-      await runPRDetectionPlaceholder(user.uid, sessionId);
+      // PR detection (fn-4-p9x.4). Best-effort: if it throws we surface a
+      // non-fatal warning rather than blocking the route — the session is
+      // already persisted as `completed` above.
+      try {
+        await runPRDetection(user.uid, sessionId);
+      } catch (prErr) {
+        // eslint-disable-next-line no-console
+        console.warn("PR detection failed:", prErr);
+      }
 
       router.push("/workout");
     } catch (err) {
