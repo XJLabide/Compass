@@ -56,6 +56,15 @@ export interface SetRowProps {
    * of the same exercise so a lifter only adjusts what changed.
    */
   prefill?: { weightKg: number; reps: number; rpe?: number };
+  /**
+   * Optional "ghost" suggestion sourced from a prior session (fn-4-p9x.3
+   * cross-session prefill). Unlike `prefill`, ghost values are NOT pushed
+   * into the input state — they render as placeholder/hint text inside the
+   * empty input. The user must touch the stepper or type a value to "accept"
+   * the suggestion (which then becomes the committed value). This prevents
+   * accidentally logging stale numbers without thinking.
+   */
+  ghost?: { weightKg: number; reps: number; rpe?: number };
   /** Called when the user commits the row by pressing Log. */
   onLogged?: (input: { weightKg: number; reps: number; rpe?: number }) => void;
   /** Disable interaction while a write is in flight. */
@@ -74,6 +83,7 @@ export default function SetRow(props: SetRowProps) {
     unitSystem,
     logged,
     prefill,
+    ghost,
     onLogged,
     disabled,
     autoFocus,
@@ -176,6 +186,27 @@ export default function SetRow(props: SetRowProps) {
     }
   }
 
+  // -- Ghost (cross-session suggestion) -------------------------------------
+  // We show the ghost as placeholder-style text inside the empty inputs and
+  // as a one-tap "Use last" affordance. Accepting the ghost pushes its
+  // values into local state (same path the stepper buttons use), so the
+  // ordinary commit flow handles persistence.
+  const ghostWeightDisplay = ghost
+    ? roundDisplayWeight(kgToDisplay(ghost.weightKg, unitSystem))
+    : null;
+  const ghostReps = ghost?.reps ?? null;
+  const ghostVisible =
+    !isLogged && ghost !== undefined && weightDisplay === 0 && reps === 0;
+
+  function acceptGhost() {
+    if (!ghost) return;
+    setWeightDisplay(
+      roundDisplayWeight(kgToDisplay(ghost.weightKg, unitSystem)),
+    );
+    setReps(ghost.reps);
+    if (typeof ghost.rpe === "number") setRpe(ghost.rpe);
+  }
+
   // -- Render ----------------------------------------------------------------
   // Note: we use uncontrolled-ish patterns for the number inputs (controlled
   // value but accepting bare text) so the user can transiently clear the
@@ -183,6 +214,19 @@ export default function SetRow(props: SetRowProps) {
   const weightLabel = weightUnitLabel(unitSystem);
 
   return (
+    <div className="space-y-1">
+    {ghostVisible ? (
+      <button
+        type="button"
+        onClick={acceptGhost}
+        className="ml-10 inline-flex items-center gap-1 rounded-md border border-dashed border-border bg-transparent px-2 py-0.5 text-[10px] font-medium text-muted transition hover:border-accent2/60 hover:text-accent2"
+        aria-label={`Use previous: ${ghostWeightDisplay} ${weightLabel} × ${ghostReps} reps`}
+      >
+        Last: {ghostWeightDisplay} {weightLabel} × {ghostReps}
+        {typeof ghost?.rpe === "number" ? ` @${ghost.rpe}` : ""}
+        <span aria-hidden="true">↩</span>
+      </button>
+    ) : null}
     <div
       data-set-number={setNumber}
       className={`flex min-h-11 items-center gap-2 rounded-lg border px-2 py-2 text-sm ${
@@ -317,6 +361,7 @@ export default function SetRow(props: SetRowProps) {
           Log
         </button>
       )}
+    </div>
     </div>
   );
 }

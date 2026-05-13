@@ -32,6 +32,15 @@ export interface ExerciseCardProps {
   /** User's display unit system. */
   unitSystem: UnitSystem;
   /**
+   * Cross-session ghost suggestion sourced from the heaviest set of this
+   * exercise in the most recent completed session of the same program slot
+   * (fn-4-p9x.3). Surfaces only on the editable "next set" row and only
+   * when no sets have been logged for this exercise yet — once the lifter
+   * has logged at least one set THIS session, in-session prefill (last set
+   * just logged) is the more useful suggestion.
+   */
+  lastSessionGhost?: { weightKg: number; reps: number; rpe?: number };
+  /**
    * Persist a single new set. The parent immutably replaces `sets[]` on the
    * session doc. Throws / rejects on failure — the card surfaces the error.
    */
@@ -47,6 +56,7 @@ export default function ExerciseCard({
   planned,
   loggedSetsForExercise,
   unitSystem,
+  lastSessionGhost,
   onLogSet,
 }: ExerciseCardProps) {
   const [pending, setPending] = useState(false);
@@ -59,24 +69,27 @@ export default function ExerciseCard({
     [loggedSetsForExercise],
   );
 
-  // Prefill the next-set row from the last logged set, falling back to a
-  // sensible zero state. This is the "minimum-friction" version of the
-  // last-session prefill; the cross-session version ships in a later task.
-  const prefill = useMemo(() => {
+  // In-session prefill: once the user has logged at least one set this
+  // session, prefill the next row from the last set they just logged. This
+  // is the "minimum-friction" path — they only adjust what changed.
+  //
+  // First set of the exercise (logged.length === 0) intentionally gets NO
+  // prefill — the cross-session ghost prop (rendered as a placeholder
+  // affordance, not auto-filled) handles that hint per task spec.
+  const inSessionPrefill = useMemo(() => {
     const last = logged[logged.length - 1];
-    if (!last) {
-      return {
-        weightKg: 0,
-        reps: planned.repRangeLow,
-        rpe: undefined as number | undefined,
-      };
-    }
+    if (!last) return undefined;
     return {
       weightKg: last.weightKg,
       reps: last.reps,
       rpe: last.rpe,
     };
-  }, [logged, planned.repRangeLow]);
+  }, [logged]);
+
+  // Ghost only renders on the very first set of the exercise. After the
+  // user has logged something this session, the in-session prefill is the
+  // better suggestion.
+  const ghostForNext = logged.length === 0 ? lastSessionGhost : undefined;
 
   const targetSets = planned.targetSets;
   const completed = logged.length;
@@ -149,7 +162,8 @@ export default function ExerciseCard({
           key={`next-${completed}`}
           setNumber={completed + 1}
           unitSystem={unitSystem}
-          prefill={prefill}
+          prefill={inSessionPrefill}
+          ghost={ghostForNext}
           onLogged={handleLogged}
           disabled={pending}
           autoFocus={completed > 0}
