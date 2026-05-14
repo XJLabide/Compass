@@ -7,14 +7,14 @@
  *   - Evening : 17:00 - 21:00
  *   - Night   : 21:00 - 04:00
  *
- * "Awake time" is the window between WAKE and BEDTIME on the same calendar
- * day, in the user's timezone. Defaults: wake 07:00, bed 23:00. We use these
- * to drive the progress bar and the "Xh Ym of awake time left" string.
+ * "Awake time" is the window between the user's wake and bed times on the
+ * same calendar day, in their timezone. Both default to 07:00 / 23:00 but
+ * are overridable via `Profile.wakeTime` / `Profile.bedTime` ("HH:MM").
  */
 export type DayBlock = "morning" | "midday" | "evening" | "night";
 
-const WAKE_HOUR = 7;
-const BED_HOUR = 23;
+export const DEFAULT_WAKE_TIME = "07:00";
+export const DEFAULT_BED_TIME = "23:00";
 
 /** Localized hour (0..23) for a given Date in a specific tz. */
 function localHour(date: Date, tz: string): number {
@@ -41,6 +41,19 @@ function localMinute(date: Date, tz: string): number {
   } catch {
     return date.getMinutes();
   }
+}
+
+/** Parse `"HH:MM"` to total minutes-from-midnight. Bad input falls back to a default. */
+export function parseTimeToMinutes(
+  value: string | undefined,
+  fallback: string,
+): number {
+  const v = (value ?? fallback).trim();
+  const m = /^(\d{1,2}):(\d{2})$/.exec(v);
+  if (!m) return parseTimeToMinutes(fallback, "00:00");
+  const h = Math.max(0, Math.min(23, Number(m[1])));
+  const mm = Math.max(0, Math.min(59, Number(m[2])));
+  return h * 60 + mm;
 }
 
 export function getDayBlock(now: Date, tz: string): DayBlock {
@@ -89,37 +102,66 @@ export interface AwakeProgress {
 }
 
 /**
- * Compute progress through the user's awake window (default 07:00 → 23:00).
- * Tz-aware so a user in Manila gets the right local hour.
+ * Compute progress through the user's awake window. Wake and bed times are
+ * "HH:MM" strings; both default to 07:00 / 23:00 when not provided. The
+ * function gracefully handles a `bedTime` earlier in the clock than `wakeTime`
+ * (e.g. wake 23:00, bed 07:00 — night-shift workers) by treating it as a
+ * window crossing midnight.
  */
-export function getAwakeProgress(now: Date, tz: string): AwakeProgress {
+export function getAwakeProgress(
+  now: Date,
+  tz: string,
+  options?: { wakeTime?: string; bedTime?: string },
+): AwakeProgress {
   const h = localHour(now, tz);
   const m = localMinute(now, tz);
-  const totalMinutes = h * 60 + m;
+  const minutesNow = h * 60 + m;
 
-  const wakeMinutes = WAKE_HOUR * 60;
-  const bedMinutes = BED_HOUR * 60;
-  const windowMinutes = bedMinutes - wakeMinutes;
+  const wakeMinutes = parseTimeToMinutes(options?.wakeTime, DEFAULT_WAKE_TIME);
+  const bedMinutes = parseTimeToMinutes(options?.bedTime, DEFAULT_BED_TIME);
 
-  if (totalMinutes < wakeMinutes || totalMinutes >= bedMinutes) {
-    return {
-      pct: totalMinutes >= bedMinutes ? 1 : 0,
-      minutesLeft: 0,
-      remainingLabel: "Wind down time",
-      asleep: true,
-    };
+  // Standard case: bed > wake (e.g. 07:00 → 23:00 on the same day).
+  if (bedMinutes > wakeMinutes) {
+    if (minutesNow < wakeMinutes || minutesNow >= bedMinutes) {
+      return {
+        pct: minutesNow >= bedMinutes ? 1 : 0,
+        minutesLeft: 0,
+        remainingLabel: "Wind down time",
+        asleep: true,
+      };
+    }
+    const elapsed = minutesNow - wakeMinutes;
+    const window = bedMinutes - wakeMinutes;
+    return formatProgress(elapsed, window);
   }
 
-  const elapsed = totalMinutes - wakeMinutes;
-  const minutesLeft = windowMinutes - elapsed;
-  const pct = Math.max(0, Math.min(1, elapsed / windowMinutes));
+  // Crossing midnight: wake > bed (e.g. 23:00 → 07:00).
+  // Awake from `wake` until midnight, then from midnight until `bed`.
+  const window = 24 * 60 - wakeMinutes + bedMinutes;
+  if (minutesNow >= wakeMinutes) {
+    const elapsed = minutesNow - wakeMinutes;
+    return formatProgress(elapsed, window);
+  }
+  if (minutesNow < bedMinutes) {
+    const elapsed = 24 * 60 - wakeMinutes + minutesNow;
+    return formatProgress(elapsed, window);
+  }
+  return {
+    pct: 0,
+    minutesLeft: 0,
+    remainingLabel: "Wind down time",
+    asleep: true,
+  };
+}
 
+function formatProgress(elapsed: number, window: number): AwakeProgress {
+  const minutesLeft = Math.max(0, window - elapsed);
+  const pct = Math.max(0, Math.min(1, elapsed / window));
   const hours = Math.floor(minutesLeft / 60);
   const mins = minutesLeft % 60;
   const remainingLabel =
     hours > 0
       ? `${hours}h ${mins}m of awake time left`
       : `${mins}m of awake time left`;
-
   return { pct, minutesLeft, remainingLabel, asleep: false };
 }

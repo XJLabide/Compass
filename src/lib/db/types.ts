@@ -72,6 +72,10 @@ export interface Profile {
   notificationsEnabled?: boolean;
   /** "HH:MM" 24-hour local time for the daily check-in nudge. Defaults to "21:00". */
   reminderTime?: string;
+  /** "HH:MM" 24-hour local wake time. Drives Today's awake-progress bar. Default "07:00". */
+  wakeTime?: string;
+  /** "HH:MM" 24-hour local bedtime. Drives Today's awake-progress bar. Default "23:00". */
+  bedTime?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

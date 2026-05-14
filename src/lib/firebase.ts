@@ -122,15 +122,21 @@ function init(): FirebaseHandles {
 
   // Hook emulators (idempotent — Firebase SDK no-ops on duplicate calls).
   if (USE_EMULATORS && isNewApp) {
+    const firestorePort = Number(
+      process.env.NEXT_PUBLIC_EMULATOR_FIRESTORE_PORT || "8181",
+    );
+    const authPort = Number(
+      process.env.NEXT_PUBLIC_EMULATOR_AUTH_PORT || "9099",
+    );
     try {
-      connectAuthEmulator(auth, `http://${EMULATOR_HOST}:9099`, {
+      connectAuthEmulator(auth, `http://${EMULATOR_HOST}:${authPort}`, {
         disableWarnings: true,
       });
     } catch {
       /* already connected */
     }
     try {
-      connectFirestoreEmulator(db, EMULATOR_HOST, 8080);
+      connectFirestoreEmulator(db, EMULATOR_HOST, firestorePort);
     } catch {
       /* already connected */
     }

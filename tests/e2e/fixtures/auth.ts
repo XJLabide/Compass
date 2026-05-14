@@ -21,7 +21,7 @@ export async function clearEmulators(): Promise<void> {
       { method: "DELETE" },
     ),
     fetch(
-      `http://127.0.0.1:8080/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`,
+      `http://127.0.0.1:8181/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`,
       { method: "DELETE" },
     ),
   ]);

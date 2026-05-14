@@ -15,6 +15,7 @@ import type { Profile, Timezone, UnitSystem } from "@/lib/db/types";
 
 import {
   Bell,
+  Clock,
   Globe,
   LogOut,
   Ruler,
@@ -26,6 +27,7 @@ import {
 
 import InstallPrompt from "@/components/InstallPrompt";
 import CustomCategoriesSection from "@/components/settings/CustomCategoriesSection";
+import DayWindowSection from "@/components/settings/DayWindowSection";
 import NotificationsSection from "@/components/settings/NotificationsSection";
 import TargetInput from "@/components/settings/TargetInput";
 import TimezoneSelect, {
@@ -264,6 +266,15 @@ export default function SettingsPage() {
           {saveError}
         </div>
       ) : null}
+
+      {/* Day window */}
+      <SettingsGroup
+        icon={Clock}
+        title="Day window"
+        subtitle="Wake and bed times drive Today's awake-progress bar."
+      >
+        <DayWindowSection />
+      </SettingsGroup>
 
       {/* Expense categories */}
       <SettingsGroup

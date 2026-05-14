@@ -95,7 +95,9 @@ service cloud.firestore {
         && (!('customCategories' in data) || (data.customCategories is list && data.customCategories.size() <= 50))
         && (!('onboarded' in data) || data.onboarded is bool)
         && (!('notificationsEnabled' in data) || data.notificationsEnabled is bool)
-        && (!('reminderTime' in data) || data.reminderTime is string);
+        && (!('reminderTime' in data) || data.reminderTime is string)
+        && (!('wakeTime' in data) || data.wakeTime is string)
+        && (!('bedTime' in data) || data.bedTime is string);
     }
 
     function exerciseValid(data) {

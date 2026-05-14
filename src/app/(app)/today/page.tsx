@@ -94,7 +94,14 @@ export default function TodayPage() {
   const todayDow = useMemo(() => getLocalDayOfWeek(now, tz), [now, tz]);
 
   const block = useMemo(() => getDayBlock(now, tz), [now, tz]);
-  const awake = useMemo(() => getAwakeProgress(now, tz), [now, tz]);
+  const awake = useMemo(
+    () =>
+      getAwakeProgress(now, tz, {
+        wakeTime: effectiveProfile?.wakeTime,
+        bedTime: effectiveProfile?.bedTime,
+      }),
+    [now, tz, effectiveProfile?.wakeTime, effectiveProfile?.bedTime],
+  );
 
   // --- Subscriptions ------------------------------------------------------
   const [todos, setTodos] = useState<TodoRow[] | null>(null);

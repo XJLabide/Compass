@@ -9,6 +9,8 @@ and the [Firebase Local Emulator Suite](https://firebase.google.com/docs/emulato
    and waits for both ports (Auth 9099, Firestore 8080) to accept connections.
 2. Playwright then boots `next dev -p 3100` with `NEXT_PUBLIC_USE_EMULATORS=true`
    so the app connects to the emulators instead of production.
+   Ports: **Auth 9099**, **Firestore 8181** (8080 is intentionally avoided —
+   commonly occupied by other dev tools like Tomcat), **UI 4001**.
 3. Each test starts with `clearEmulators()` (REST DELETE to both emulators) so
    state is isolated between tests.
 4. `signIn()` REST-creates the test user on the auth emulator (idempotent),

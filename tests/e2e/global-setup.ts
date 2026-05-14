@@ -14,7 +14,7 @@ const TMP_DIR = path.resolve(process.cwd(), ".playwright-tmp");
 const PID_FILE = path.join(TMP_DIR, "emulator.pid");
 const LOG_FILE = path.join(TMP_DIR, "emulator.log");
 
-const FIRESTORE_PORT = 8080;
+const FIRESTORE_PORT = 8181;
 const AUTH_PORT = 9099;
 
 async function waitForPort(port: number, timeoutMs = 30_000): Promise<void> {

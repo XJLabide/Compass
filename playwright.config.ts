@@ -46,11 +46,10 @@ export default defineConfig({
   ],
 
   webServer: {
-    command:
-      "next dev -p 3100 --turbo=false 2>&1",
+    command: "next dev -p 3100",
     url: "http://127.0.0.1:3100",
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    timeout: 120_000,
     env: {
       // Load test env vars into the dev server so the app uses the emulators.
       NEXT_PUBLIC_FIREBASE_API_KEY: "test-api-key",
