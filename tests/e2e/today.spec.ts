@@ -14,16 +14,19 @@ test.beforeEach(async ({ page }) => {
 
 test("Today renders all main sections", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  // Sections (case-insensitive subheadings)
+  // Each section uses an uppercase eyebrow label inside an <h2>.
+  // Scope to visible h2 elements to skip hidden sidebar/nav text duplicates.
   for (const label of [
-    /workout/i,
-    /routines/i,
-    /todos/i,
+    /^workout$/i,
+    /^routines$/i,
+    /^todos$/i,
     /money/i,
     /check-in/i,
     /reflection/i,
   ]) {
-    await expect(page.getByText(label).first()).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: label }).first(),
+    ).toBeVisible();
   }
 });
 

@@ -24,9 +24,11 @@ test("regression — add an income with no note succeeds", async ({ page }) => {
   await page.getByRole("button", { name: /^income$/i }).click();
   await page.getByLabel(/amount/i).fill("2000");
   await page.getByRole("button", { name: /add income/i }).click();
-  // Either the entry list shows the income, or the totals reflect it.
-  // No error banner means the write succeeded.
-  await expect(page.getByRole("alert")).not.toBeVisible();
+  // Scope to the app's red error banner — Next adds a permanent
+  // role="alert" route announcer.
+  await expect(
+    page.locator('[role="alert"]:not(#__next-route-announcer__)'),
+  ).not.toBeVisible();
   await expect(page.getByText(/2,?000|2000\.00/).first()).toBeVisible();
 });
 
