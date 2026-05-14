@@ -12,6 +12,7 @@ import type {
   PRDoc,
   Profile,
   ProgramDoc,
+  RoutineDoc,
   SessionDoc,
   TodoDoc,
 } from "./types";
@@ -67,3 +68,6 @@ export const todoConverter: FirestoreDataConverter<TodoDoc> =
 
 export const expenseConverter: FirestoreDataConverter<ExpenseDoc> =
   makePassthroughConverter<ExpenseDoc>();
+
+export const routineConverter: FirestoreDataConverter<RoutineDoc> =
+  makePassthroughConverter<RoutineDoc>();

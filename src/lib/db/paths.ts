@@ -15,6 +15,7 @@ import {
   prConverter,
   profileConverter,
   programConverter,
+  routineConverter,
   sessionConverter,
   todoConverter,
 } from "./converters";
@@ -26,6 +27,7 @@ import type {
   PRDoc,
   Profile,
   ProgramDoc,
+  RoutineDoc,
   SessionDoc,
   TodoDoc,
 } from "./types";
@@ -207,5 +209,28 @@ export function expensePath(
 ): DocumentReference<ExpenseDoc> {
   return doc(userDoc(uid, db), "expenses", expenseId).withConverter(
     expenseConverter,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// routines — users/{uid}/routines/{routineId}
+// ---------------------------------------------------------------------------
+
+export function routinesPath(
+  uid: string,
+  db?: Firestore,
+): CollectionReference<RoutineDoc> {
+  return collection(userDoc(uid, db), "routines").withConverter(
+    routineConverter,
+  );
+}
+
+export function routinePath(
+  uid: string,
+  routineId: string,
+  db?: Firestore,
+): DocumentReference<RoutineDoc> {
+  return doc(userDoc(uid, db), "routines", routineId).withConverter(
+    routineConverter,
   );
 }

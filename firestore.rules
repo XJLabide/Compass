@@ -124,6 +124,13 @@ service cloud.firestore {
         && (!('note' in data) || (data.note is string && data.note.size() <= 1000));
     }
 
+    function routineValid(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.weekdays is list && data.weekdays.size() >= 1 && data.weekdays.size() <= 7
+        && data.active is bool
+        && (!('done' in data) || data.done is map);
+    }
+
     // -------------------------------------------------------------------
     // /users/{uid} — root for all user-owned data.
     // -------------------------------------------------------------------
@@ -170,6 +177,12 @@ service cloud.firestore {
       match /expenses/{expenseId} {
         allow read: if isOwner(uid);
         allow create, update: if isOwner(uid) && expenseValid(request.resource.data);
+        allow delete: if isOwner(uid);
+      }
+
+      match /routines/{routineId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && routineValid(request.resource.data);
         allow delete: if isOwner(uid);
       }
     }

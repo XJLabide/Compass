@@ -234,6 +234,35 @@ export interface TodoDoc {
 }
 
 // ---------------------------------------------------------------------------
+// users/{uid}/routines/{routineId}
+// ---------------------------------------------------------------------------
+
+/**
+ * A tracked habit with a custom weekly schedule. Unlike a recurring todo,
+ * a routine isn't a one-shot task you delete after completion — it's a
+ * persistent expectation that tracks streaks over time.
+ *
+ * `weekdays` is a list of integers 0..6 where 0=Sun, 1=Mon, ..., 6=Sat (matches
+ * JS Date.getDay()). Empty list is invalid; "every day" stores [0..6].
+ *
+ * `done` is a map of localDate (YYYY-MM-DD in user's tz) → true for days
+ * the user has checked off. Days not in the map are implicitly not-done.
+ * Stored inline on the doc — bounded growth (one entry per scheduled day,
+ * well under Firestore's 1MB doc cap for any reasonable lifetime).
+ */
+export interface RoutineDoc {
+  name: string;
+  /** 0=Sun..6=Sat */
+  weekdays: number[];
+  /** Paused routines are listed but not counted in today's progress. */
+  active: boolean;
+  /** Map of `YYYY-MM-DD` → true for days the user checked it off. */
+  done: Record<string, boolean>;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
 // users/{uid}/expenses/{expenseId}
 // ---------------------------------------------------------------------------
 

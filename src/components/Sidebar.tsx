@@ -92,8 +92,8 @@ export default function Sidebar() {
                 "group relative flex h-11 items-center rounded-md transition-colors",
                 collapsed ? "justify-center px-0" : "gap-3 px-3",
                 active
-                  ? "border-l-2 border-accent bg-accent/10 text-accent"
-                  : "border-l-2 border-transparent text-muted hover:bg-panel2 hover:text-neutral-100"
+                  ? "bg-accent/10 text-accent"
+                  : "text-muted hover:bg-panel2 hover:text-neutral-100"
               )}
             >
               <Icon
