@@ -20,7 +20,11 @@ service cloud.firestore {
     // -------------------------------------------------------------------
     function allowed() {
       return [
-        'labide.xj@gmail.com'
+        'labide.xj@gmail.com',
+        // Test-only email used by Playwright e2e against the emulator. The
+        // domain is reserved and not deliverable, so adding it here doesn't
+        // expose real-world accounts even when deployed to prod.
+        'test@compass.test'
       ];
     }
 

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import {
   clearEmulators,
   completeOnboarding,
+  signInWithoutOnboarding,
   signIn,
 } from "./fixtures/auth";
 
@@ -27,8 +28,8 @@ test("invalid credentials surface an inline error", async ({ page }) => {
 });
 
 test("signed-in user can complete onboarding", async ({ page }) => {
-  await signIn(page);
+  // This test specifically exercises the wizard, so don't pre-seed.
+  await signInWithoutOnboarding(page);
   await completeOnboarding(page);
-  // After completion the wizard is gone.
   await expect(page.getByText(/welcome to compass/i)).not.toBeVisible();
 });

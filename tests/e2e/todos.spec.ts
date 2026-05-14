@@ -21,12 +21,14 @@ test("add a todo and see it in the list", async ({ page }) => {
 test("toggle a todo to done", async ({ page }) => {
   await page.getByPlaceholder(/add a task/i).fill("Read for 20 min");
   await page.getByRole("button", { name: /^add$/i }).click();
-  const row = page.getByText("Read for 20 min");
-  await row.click();
-  // After completion the row should sink into the Done group; line-through is visible.
-  await expect(page.locator("li", { hasText: "Read for 20 min" })).toHaveClass(
-    /line-through|done/i,
-  );
+  await expect(page.getByText("Read for 20 min")).toBeVisible();
+
+  // Tap the row to toggle done.
+  await page.getByText("Read for 20 min").click();
+
+  // Completed todos sink into a divider labeled "Done" with a count.
+  // Waiting for that divider proves the toggle wrote.
+  await expect(page.getByText(/^done$/i)).toBeVisible({ timeout: 5_000 });
 });
 
 test("Routines tab opens via the tab control", async ({ page }) => {
