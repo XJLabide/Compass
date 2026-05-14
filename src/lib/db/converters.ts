@@ -8,10 +8,12 @@ import type {
 import type {
   DailyDoc,
   Exercise,
+  ExpenseDoc,
   PRDoc,
   Profile,
   ProgramDoc,
   SessionDoc,
+  TodoDoc,
 } from "./types";
 
 /**
@@ -59,3 +61,9 @@ export const dailyConverter: FirestoreDataConverter<DailyDoc> =
 
 export const prConverter: FirestoreDataConverter<PRDoc> =
   makePassthroughConverter<PRDoc>();
+
+export const todoConverter: FirestoreDataConverter<TodoDoc> =
+  makePassthroughConverter<TodoDoc>();
+
+export const expenseConverter: FirestoreDataConverter<ExpenseDoc> =
+  makePassthroughConverter<ExpenseDoc>();

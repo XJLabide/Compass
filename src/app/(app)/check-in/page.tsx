@@ -15,6 +15,7 @@ import {
   isWithinBackfillWindow,
 } from "@/components/checkin/DatePicker";
 import { detectTimezone } from "@/components/settings/TimezoneSelect";
+import Skeleton from "@/components/ui/Skeleton";
 
 /**
  * `/check-in` route.
@@ -122,7 +123,11 @@ export default function CheckInPage() {
             {error}
           </div>
         ) : (
-          <p className="mt-2 text-sm text-muted">Loading…</p>
+          <div className="mt-4 space-y-3">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
         )}
       </section>
     );

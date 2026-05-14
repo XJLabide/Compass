@@ -1,71 +1,70 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { onSnapshot } from "firebase/firestore";
-
-import { useAuth } from "@/lib/auth/useAuth";
-import { profilePath } from "@/lib/db/paths";
-import type { Profile } from "@/lib/db/types";
+import { useUserData } from "@/lib/data/UserDataProvider";
 
 import TodayCard from "@/components/dashboard/TodayCard";
 import GoalBanner from "@/components/dashboard/GoalBanner";
 import ThisWeekCard from "@/components/dashboard/ThisWeekCard";
 import Trends from "@/components/dashboard/Trends";
 import RecentPRsStrip from "@/components/dashboard/RecentPRsStrip";
+import StreakCard from "@/components/dashboard/StreakCard";
+import ActivityHeatmap from "@/components/dashboard/ActivityHeatmap";
+import VolumeByMuscle from "@/components/dashboard/VolumeByMuscle";
+import ConsistencyCard from "@/components/dashboard/ConsistencyCard";
+import TodoSummary from "@/components/dashboard/TodoSummary";
+import MoneySummary from "@/components/dashboard/MoneySummary";
 import EmptyState from "@/components/dashboard/EmptyState";
+import Skeleton from "@/components/ui/Skeleton";
 
 /**
  * `/` — dashboard home.
  *
- * Layout (top → bottom, single column, mobile-first):
- *   1. TodayCard — date + workout CTA + check-in CTA (both above the fold on
- *      a ~6.1" phone).
- *   2. GoalBanner — bodyweight trend vs. weekly gain target. Renders an
- *      empty-state CTA when <3 weigh-ins exist.
- *   3. ThisWeekCard — Mon-anchored weekly counters (workouts, protein, sleep,
- *      weight delta). Realtime listeners on `daily` + `sessions`.
- *   4. Trends — 4 mini line charts (bodyweight, weekly volume, protein,
- *      sleep) over the last 8 weeks. One-shot fetch + refetch on tab focus.
- *   5. RecentPRsStrip — last 3 PRs, realtime on `prs`.
+ * Layout strategy:
+ *   - Top section "Today" — quick actions for the day (Today + Goal side-by-side on lg+)
+ *   - "Daily" section — Todos and Money (always relevant)
+ *   - "Habits" section — Streak + Consistency rings
+ *   - "Fitness" section — This week, activity heatmap, trends, volume by muscle
+ *   - "PRs" — Recent PRs strip at the bottom
  *
- * The page itself owns the profile subscription so child components don't
- * each open one; TodayCard and GoalBanner then own their own per-doc /
- * per-collection listeners against the canonical Firestore paths.
+ * Visual rhythm: subtle dividers between sections via section header + small
+ * top margin. Cards share the same surface treatment so the dividers do the
+ * grouping work.
  */
 export default function HomePage() {
-  const { user } = useAuth();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [profileLoaded, setProfileLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { uid, profile, profileLoaded, effectiveProfile, error } = useUserData();
 
-  useEffect(() => {
-    if (!user?.uid) return;
-    setProfileLoaded(false);
-    const unsub = onSnapshot(
-      profilePath(user.uid),
-      (snap) => {
-        setProfile(snap.data() ?? null);
-        setProfileLoaded(true);
-        setError(null);
-      },
-      (err) => {
-        setProfileLoaded(true);
-        setError(err.message);
-      },
+  if (!uid) return null;
+
+  if (!profileLoaded || !effectiveProfile) {
+    return (
+      <section className="space-y-4">
+        <header>
+          <h1 className="text-2xl font-semibold text-neutral-100">Home</h1>
+        </header>
+        <div className="space-y-4">
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-44 w-full" />
+        </div>
+      </section>
     );
-    return () => unsub();
-  }, [user?.uid]);
-
-  if (!user) {
-    // AuthGate normally prevents this, but render a no-op shell to keep TS
-    // happy and avoid a flash if it ever does.
-    return null;
   }
 
+  const tz = effectiveProfile.timezone;
+  const units = effectiveProfile.unitSystem;
+  const profileMissing = !profile;
+
   return (
-    <section className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold text-neutral-100">Home</h1>
+    <section className="space-y-6">
+      <header className="flex items-baseline justify-between gap-3 border-b border-border pb-3">
+        <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">
+          Home
+        </h1>
+        {effectiveProfile.displayName ? (
+          <span className="text-xs text-muted">
+            Hi, {effectiveProfile.displayName}
+          </span>
+        ) : null}
       </header>
 
       {error ? (
@@ -78,51 +77,77 @@ export default function HomePage() {
         </div>
       ) : null}
 
-      {/* On lg+: TodayCard and GoalBanner sit side by side.
-          Mobile: stack vertically (default). */}
-      <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
-        <TodayCard uid={user.uid} timezone={profile?.timezone ?? "UTC"} />
+      {profileMissing ? (
+        <EmptyState
+          title="Finish setup"
+          description="Set your weekly gain target and units to unlock real trends."
+          ctaLabel="Open settings"
+          href="/settings"
+        />
+      ) : null}
 
-        {profileLoaded && profile ? (
+      {/* TODAY ---------------------------------------------------------- */}
+      <DashboardSection title="Today">
+        <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
+          <TodayCard uid={uid} timezone={tz} />
           <GoalBanner
-            uid={user.uid}
-            timezone={profile.timezone}
-            weeklyGainLb={profile.weeklyGainLb}
-            unitSystem={profile.unitSystem}
+            uid={uid}
+            timezone={tz}
+            weeklyGainLb={effectiveProfile.weeklyGainLb}
+            unitSystem={units}
           />
-        ) : profileLoaded && !profile ? (
-          <EmptyState
-            title="Finish setup"
-            description="Set your weekly gain target to track your trend."
-            ctaLabel="Open settings"
-            href="/settings"
+        </div>
+      </DashboardSection>
+
+      {/* DAILY (todos + money) ------------------------------------------ */}
+      <DashboardSection title="Daily">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <TodoSummary uid={uid} />
+          <MoneySummary uid={uid} timezone={tz} />
+        </div>
+      </DashboardSection>
+
+      {/* HABITS --------------------------------------------------------- */}
+      <DashboardSection title="Habits">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <StreakCard uid={uid} timezone={tz} />
+          <ConsistencyCard
+            uid={uid}
+            timezone={tz}
+            proteinTargetG={effectiveProfile.proteinTargetG}
           />
-        ) : (
-          <div className="rounded-xl border border-border bg-neutral-900/40 px-4 py-3 text-sm text-muted">
-            Loading…
-          </div>
-        )}
-      </div>
+        </div>
+      </DashboardSection>
 
-      {profileLoaded && profile ? (
-        <ThisWeekCard
-          uid={user.uid}
-          timezone={profile.timezone}
-          unitSystem={profile.unitSystem}
-        />
-      ) : null}
+      {/* FITNESS -------------------------------------------------------- */}
+      <DashboardSection title="Fitness">
+        <ThisWeekCard uid={uid} timezone={tz} unitSystem={units} />
+        <ActivityHeatmap uid={uid} timezone={tz} />
+        <Trends uid={uid} timezone={tz} unitSystem={units} />
+        <VolumeByMuscle uid={uid} unitSystem={units} />
+      </DashboardSection>
 
-      {profileLoaded && profile ? (
-        <Trends
-          uid={user.uid}
-          timezone={profile.timezone}
-          unitSystem={profile.unitSystem}
-        />
-      ) : null}
+      {/* PRs ------------------------------------------------------------ */}
+      <DashboardSection title="Recent PRs">
+        <RecentPRsStrip uid={uid} unitSystem={units} />
+      </DashboardSection>
+    </section>
+  );
+}
 
-      {profileLoaded && profile ? (
-        <RecentPRsStrip uid={user.uid} unitSystem={profile.unitSystem} />
-      ) : null}
+function DashboardSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">
+        {title}
+      </h2>
+      <div className="space-y-4">{children}</div>
     </section>
   );
 }

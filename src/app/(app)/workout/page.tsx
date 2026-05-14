@@ -28,6 +28,7 @@ import {
 import { checkAndAutoFinalize } from "@/lib/workout/recovery";
 import SessionListItem from "@/components/workout/SessionListItem";
 import ResumeBanner from "@/components/workout/ResumeBanner";
+import Skeleton from "@/components/ui/Skeleton";
 
 type RecentRow = { id: string; session: SessionDoc };
 
@@ -262,7 +263,11 @@ export default function WorkoutPage() {
           Today
         </h2>
         {!programLoaded ? (
-          <p className="mt-2 text-sm text-muted">Loading…</p>
+          <div className="mt-3 space-y-2">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-3 w-40" />
+            <Skeleton className="h-11 w-full" />
+          </div>
         ) : !program ? (
           <>
             <p className="mt-1 text-lg font-semibold text-neutral-100">
@@ -317,7 +322,11 @@ export default function WorkoutPage() {
           Recent sessions
         </h2>
         {!recentLoaded ? (
-          <p className="mt-2 text-sm text-muted">Loading…</p>
+          <div className="mt-2 space-y-2">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
         ) : !recent || recent.length === 0 ? (
           <p className="mt-2 text-sm text-muted">
             No sessions logged yet. Start your first one above.

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { limit, onSnapshot, orderBy, query } from "firebase/firestore";
 import { Trophy } from "lucide-react";
 
+import Skeleton from "@/components/ui/Skeleton";
 import { prsPath } from "@/lib/db/paths";
 import type { PRDoc, UnitSystem } from "@/lib/db/types";
 import { kgToDisplay, weightUnitLabel } from "@/lib/workout/units";
@@ -61,7 +62,11 @@ export default function RecentPRsStrip({
         >
           Recent PRs
         </h2>
-        <p className="mt-2 text-sm text-muted">Loading…</p>
+        <div className="mt-3 space-y-2">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+        </div>
       </section>
     );
   }

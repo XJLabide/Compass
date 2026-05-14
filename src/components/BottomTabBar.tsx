@@ -6,9 +6,9 @@ import clsx from "clsx";
 import {
   Home,
   Dumbbell,
-  ClipboardCheck,
-  LineChart,
-  Settings,
+  CheckSquare,
+  Wallet,
+  MoreHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,17 +18,31 @@ type Tab = {
   Icon: LucideIcon;
 };
 
+// Bottom tab bar keeps the 4 most-used routes + a "More" entry that links to
+// the settings page (where History / Check-in / Settings live, accessible via
+// scrolling). We deliberately limit to 5 cells for thumb reach.
 const TABS: Tab[] = [
   { href: "/", label: "Home", Icon: Home },
+  { href: "/todos", label: "Todos", Icon: CheckSquare },
+  { href: "/money", label: "Money", Icon: Wallet },
   { href: "/workout", label: "Workout", Icon: Dumbbell },
-  { href: "/check-in", label: "Check-in", Icon: ClipboardCheck },
-  { href: "/history", label: "History", Icon: LineChart },
-  { href: "/settings", label: "Settings", Icon: Settings },
+  { href: "/settings", label: "More", Icon: MoreHorizontal },
 ];
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") {
     return pathname === "/";
+  }
+  // The "More" tab is active whenever the user is in settings / history / check-in.
+  if (href === "/settings") {
+    return (
+      pathname === "/settings" ||
+      pathname.startsWith("/settings/") ||
+      pathname === "/history" ||
+      pathname.startsWith("/history/") ||
+      pathname === "/check-in" ||
+      pathname.startsWith("/check-in/")
+    );
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }

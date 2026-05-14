@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
@@ -11,6 +12,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  CheckSquare,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { useSidebar } from "@/lib/ui/sidebar-state";
@@ -23,6 +26,8 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", Icon: Home },
+  { href: "/todos", label: "Todos", Icon: CheckSquare },
+  { href: "/money", label: "Money", Icon: Wallet },
   { href: "/workout", label: "Workout", Icon: Dumbbell },
   { href: "/check-in", label: "Check-in", Icon: ClipboardCheck },
   { href: "/history", label: "History", Icon: LineChart },
@@ -57,14 +62,18 @@ export default function Sidebar() {
           collapsed ? "justify-center" : "gap-2.5 px-4"
         )}
       >
-        <Dumbbell
-          aria-hidden="true"
-          className="h-5 w-5 shrink-0 text-accent"
-          strokeWidth={2.25}
+        <Image
+          src="/logo-mark.svg"
+          alt="Compass"
+          width={36}
+          height={36}
+          priority
+          unoptimized
+          className="h-9 w-9 shrink-0"
         />
         {!collapsed && (
-          <span className="select-none text-sm font-semibold tracking-tight text-neutral-100">
-            Tracker
+          <span className="select-none text-base font-semibold tracking-tight text-neutral-100">
+            Compass
           </span>
         )}
       </div>

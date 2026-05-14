@@ -3,14 +3,14 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 
 export const metadata: Metadata = {
-  title: "Personal Tracker",
+  title: "Compass",
   description:
     "A single-user personal dashboard that makes hitting a muscle-gain goal the path of least resistance.",
-  applicationName: "Personal Tracker",
+  applicationName: "Compass",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Personal Tracker",
+    title: "Compass",
   },
 };
 

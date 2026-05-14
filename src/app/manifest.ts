@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Personal Tracker",
-    short_name: "Tracker",
+    name: "Compass",
+    short_name: "Compass",
     description:
-      "A single-user personal dashboard that makes hitting a muscle-gain goal the path of least resistance.",
+      "A single-user personal dashboard for fitness, todos, money, and habits — all in one place.",
     start_url: "/",
     scope: "/",
     display: "standalone",

@@ -106,7 +106,7 @@ export default function InstallPrompt() {
       <div className="mt-6 rounded-xl border border-border bg-neutral-900/40 p-4">
         <h2 className="text-sm font-medium text-neutral-200">Install app</h2>
         <p className="mt-1 text-xs text-muted">
-          Install Personal Tracker to your home screen for a full-screen,
+          Install Compass to your home screen for a full-screen,
           offline-capable experience.
         </p>
         <button

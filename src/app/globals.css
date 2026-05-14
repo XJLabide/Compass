@@ -6,6 +6,9 @@
   html,
   body {
     height: 100%;
+    /* Defensive: never allow horizontal scroll. Any element that overflows
+       should be clipped or scrolled inside its own container, not the page. */
+    overflow-x: hidden;
   }
 
   body {
@@ -20,5 +23,67 @@
   *::before,
   *::after {
     box-sizing: border-box;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Login hero — animated gradient blobs. Pure CSS (no canvas/WebGL) so the
+   login page stays light and renders without JS. Each blob is a soft radial
+   gradient that drifts on a slow loop; the parent uses `mix-blend-mode:
+   screen` so the blobs blend additively against the dark backdrop.
+   --------------------------------------------------------------------------- */
+.login-hero-bg {
+  isolation: isolate;
+}
+.login-hero-blob {
+  position: absolute;
+  width: 60%;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+.login-hero-blob--cyan {
+  top: -10%;
+  left: -10%;
+  background: radial-gradient(circle, #22d3ee 0%, rgba(34, 211, 238, 0) 70%);
+  animation: login-blob-cyan 18s ease-in-out infinite;
+}
+.login-hero-blob--lime {
+  bottom: -15%;
+  right: -10%;
+  background: radial-gradient(circle, #a3e635 0%, rgba(163, 230, 53, 0) 70%);
+  animation: login-blob-lime 22s ease-in-out infinite;
+  animation-delay: -7s;
+}
+.login-hero-blob--violet {
+  top: 30%;
+  right: 10%;
+  width: 45%;
+  background: radial-gradient(circle, #8b5cf6 0%, rgba(139, 92, 246, 0) 70%);
+  animation: login-blob-violet 26s ease-in-out infinite;
+  animation-delay: -3s;
+}
+
+@keyframes login-blob-cyan {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(8%, 12%, 0) scale(1.1); }
+  66% { transform: translate3d(-6%, 6%, 0) scale(0.95); }
+}
+@keyframes login-blob-lime {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-10%, -8%, 0) scale(1.15); }
+}
+@keyframes login-blob-violet {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  40% { transform: translate3d(-12%, 8%, 0) scale(1.05); }
+  80% { transform: translate3d(6%, -10%, 0) scale(0.92); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-hero-blob {
+    animation: none !important;
   }
 }

@@ -11,19 +11,23 @@ import { getFirebaseDb } from "@/lib/firebase";
 import {
   dailyConverter,
   exerciseConverter,
+  expenseConverter,
   prConverter,
   profileConverter,
   programConverter,
   sessionConverter,
+  todoConverter,
 } from "./converters";
 import type {
   DailyDoc,
   Exercise,
+  ExpenseDoc,
   LocalDate,
   PRDoc,
   Profile,
   ProgramDoc,
   SessionDoc,
+  TodoDoc,
 } from "./types";
 
 /**
@@ -162,4 +166,46 @@ export function prPath(
   db?: Firestore,
 ): DocumentReference<PRDoc> {
   return doc(userDoc(uid, db), "prs", prId).withConverter(prConverter);
+}
+
+// ---------------------------------------------------------------------------
+// todos — users/{uid}/todos/{todoId}
+// ---------------------------------------------------------------------------
+
+export function todosPath(
+  uid: string,
+  db?: Firestore,
+): CollectionReference<TodoDoc> {
+  return collection(userDoc(uid, db), "todos").withConverter(todoConverter);
+}
+
+export function todoPath(
+  uid: string,
+  todoId: string,
+  db?: Firestore,
+): DocumentReference<TodoDoc> {
+  return doc(userDoc(uid, db), "todos", todoId).withConverter(todoConverter);
+}
+
+// ---------------------------------------------------------------------------
+// expenses — users/{uid}/expenses/{expenseId}
+// ---------------------------------------------------------------------------
+
+export function expensesPath(
+  uid: string,
+  db?: Firestore,
+): CollectionReference<ExpenseDoc> {
+  return collection(userDoc(uid, db), "expenses").withConverter(
+    expenseConverter,
+  );
+}
+
+export function expensePath(
+  uid: string,
+  expenseId: string,
+  db?: Firestore,
+): DocumentReference<ExpenseDoc> {
+  return doc(userDoc(uid, db), "expenses", expenseId).withConverter(
+    expenseConverter,
+  );
 }

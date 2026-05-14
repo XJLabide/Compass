@@ -22,6 +22,7 @@ import {
 } from "@/lib/dashboard/weekly";
 import { kgToDisplay, weightUnitLabel } from "@/lib/workout/units";
 import { getTodayScheduled } from "@/lib/workout/scheduling";
+import Skeleton from "@/components/ui/Skeleton";
 
 /**
  * Dashboard "This week" card — counters across the Monday-anchored ISO week.
@@ -224,20 +225,23 @@ export default function ThisWeekCard({
       </div>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Cell label="Workouts" value={loaded ? workoutsLabel : "…"} />
+        <Cell
+          label="Workouts"
+          value={loaded ? workoutsLabel : null}
+        />
         <Cell
           label="Avg protein"
-          value={loaded ? formatNumber(avgProtein, 0) : "…"}
-          suffix={avgProtein === null ? undefined : "g"}
+          value={loaded ? formatNumber(avgProtein, 0) : null}
+          suffix={loaded && avgProtein !== null ? "g" : undefined}
         />
         <Cell
           label="Avg sleep"
-          value={loaded ? formatNumber(avgSleep, 1) : "…"}
-          suffix={avgSleep === null ? undefined : "h"}
+          value={loaded ? formatNumber(avgSleep, 1) : null}
+          suffix={loaded && avgSleep !== null ? "h" : undefined}
         />
         <Cell
           label="Weight Δ vs. last wk"
-          value={loaded ? formatDelta(weightDeltaDisplay, weightUnit) : "…"}
+          value={loaded ? formatDelta(weightDeltaDisplay, weightUnit) : null}
         />
       </dl>
     </section>
@@ -246,7 +250,8 @@ export default function ThisWeekCard({
 
 interface CellProps {
   label: string;
-  value: string;
+  /** Null while loading — shows a Skeleton. */
+  value: string | null;
   suffix?: string;
 }
 
@@ -257,10 +262,18 @@ function Cell({ label, value, suffix }: CellProps) {
         {label}
       </dt>
       <dd className="mt-0.5 text-base font-semibold text-neutral-100">
-        {value}
-        {suffix && value !== "—" && value !== "…" ? (
-          <span className="ml-1 text-xs font-normal text-muted">{suffix}</span>
-        ) : null}
+        {value === null ? (
+          <Skeleton className="h-5 w-16" />
+        ) : (
+          <>
+            {value}
+            {suffix && value !== "—" ? (
+              <span className="ml-1 text-xs font-normal text-muted">
+                {suffix}
+              </span>
+            ) : null}
+          </>
+        )}
       </dd>
     </div>
   );

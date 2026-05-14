@@ -13,6 +13,8 @@ import {
 } from "@/lib/workout/units";
 import { computeLocalDate } from "@/lib/workout/scheduling";
 
+import Skeleton from "@/components/ui/Skeleton";
+
 import EmptyState from "./EmptyState";
 
 /**
@@ -196,13 +198,13 @@ export default function GoalBanner({
   }, [uid, windowStart]);
 
   if (points === null) {
-    // First paint while subscription is warming up.
     return (
       <div className="rounded-xl border border-border bg-neutral-900/40 px-4 py-3">
         <div className="text-xs font-medium uppercase tracking-wide text-muted">
           Goal
         </div>
-        <p className="mt-1 text-sm text-muted">Loading…</p>
+        <Skeleton className="mt-2 h-5 w-32" />
+        <Skeleton className="mt-2 h-3 w-48" />
       </div>
     );
   }

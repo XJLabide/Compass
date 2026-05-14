@@ -1,7 +1,7 @@
 import type { Timestamp } from "firebase/firestore";
 
 /**
- * Canonical Firestore schema for Personal Tracker.
+ * Canonical Firestore schema for Compass.
  *
  * Conventions (do not break):
  *   - Stored units are canonical: weight in **kg**, water in **ml**, protein in **g**.
@@ -60,6 +60,18 @@ export interface Profile {
   weeklyGainLb: number;
   /** IANA timezone, e.g. `"America/New_York"`. Anchors localDate computation. */
   timezone: Timezone;
+  /** ISO 4217 currency code for the money tracker. Defaults to "USD". */
+  currency?: string;
+  /** Monthly budget caps per category (key is the category string), in minor units of `currency`. */
+  budgets?: Record<string, number>;
+  /** User-defined expense categories that extend the seeded list. Lowercase, ≤ 32 chars each. */
+  customCategories?: string[];
+  /** True once the user has completed the onboarding wizard. */
+  onboarded?: boolean;
+  /** True when the user has opted in to daily reminder notifications. */
+  notificationsEnabled?: boolean;
+  /** "HH:MM" 24-hour local time for the daily check-in nudge. Defaults to "21:00". */
+  reminderTime?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -195,4 +207,66 @@ export interface PRDoc {
   localDate: LocalDate;
   date: Timestamp;
   createdAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// users/{uid}/todos/{todoId}
+// ---------------------------------------------------------------------------
+
+export type TodoPriority = "low" | "medium" | "high";
+
+export type TodoRecurrence = "none" | "daily" | "weekly";
+
+export interface TodoDoc {
+  title: string;
+  /** Free-text note. Optional. */
+  note?: string;
+  done: boolean;
+  priority?: TodoPriority;
+  /** ISO `YYYY-MM-DD` in the user's tz; optional due date. */
+  dueDate?: LocalDate;
+  /** Server timestamp marking when `done` flipped true. */
+  completedAt?: Timestamp;
+  /** If set, completion auto-creates the next instance with bumped dueDate. */
+  recurrence?: TodoRecurrence;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// users/{uid}/expenses/{expenseId}
+// ---------------------------------------------------------------------------
+
+/** Seeded category set. Stored value on `ExpenseDoc` is a free-form string, so
+ *  users can add their own categories from settings. This type is exported as a
+ *  convenience for built-in display labels. */
+export type ExpenseCategory =
+  | "food"
+  | "groceries"
+  | "transport"
+  | "rent"
+  | "utilities"
+  | "entertainment"
+  | "health"
+  | "shopping"
+  | "savings"
+  | "income"
+  | "other";
+
+export interface ExpenseDoc {
+  /** Amount in minor units of the currency (e.g. cents). Always positive; sign comes from `kind`. */
+  amountMinor: number;
+  /** ISO 4217 currency code, e.g. "USD", "PHP". Stored as-entered. */
+  currency: string;
+  /** "expense" subtracts from totals, "income" adds. */
+  kind: "expense" | "income";
+  /** Category — built-in (`ExpenseCategory`) OR a user-defined custom string. */
+  category: string;
+  /** Optional short note ("lunch w/ john"). */
+  note?: string;
+  /** Client-computed `YYYY-MM-DD` in user tz. */
+  localDate: LocalDate;
+  date: Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }

@@ -7,6 +7,7 @@ import { onSnapshot, orderBy, query } from "firebase/firestore";
 import { useAuth } from "@/lib/auth/useAuth";
 import { dailyCollectionPath } from "@/lib/db/paths";
 import type { DailyDoc } from "@/lib/db/types";
+import Skeleton from "@/components/ui/Skeleton";
 
 /**
  * `/history` — listing of every saved daily check-in, newest first.
@@ -58,7 +59,11 @@ export default function HistoryPage() {
       ) : null}
 
       {docs === null && !error ? (
-        <p className="mt-4 text-sm text-muted">Loading…</p>
+        <div className="mt-4 space-y-2">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
       ) : null}
 
       {docs && docs.length === 0 ? (

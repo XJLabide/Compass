@@ -1,6 +1,5 @@
 import type { User } from "firebase/auth";
 import {
-  getDoc,
   serverTimestamp,
   writeBatch,
   type Firestore,
@@ -64,21 +63,24 @@ function deriveDisplayName(user: User): string {
 /**
  * Idempotently seed first-run data for `user`.
  *
- * Returns `true` if a seed write was performed, `false` if the profile already
- * existed and nothing was written. The boolean is mainly useful for tests and
- * for emitting a one-time "Welcome" toast in the UI later — callers can ignore
- * it safely.
+ * **Important:** this function NO LONGER reads the profile before writing. The
+ * caller is expected to verify the profile doesn't exist (typically by reading
+ * the realtime snapshot in `UserDataProvider`) before invoking this. Doing the
+ * "does it exist?" check via a `getDoc` race with the SDK's connection
+ * handshake was causing spurious "client is offline" errors on cold start.
+ *
+ * The batch write itself is naturally idempotent at the data level: if it
+ * somehow runs while a profile exists, it overwrites with the same default
+ * shape (modulo `createdAt` which gets re-stamped — not great, but the only
+ * way that path triggers is a multi-tab race against an empty user).
  */
 export async function ensureSeeded(
   user: User,
   db: Firestore = getFirebaseDb(),
-): Promise<boolean> {
-  const profileRef = profilePath(user.uid, db);
-  const existing = await getDoc(profileRef);
-  if (existing.exists()) return false;
-
+): Promise<void> {
   const batch = writeBatch(db);
   const now = serverTimestamp();
+  const profileRef = profilePath(user.uid, db);
 
   const profile: Profile = {
     displayName: deriveDisplayName(user),
@@ -111,5 +113,4 @@ export async function ensureSeeded(
   }
 
   await batch.commit();
-  return true;
 }

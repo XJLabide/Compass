@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Check, Trophy } from "lucide-react";
 
 import type { LoggedSet, UnitSystem } from "@/lib/db/types";
 import {
@@ -342,15 +343,25 @@ export default function SetRow(props: SetRowProps) {
         </select>
       </div>
 
-      {/* Commit button — collapses into a static check for already-logged rows */}
+      {/* Commit button — collapses into a static check (or PR trophy) for already-logged rows */}
       {isLogged ? (
-        <span
-          aria-label="Logged"
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-accent2/40 bg-accent2/10 text-accent2"
-          title="Logged"
-        >
-          ✓
-        </span>
+        logged?.isPR ? (
+          <span
+            aria-label="Personal record"
+            title="Personal record"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-amber-400/50 bg-amber-400/10 text-amber-300 shadow-[0_0_0_1px_rgba(251,191,36,0.15)]"
+          >
+            <Trophy className="h-4 w-4" />
+          </span>
+        ) : (
+          <span
+            aria-label="Logged"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-accent2/40 bg-accent2/10 text-accent2"
+            title="Logged"
+          >
+            <Check className="h-4 w-4" />
+          </span>
+        )
       ) : (
         <button
           type="button"

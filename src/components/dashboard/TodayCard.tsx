@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { onSnapshot } from "firebase/firestore";
 import { CheckCircle2, Circle, Dumbbell, ClipboardCheck } from "lucide-react";
 
+import Skeleton from "@/components/ui/Skeleton";
 import { dailyPath, programPath } from "@/lib/db/paths";
 import type { DailyDoc, ProgramDoc } from "@/lib/db/types";
 import {
@@ -148,11 +149,13 @@ export default function TodayCard({ uid, timezone }: TodayCardProps) {
             Log workout
           </div>
           <div className="mt-0.5 truncate text-xs text-muted">
-            {!programLoaded
-              ? "Loading…"
-              : scheduled.kind === "session"
-                ? scheduled.session.name
-                : "Rest day"}
+            {!programLoaded ? (
+              <Skeleton className="h-3 w-24" />
+            ) : scheduled.kind === "session" ? (
+              scheduled.session.name
+            ) : (
+              "Rest day"
+            )}
           </div>
         </div>
         <span aria-hidden className="text-muted">
@@ -171,11 +174,13 @@ export default function TodayCard({ uid, timezone }: TodayCardProps) {
             Daily check-in
           </div>
           <div className="mt-0.5 text-xs text-muted">
-            {!dailyLoaded
-              ? "Loading…"
-              : checkedIn
-                ? "Logged for today"
-                : "Not yet logged"}
+            {!dailyLoaded ? (
+              <Skeleton className="h-3 w-28" />
+            ) : checkedIn ? (
+              "Logged for today"
+            ) : (
+              "Not yet logged"
+            )}
           </div>
         </div>
         {dailyLoaded && checkedIn ? (

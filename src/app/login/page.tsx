@@ -1,72 +1,122 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ShieldCheck } from "lucide-react";
+
 import { useAuth } from "@/lib/auth/useAuth";
 import EmailPasswordForm from "@/components/auth/EmailPasswordForm";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+import LoginBackground from "@/components/auth/LoginBackground";
+import LoginHero from "@/components/auth/LoginHero";
 
+/**
+ * `/login` — single centered card with form (left) and hero (right) over an
+ * animated mesh-gradient background. The two halves share the same rounded
+ * outer container with no gap between them, like the reference template.
+ */
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading, signInGoogle, signInEmail } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
-  // If we land on /login while already signed in (refresh after auth, redirect
-  // flow finishing, etc.), route to the home page.
   useEffect(() => {
     if (!loading && user) {
       router.replace("/");
     }
   }, [loading, user, router]);
 
-  // While we don't yet know whether the user is signed-in, keep the form out
-  // of the way to avoid the flash-of-form on a refresh.
   const showForm = !loading && !user;
 
   return (
-    <section className="flex flex-1 flex-col">
-      <header className="mb-8">
-        <h1 className="text-2xl font-semibold text-neutral-100">Sign in</h1>
-        <p className="mt-2 text-sm text-muted">
-          Personal Tracker is single-user. Use the allowlisted account to
-          continue.
-        </p>
-      </header>
+    <>
+      <LoginBackground />
 
-      {showForm ? (
-        <div className="space-y-6">
-          <GoogleSignInButton
-            onSignIn={signInGoogle}
-            onError={(msg) => setError(msg)}
-          />
-
-          <div className="flex items-center gap-3 text-xs text-muted">
-            <span className="h-px flex-1 bg-border" aria-hidden="true" />
-            <span className="uppercase tracking-wide">or</span>
-            <span className="h-px flex-1 bg-border" aria-hidden="true" />
-          </div>
-
-          <EmailPasswordForm
-            onSubmit={async (email, password) => {
-              setError(null);
-              await signInEmail(email, password);
-            }}
-            onError={(msg) => setError(msg)}
-          />
-
-          {error ? (
-            <div
-              role="alert"
-              aria-live="polite"
-              className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
-            >
-              {error}
+      <main className="relative z-10 flex min-h-screen items-center justify-center px-4 py-8">
+        <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/70 shadow-2xl shadow-black/50 backdrop-blur-xl lg:grid-cols-[1fr_1fr]">
+          {/* Form half */}
+          <section className="relative flex flex-col border-white/10 lg:border-r">
+            <div className="flex items-center gap-2.5 border-b border-white/10 px-6 py-3.5">
+              <Image
+                src="/logo-mark.svg"
+                alt=""
+                width={22}
+                height={22}
+                priority
+                unoptimized
+                className="h-[22px] w-[22px]"
+              />
+              <span className="text-[13px] font-semibold tracking-tight text-neutral-100">
+                Compass
+              </span>
+              <span className="ml-auto inline-flex items-center gap-1 text-[9px] font-medium uppercase tracking-[0.15em] text-muted">
+                <ShieldCheck className="h-3 w-3" />
+                Allowlist
+              </span>
             </div>
-          ) : null}
+
+            <div className="flex flex-1 flex-col justify-center px-6 py-8 sm:px-8">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-cyan-300/80">
+                Secure workspace
+              </p>
+              <h1 className="mt-1.5 text-[26px] font-semibold leading-tight tracking-tight text-neutral-100">
+                Welcome back
+              </h1>
+              <p className="mt-2 text-xs leading-relaxed text-muted">
+                Compass is single-user. Use the allowlisted account to continue.
+              </p>
+
+              {showForm ? (
+                <div className="mt-6 space-y-4">
+                  <GoogleSignInButton
+                    onSignIn={signInGoogle}
+                    onError={(msg) => setError(msg)}
+                  />
+
+                  <div className="flex items-center gap-3 text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
+                    <span className="h-px flex-1 bg-white/10" aria-hidden="true" />
+                    <span>or with email</span>
+                    <span className="h-px flex-1 bg-white/10" aria-hidden="true" />
+                  </div>
+
+                  <EmailPasswordForm
+                    onSubmit={async (email, password) => {
+                      setError(null);
+                      await signInEmail(email, password);
+                    }}
+                    onError={(msg) => setError(msg)}
+                  />
+
+                  {error ? (
+                    <div
+                      role="alert"
+                      aria-live="polite"
+                      className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+                    >
+                      {error}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="mt-6 space-y-3">
+                  <div className="h-12 w-full animate-pulse rounded-lg bg-white/5" />
+                  <div className="h-12 w-full animate-pulse rounded-lg bg-white/5" />
+                  <div className="h-12 w-full animate-pulse rounded-lg bg-white/5" />
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-white/10 px-6 py-3 text-[10px] text-muted">
+              By signing in you agree to Compass storing your data in Firestore
+              under your account.
+            </div>
+          </section>
+
+          {/* Hero half (lg+) */}
+          <LoginHero />
         </div>
-      ) : (
-        <div className="text-sm text-muted">Loading…</div>
-      )}
-    </section>
+      </main>
+    </>
   );
 }

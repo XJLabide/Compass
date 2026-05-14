@@ -13,7 +13,20 @@ import { useAuth } from "@/lib/auth/useAuth";
 import { profilePath } from "@/lib/db/paths";
 import type { Profile, Timezone, UnitSystem } from "@/lib/db/types";
 
+import {
+  Bell,
+  Globe,
+  LogOut,
+  Ruler,
+  Tag,
+  Target,
+  User as UserIcon,
+  type LucideIcon,
+} from "lucide-react";
+
 import InstallPrompt from "@/components/InstallPrompt";
+import CustomCategoriesSection from "@/components/settings/CustomCategoriesSection";
+import NotificationsSection from "@/components/settings/NotificationsSection";
 import TargetInput from "@/components/settings/TargetInput";
 import TimezoneSelect, {
   detectTimezone,
@@ -165,121 +178,122 @@ export default function SettingsPage() {
   const disabled = !profileLoaded;
 
   return (
-    <section>
-      <div className="flex items-baseline justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-neutral-100">Settings</h1>
+    <section className="space-y-6">
+      <div className="flex items-baseline justify-between gap-3 border-b border-border pb-3">
+        <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">
+          Settings
+        </h1>
         <SaveIndicator state={saveState} />
       </div>
-      <p className="mt-2 text-sm text-muted">
-        Display preferences and targets. Stored values stay canonical (kg / g) —
-        switching units only changes how numbers are shown.
-      </p>
 
       {loadError ? (
         <div
           role="alert"
           aria-live="polite"
-          className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+          className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
         >
           {loadError}
         </div>
       ) : null}
 
       {/* Preferences */}
-      <div className="mt-6 space-y-5 rounded-xl border border-border bg-neutral-900/40 p-4">
-        <div>
-          <h2 className="text-sm font-medium text-neutral-200">Units</h2>
-          <p className="mt-1 text-xs text-muted">
-            Display-only. Does not rewrite history.
-          </p>
-          <div className="mt-2">
-            <UnitToggle
-              value={profile?.unitSystem ?? "imperial"}
-              onChange={handleUnitChange}
-              disabled={disabled}
-            />
-          </div>
-        </div>
+      <SettingsGroup
+        icon={Ruler}
+        title="Units"
+        subtitle="Display-only. Stored values are always canonical (kg / g)."
+      >
+        <UnitToggle
+          value={profile?.unitSystem ?? "imperial"}
+          onChange={handleUnitChange}
+          disabled={disabled}
+        />
+      </SettingsGroup>
 
-        <div>
-          <label
-            htmlFor="settings-timezone"
-            className="block text-sm font-medium text-neutral-200"
-          >
-            Timezone
-          </label>
-          <p className="mt-1 text-xs text-muted">
-            Anchors which day a check-in counts toward.
-            {detectedTz ? ` Detected: ${detectedTz}.` : null}
-          </p>
-          <div className="mt-2">
-            <TimezoneSelect
-              id="settings-timezone"
-              value={profile?.timezone ?? detectTimezone()}
-              onChange={handleTimezoneChange}
-              disabled={disabled}
-            />
-          </div>
-        </div>
-      </div>
+      <SettingsGroup
+        icon={Globe}
+        title="Timezone"
+        subtitle={`Anchors which day a check-in counts toward.${detectedTz ? ` Detected: ${detectedTz}.` : ""}`}
+      >
+        <TimezoneSelect
+          id="settings-timezone"
+          value={profile?.timezone ?? detectTimezone()}
+          onChange={handleTimezoneChange}
+          disabled={disabled}
+        />
+      </SettingsGroup>
 
       {/* Targets */}
-      <div className="mt-6 space-y-4 rounded-xl border border-border bg-neutral-900/40 p-4">
-        <h2 className="text-sm font-medium text-neutral-200">Targets</h2>
+      <SettingsGroup
+        icon={Target}
+        title="Targets"
+        subtitle="Numbers your dashboard widgets compare against."
+      >
+        <div className="space-y-4">
+          <TargetInput
+            id="settings-protein-target"
+            label="Daily protein"
+            value={profile?.proteinTargetG ?? 0}
+            onCommit={handleProteinCommit}
+            unit="g / day"
+            min={0}
+            max={500}
+            step={1}
+            disabled={disabled}
+          />
 
-        <TargetInput
-          id="settings-protein-target"
-          label="Daily protein"
-          value={profile?.proteinTargetG ?? 0}
-          onCommit={handleProteinCommit}
-          unit="g / day"
-          min={0}
-          max={500}
-          step={1}
-          disabled={disabled}
-        />
-
-        <TargetInput
-          id="settings-weekly-gain"
-          label="Weekly bodyweight gain"
-          value={profile?.weeklyGainLb ?? 0}
-          onCommit={handleWeeklyGainCommit}
-          unit="lb / week"
-          min={-5}
-          max={5}
-          step={0.1}
-          disabled={disabled}
-        />
-      </div>
+          <TargetInput
+            id="settings-weekly-gain"
+            label="Weekly bodyweight gain"
+            value={profile?.weeklyGainLb ?? 0}
+            onCommit={handleWeeklyGainCommit}
+            unit="lb / week"
+            min={-5}
+            max={5}
+            step={0.1}
+            disabled={disabled}
+          />
+        </div>
+      </SettingsGroup>
 
       {saveError ? (
         <div
           role="alert"
           aria-live="polite"
-          className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+          className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
         >
           {saveError}
         </div>
       ) : null}
 
-      {/* PWA install affordance (renders nothing when already installed). */}
+      {/* Expense categories */}
+      <SettingsGroup
+        icon={Tag}
+        title="Expense categories"
+        subtitle="Add your own categories to use in the Money tracker."
+      >
+        <CustomCategoriesSection />
+      </SettingsGroup>
+
+      {/* Notifications */}
+      <SettingsGroup
+        icon={Bell}
+        title="Notifications"
+        subtitle="Daily nudge if you haven't logged anything yet."
+      >
+        <NotificationsSection />
+      </SettingsGroup>
+
       <InstallPrompt />
 
       {/* Account */}
-      <div className="mt-6 space-y-3 rounded-xl border border-border bg-neutral-900/40 p-4">
-        <div>
-          <h2 className="text-sm font-medium text-neutral-200">Account</h2>
-          {user?.email ? (
-            <p className="mt-1 text-xs text-muted break-all">{user.email}</p>
-          ) : null}
-        </div>
-
+      <SettingsGroup icon={UserIcon} title="Account" subtitle={user?.email ?? ""}>
         <button
           type="button"
           onClick={handleSignOut}
           disabled={signingOut}
-          className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-border bg-neutral-900 px-4 text-sm font-medium text-neutral-100 transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-neutral-900 px-4 text-sm font-medium text-neutral-100 transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
+          <LogOut aria-hidden className="h-4 w-4" />
           {signingOut ? "Signing out…" : "Sign out"}
         </button>
 
@@ -287,13 +301,42 @@ export default function SettingsPage() {
           <div
             role="alert"
             aria-live="polite"
-            className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+            className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
           >
             {signOutError}
           </div>
         ) : null}
-      </div>
+      </SettingsGroup>
     </section>
+  );
+}
+
+function SettingsGroup({
+  icon: Icon,
+  title,
+  subtitle,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-neutral-900/40 p-4">
+      <div className="flex items-center gap-2">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
+          <Icon aria-hidden className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-neutral-100">{title}</h2>
+          {subtitle ? (
+            <p className="text-[11px] text-muted break-all">{subtitle}</p>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-3">{children}</div>
+    </div>
   );
 }
 

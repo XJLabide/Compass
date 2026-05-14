@@ -60,14 +60,6 @@ service cloud.firestore {
         && data.localDate is string;
     }
 
-    function setValid(s) {
-      return s.weightKg is number && s.weightKg >= 0
-        && s.reps is int && s.reps >= 0
-        && (!('rpe' in s) || (s.rpe is number && s.rpe >= 1 && s.rpe <= 10))
-        && s.exerciseId is string
-        && s.order is int && s.order >= 0;
-    }
-
     function sessionValid(data) {
       // sets must be a list; per-set validation handled at write time on client.
       // We at least require it to be a list and the metadata to be well-shaped.
@@ -94,7 +86,13 @@ service cloud.firestore {
         && data.unitSystem in ['imperial', 'metric']
         && data.proteinTargetG is number && data.proteinTargetG >= 0
         && data.weeklyGainLb is number
-        && data.timezone is string;
+        && data.timezone is string
+        && (!('currency' in data) || (data.currency is string && data.currency.size() == 3))
+        && (!('budgets' in data) || data.budgets is map)
+        && (!('customCategories' in data) || (data.customCategories is list && data.customCategories.size() <= 50))
+        && (!('onboarded' in data) || data.onboarded is bool)
+        && (!('notificationsEnabled' in data) || data.notificationsEnabled is bool)
+        && (!('reminderTime' in data) || data.reminderTime is string);
     }
 
     function exerciseValid(data) {
@@ -106,6 +104,24 @@ service cloud.firestore {
     function programValid(data) {
       return data.name is string
         && data.sessions is list;
+    }
+
+    function todoValid(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() <= 500
+        && data.done is bool
+        && (!('note' in data) || (data.note is string && data.note.size() <= 5000))
+        && (!('priority' in data) || data.priority in ['low', 'medium', 'high'])
+        && (!('dueDate' in data) || data.dueDate is string)
+        && (!('recurrence' in data) || data.recurrence in ['none', 'daily', 'weekly']);
+    }
+
+    function expenseValid(data) {
+      return data.amountMinor is int && data.amountMinor >= 0 && data.amountMinor <= 100000000
+        && data.currency is string && data.currency.size() == 3
+        && data.kind in ['expense', 'income']
+        && data.category is string
+        && data.localDate is string
+        && (!('note' in data) || (data.note is string && data.note.size() <= 1000));
     }
 
     // -------------------------------------------------------------------
@@ -143,6 +159,18 @@ service cloud.firestore {
       match /prs/{prId} {
         allow read: if isOwner(uid);
         allow write: if isOwner(uid) && prValid(request.resource.data);
+      }
+
+      match /todos/{todoId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && todoValid(request.resource.data);
+        allow delete: if isOwner(uid);
+      }
+
+      match /expenses/{expenseId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && expenseValid(request.resource.data);
+        allow delete: if isOwner(uid);
       }
     }
   }

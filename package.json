@@ -1,5 +1,5 @@
 {
-  "name": "personal-tracker",
+  "name": "compass",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@paper-design/shaders-react": "^0.0.76",
     "clsx": "2.1.1",
     "date-fns": "3.6.0",
     "firebase": "10.13.0",

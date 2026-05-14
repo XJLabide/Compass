@@ -18,8 +18,6 @@ import {
   type User,
 } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase";
-import { isAllowed } from "@/lib/auth/allowlist";
-import { ensureSeeded } from "@/lib/db/seed";
 
 export type AuthContextValue = {
   user: User | null;
@@ -48,28 +46,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     return unsub;
   }, []);
-
-  // First-run seed: when an allowlisted user signs in, idempotently create
-  // their profile/program/exercises. `ensureSeeded` no-ops on subsequent
-  // sign-ins (it checks for an existing profile doc before writing).
-  useEffect(() => {
-    if (!user) return;
-    if (!isAllowed(user.email)) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        await ensureSeeded(user);
-      } catch (err) {
-        if (cancelled) return;
-        // Don't block the app on seed failure — surface to console so we can
-        // diagnose. Subsequent sign-ins will retry (no profile = re-seed).
-        console.error("[seed] ensureSeeded failed:", err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
 
   const signInGoogle = useCallback(async () => {
     const auth = getFirebaseAuth();

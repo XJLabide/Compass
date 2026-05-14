@@ -15,6 +15,7 @@ import {
 import { kgToDisplay, weightUnitLabel } from "@/lib/workout/units";
 
 import MiniChart, { type MiniChartPoint } from "@/components/dashboard/MiniChart";
+import Skeleton from "@/components/ui/Skeleton";
 
 /**
  * Dashboard Trends — four mini line charts across the last 8 weeks.
@@ -216,16 +217,18 @@ function TrendCell({
           {label}
         </span>
         <span className="text-sm font-semibold text-neutral-100">
-          {!loaded
-            ? "…"
-            : latest === null
-              ? "—"
-              : `${latest.toFixed(latestDigits)} ${unit}`}
+          {!loaded ? (
+            <Skeleton className="inline-block h-4 w-12 align-middle" />
+          ) : latest === null ? (
+            "—"
+          ) : (
+            `${latest.toFixed(latestDigits)} ${unit}`
+          )}
         </span>
       </div>
       <div className="mt-2">
         {!loaded ? (
-          <div className="h-16 rounded bg-neutral-900/40" />
+          <Skeleton className="h-16 w-full" />
         ) : enough ? (
           <MiniChart data={chartData} />
         ) : (
