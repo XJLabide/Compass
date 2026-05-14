@@ -70,10 +70,10 @@ export default function EmailPasswordForm({
           aria-invalid={emailError ? "true" : undefined}
           aria-describedby={emailError ? "email-error" : undefined}
           className={clsx(
-            "mt-1 block h-12 w-full rounded-lg border bg-panel2 px-3",
+            "mt-1 block h-12 w-full rounded-lg border bg-white/5 px-3",
             "text-base text-neutral-100 placeholder:text-muted",
-            "focus:outline-none focus:ring-2 focus:ring-accent",
-            emailError ? "border-red-500" : "border-border",
+            "transition-colors focus:outline-none focus:border-accent focus:bg-white/[0.07] focus:ring-2 focus:ring-accent/40",
+            emailError ? "border-red-500" : "border-white/10",
           )}
           placeholder="you@example.com"
         />
@@ -100,9 +100,9 @@ export default function EmailPasswordForm({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className={clsx(
-            "mt-1 block h-12 w-full rounded-lg border border-border bg-panel2 px-3",
+            "mt-1 block h-12 w-full rounded-lg border border-white/10 bg-white/5 px-3",
             "text-base text-neutral-100 placeholder:text-muted",
-            "focus:outline-none focus:ring-2 focus:ring-accent",
+            "transition-colors focus:outline-none focus:border-accent focus:bg-white/[0.07] focus:ring-2 focus:ring-accent/40",
           )}
           placeholder="••••••••"
         />
@@ -113,10 +113,12 @@ export default function EmailPasswordForm({
         disabled={busy || disabled}
         aria-busy={busy}
         className={clsx(
-          "h-12 w-full rounded-lg bg-accent px-4 text-sm font-semibold",
-          "text-bg transition-colors hover:bg-accent/90",
+          "h-12 w-full rounded-lg bg-accent px-4 text-sm font-semibold text-bg",
+          "transition duration-150 ease-out",
+          "hover:brightness-110 hover:shadow-[0_0_28px_-8px_rgba(34,211,238,0.55)]",
+          "active:scale-[0.99]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-          "disabled:opacity-60 disabled:cursor-not-allowed",
+          "disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none",
         )}
       >
         {busy ? "Signing in…" : "Sign in"}

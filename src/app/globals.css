@@ -87,3 +87,82 @@
     animation: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Demo preview — synthetic "screen recording" used on the login hero. Each
+   element animates on its own offset so the mock feels alive without being
+   distracting. Single 12s loop so the whole mock returns to its initial state.
+   --------------------------------------------------------------------------- */
+.demo-streak {
+  animation: demo-streak-count 12s linear infinite;
+}
+.demo-net {
+  animation: demo-net-count 12s linear infinite;
+}
+.demo-money-bar {
+  animation: demo-money-bar 12s ease-in-out infinite;
+  transform-origin: left center;
+}
+.demo-spark {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: demo-spark-draw 12s ease-in-out infinite;
+}
+.demo-todo--done .demo-check {
+  animation: demo-check-fill 12s ease-in-out infinite;
+}
+.demo-todo--done .demo-text {
+  animation: demo-text-strike 12s ease-in-out infinite;
+}
+
+@keyframes demo-streak-count {
+  0%   { content: "14"; }
+  100% { content: "14"; }
+}
+@keyframes demo-net-count {
+  /* CSS counter trick wouldn't work here; we animate opacity in/out instead */
+  0%, 5% { opacity: 0; }
+  10%, 95% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes demo-money-bar {
+  0% { transform: scaleX(0.2); }
+  60% { transform: scaleX(0.78); }
+  100% { transform: scaleX(0.78); }
+}
+@keyframes demo-spark-draw {
+  0% { stroke-dashoffset: 200; }
+  60% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 0; }
+}
+@keyframes demo-check-fill {
+  0%, 30% {
+    background-color: transparent;
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  45%, 100% {
+    background-color: rgba(52, 211, 153, 0.2);
+    border-color: rgba(52, 211, 153, 0.6);
+  }
+}
+@keyframes demo-text-strike {
+  0%, 30% {
+    color: #f5f5f5;
+    text-decoration: none;
+  }
+  45%, 100% {
+    color: #8b8b96;
+    text-decoration: line-through;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-streak,
+  .demo-net,
+  .demo-money-bar,
+  .demo-spark,
+  .demo-todo--done .demo-check,
+  .demo-todo--done .demo-text {
+    animation: none !important;
+  }
+}

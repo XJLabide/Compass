@@ -37,8 +37,11 @@ export default function GoogleSignInButton({
       aria-busy={busy}
       className={clsx(
         "flex h-12 w-full items-center justify-center gap-3 rounded-lg",
-        "border border-border bg-panel2 px-4 text-sm font-medium text-neutral-100",
-        "transition-colors hover:bg-panel disabled:opacity-60 disabled:cursor-not-allowed",
+        "border border-white/10 bg-white/5 px-4 text-sm font-medium text-neutral-100",
+        "transition duration-150 ease-out",
+        "hover:border-white/15 hover:bg-white/[0.08]",
+        "active:scale-[0.99]",
+        "disabled:opacity-60 disabled:cursor-not-allowed",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
       )}
     >

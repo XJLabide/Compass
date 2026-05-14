@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
 
 import { useAuth } from "@/lib/auth/useAuth";
 import EmailPasswordForm from "@/components/auth/EmailPasswordForm";
@@ -50,17 +49,10 @@ export default function LoginPage() {
               <span className="text-[13px] font-semibold tracking-tight text-neutral-100">
                 Compass
               </span>
-              <span className="ml-auto inline-flex items-center gap-1 text-[9px] font-medium uppercase tracking-[0.15em] text-muted">
-                <ShieldCheck className="h-3 w-3" />
-                Allowlist
-              </span>
             </div>
 
             <div className="flex flex-1 flex-col justify-center px-6 py-8 sm:px-8">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-cyan-300/80">
-                Secure workspace
-              </p>
-              <h1 className="mt-1.5 text-[26px] font-semibold leading-tight tracking-tight text-neutral-100">
+              <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-neutral-100">
                 Welcome back
               </h1>
               <p className="mt-2 text-xs leading-relaxed text-muted">
@@ -69,22 +61,22 @@ export default function LoginPage() {
 
               {showForm ? (
                 <div className="mt-6 space-y-4">
-                  <GoogleSignInButton
-                    onSignIn={signInGoogle}
-                    onError={(msg) => setError(msg)}
-                  />
-
-                  <div className="flex items-center gap-3 text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
-                    <span className="h-px flex-1 bg-white/10" aria-hidden="true" />
-                    <span>or with email</span>
-                    <span className="h-px flex-1 bg-white/10" aria-hidden="true" />
-                  </div>
-
                   <EmailPasswordForm
                     onSubmit={async (email, password) => {
                       setError(null);
                       await signInEmail(email, password);
                     }}
+                    onError={(msg) => setError(msg)}
+                  />
+
+                  <div className="flex items-center gap-3 text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
+                    <span className="h-px flex-1 bg-white/10" aria-hidden="true" />
+                    <span>or</span>
+                    <span className="h-px flex-1 bg-white/10" aria-hidden="true" />
+                  </div>
+
+                  <GoogleSignInButton
+                    onSignIn={signInGoogle}
                     onError={(msg) => setError(msg)}
                   />
 
@@ -105,11 +97,6 @@ export default function LoginPage() {
                   <div className="h-12 w-full animate-pulse rounded-lg bg-white/5" />
                 </div>
               )}
-            </div>
-
-            <div className="border-t border-white/10 px-6 py-3 text-[10px] text-muted">
-              By signing in you agree to Compass storing your data in Firestore
-              under your account.
             </div>
           </section>
 
