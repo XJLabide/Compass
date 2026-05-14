@@ -15,8 +15,10 @@ import {
   setDoc,
   type PartialWithFieldValue,
 } from "firebase/firestore";
+import clsx from "clsx";
 
 import { useAuth } from "@/lib/auth/useAuth";
+import { useSidebar } from "@/lib/ui/sidebar-state";
 import { dailyPath } from "@/lib/db/paths";
 import type { DailyDoc, Profile } from "@/lib/db/types";
 import {
@@ -533,10 +535,15 @@ export default function CheckInForm({
 /**
  * Sticky submit footer that floats above the mobile bottom tab bar on small
  * screens, and sits at the natural viewport bottom (bottom-4) on md+ where
- * there is no bottom tab bar. The container also mirrors the responsive
- * max-width of the main layout so the pill never overflows on wide viewports.
+ * there is no bottom tab bar.
+ *
+ * On md+ the footer respects the sidebar width — `inset-x-0` alone would span
+ * the full viewport including the sidebar slot, causing `mx-auto` to land
+ * off-center against the visible content. We mirror `SidebarAwareMain`'s
+ * left offset so the centering line up with the form.
  */
 function MobileSubmitFooter({ children }: { children: React.ReactNode }) {
+  const { collapsed } = useSidebar();
   return (
     <>
       {/* Mobile: fixed above the 56px tab bar + safe-area inset */}
@@ -549,10 +556,17 @@ function MobileSubmitFooter({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* md+: fixed at viewport bottom, wider container, no tab-bar offset */}
-      <div className="hidden md:block fixed inset-x-0 bottom-4 z-30 mx-auto max-w-3xl px-8 lg:max-w-5xl xl:max-w-6xl">
-        <div className="rounded-xl border border-border bg-panel/95 p-3 shadow-lg backdrop-blur">
-          {children}
+      {/* md+: shifted right by sidebar width so the auto-center sits over the form */}
+      <div
+        className={clsx(
+          "hidden md:block fixed bottom-4 right-0 z-30 px-8",
+          collapsed ? "md:left-16" : "md:left-56",
+        )}
+      >
+        <div className="mx-auto max-w-3xl lg:max-w-5xl xl:max-w-6xl">
+          <div className="rounded-xl border border-border bg-panel/95 p-3 shadow-lg backdrop-blur">
+            {children}
+          </div>
         </div>
       </div>
     </>
