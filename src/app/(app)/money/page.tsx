@@ -124,17 +124,21 @@ export default function MoneyPage() {
       setAdding(true);
       try {
         const minor = Math.round(value * 100);
-        await addDoc(expensesPath(uid), {
+        // Firestore rejects `undefined` field values, so build the payload
+        // with the note key only when it has content.
+        const trimmedNote = note.trim();
+        const payload: Record<string, unknown> = {
           amountMinor: minor,
           currency: userCurrency,
           kind,
           category: kind === "income" ? "income" : category,
-          note: note.trim() || undefined,
           localDate: today,
           date: serverTimestamp(),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-        } as unknown as ExpenseDoc);
+        };
+        if (trimmedNote) payload.note = trimmedNote;
+        await addDoc(expensesPath(uid), payload as unknown as ExpenseDoc);
         setAmount("");
         setNote("");
       } catch (err) {

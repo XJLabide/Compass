@@ -1,11 +1,13 @@
 import { getApp, getApps, initializeApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
 import {
   browserLocalPersistence,
+  connectAuthEmulator,
   getAuth,
   setPersistence,
   type Auth,
 } from "firebase/auth";
 import {
+  connectFirestoreEmulator,
   getFirestore,
   initializeFirestore,
   persistentLocalCache,
@@ -69,6 +71,15 @@ function readConfig(): FirebaseOptions {
 // NEXT_PUBLIC_FIREBASE_DB_ID to support multi-database projects.
 const DB_ID = process.env.NEXT_PUBLIC_FIREBASE_DB_ID || "(default)";
 
+/**
+ * When `NEXT_PUBLIC_USE_EMULATORS === "true"`, the app connects to the local
+ * Firebase emulator suite (Auth on 9099, Firestore on 8080) instead of the
+ * production project. Used by Playwright e2e tests to keep prod data isolated.
+ */
+const USE_EMULATORS = process.env.NEXT_PUBLIC_USE_EMULATORS === "true";
+const EMULATOR_HOST =
+  process.env.NEXT_PUBLIC_EMULATOR_HOST || "127.0.0.1";
+
 function init(): FirebaseHandles {
   if (handles) return handles;
 
@@ -79,18 +90,21 @@ function init(): FirebaseHandles {
   // Try to enable persistent IndexedDB cache with multi-tab support. Safari
   // private mode and some embedded webviews block IndexedDB; fall back to the
   // default in-memory Firestore in that case so the app still works.
+  // In emulator mode we skip persistence to keep tests deterministic.
   let db: Firestore;
   if (isNewApp) {
     try {
-      db = initializeFirestore(
-        app,
-        {
-          localCache: persistentLocalCache({
-            tabManager: persistentMultipleTabManager(),
-          }),
-        },
-        DB_ID,
-      );
+      db = USE_EMULATORS
+        ? initializeFirestore(app, {}, DB_ID)
+        : initializeFirestore(
+            app,
+            {
+              localCache: persistentLocalCache({
+                tabManager: persistentMultipleTabManager(),
+              }),
+            },
+            DB_ID,
+          );
     } catch (err) {
       if (!firestorePersistenceWarned) {
         firestorePersistenceWarned = true;
@@ -104,6 +118,22 @@ function init(): FirebaseHandles {
     }
   } else {
     db = getFirestore(app, DB_ID);
+  }
+
+  // Hook emulators (idempotent — Firebase SDK no-ops on duplicate calls).
+  if (USE_EMULATORS && isNewApp) {
+    try {
+      connectAuthEmulator(auth, `http://${EMULATOR_HOST}:9099`, {
+        disableWarnings: true,
+      });
+    } catch {
+      /* already connected */
+    }
+    try {
+      connectFirestoreEmulator(db, EMULATOR_HOST, 8080);
+    } catch {
+      /* already connected */
+    }
   }
 
   // Set persistence once; fire-and-forget. Errors are swallowed because the

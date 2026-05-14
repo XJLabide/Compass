@@ -9,3 +9,10 @@ next-env.d.ts
 .omc/
 .claude/
 .flow/
+
+# Playwright
+.playwright-tmp/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
