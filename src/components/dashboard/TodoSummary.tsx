@@ -9,7 +9,6 @@ import {
   query,
   serverTimestamp,
   updateDoc,
-  where,
 } from "firebase/firestore";
 import {
   ArrowRight,
@@ -34,15 +33,20 @@ export default function TodoSummary({ uid }: TodoSummaryProps) {
 
   useEffect(() => {
     if (!uid) return;
+    // Fetch a small window of recent todos and filter `done` in memory.
+    // Avoids requiring a Firestore composite index on (done, createdAt).
     const q = query(
       todosPath(uid),
-      where("done", "==", false),
       orderBy("createdAt", "desc"),
-      limit(3),
+      limit(20),
     );
     const unsub = onSnapshot(
       q,
-      (snap) => setRows(snap.docs.map((d) => ({ id: d.id, data: d.data() }))),
+      (snap) => {
+        const all = snap.docs.map((d) => ({ id: d.id, data: d.data() }));
+        const open = all.filter((r) => !r.data.done).slice(0, 3);
+        setRows(open);
+      },
       () => setRows([]),
     );
     return () => unsub();

@@ -246,14 +246,13 @@ export default function TodayPage() {
 
       {/* Progress counters */}
       <ProgressStrip
-        todosTotal={todayTodos.overdue.length + todayTodos.dueToday.length}
+        todosTotal={
+          todayTodos.overdue.length +
+          todayTodos.dueToday.length +
+          todayTodos.noDate.length
+        }
         todosDoneToday={
-          (todos ?? []).filter(
-            (r) =>
-              r.data.done &&
-              r.data.dueDate &&
-              r.data.dueDate <= today,
-          ).length
+          (todos ?? []).filter((r) => r.data.done).length
         }
         routinesTotal={scheduledRoutines.list.length}
         routinesDone={scheduledRoutines.done.length}
@@ -278,6 +277,7 @@ export default function TodayPage() {
         uid={uid}
         overdue={todayTodos.overdue}
         dueToday={todayTodos.dueToday}
+        noDate={todayTodos.noDate}
         today={today}
         loaded={todos !== null}
       />
@@ -583,12 +583,14 @@ function TodosSection({
   uid,
   overdue,
   dueToday,
+  noDate,
   today,
   loaded,
 }: {
   uid: string;
   overdue: TodoRow[];
   dueToday: TodoRow[];
+  noDate: TodoRow[];
   today: string;
   loaded: boolean;
 }) {
@@ -616,6 +618,8 @@ function TodosSection({
       const db = getFirebaseDb();
       const batch = writeBatch(db);
       const tomorrow = addDaysIso(today, 1);
+      // Only push items that have (or will have) a date — overdue + due today.
+      // Undated todos stay undated (they aren't "today-only").
       for (const row of [...overdue, ...dueToday]) {
         batch.update(todoPath(uid, row.id), {
           dueDate: tomorrow,
@@ -635,7 +639,7 @@ function TodosSection({
     return <SectionSkeleton title="Todos" />;
   }
 
-  const total = overdue.length + dueToday.length;
+  const total = overdue.length + dueToday.length + noDate.length;
 
   return (
     <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
@@ -657,22 +661,43 @@ function TodosSection({
           Nothing on the list. ✓
         </p>
       ) : (
-        <ul className="mt-2 space-y-1">
-          {overdue.map((r) => (
-            <TodoLine
-              key={r.id}
-              row={r}
-              overdue
-              onToggle={() => toggle(r)}
-            />
-          ))}
-          {dueToday.map((r) => (
-            <TodoLine key={r.id} row={r} onToggle={() => toggle(r)} />
-          ))}
-        </ul>
+        <div className="mt-2 space-y-3">
+          {overdue.length > 0 || dueToday.length > 0 ? (
+            <ul className="space-y-1">
+              {overdue.map((r) => (
+                <TodoLine
+                  key={r.id}
+                  row={r}
+                  overdue
+                  onToggle={() => toggle(r)}
+                />
+              ))}
+              {dueToday.map((r) => (
+                <TodoLine key={r.id} row={r} onToggle={() => toggle(r)} />
+              ))}
+            </ul>
+          ) : null}
+
+          {noDate.length > 0 ? (
+            <div>
+              <div className="mb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-muted">
+                No date
+              </div>
+              <ul className="space-y-1">
+                {noDate.map((r) => (
+                  <TodoLine
+                    key={r.id}
+                    row={r}
+                    onToggle={() => toggle(r)}
+                  />
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
       )}
 
-      {total > 0 ? (
+      {overdue.length + dueToday.length > 0 ? (
         <button
           type="button"
           onClick={() => setPushOpen(true)}
@@ -685,9 +710,11 @@ function TodosSection({
 
       <ConfirmDialog
         open={pushOpen}
-        title={`Push ${total} todo${total === 1 ? "" : "s"} to tomorrow?`}
-        description={`Every incomplete todo with a due date through today will be moved to ${addDaysIso(today, 1)}.`}
-        confirmLabel={`Push ${total}`}
+        title={`Push ${overdue.length + dueToday.length} todo${
+          overdue.length + dueToday.length === 1 ? "" : "s"
+        } to tomorrow?`}
+        description={`Every incomplete todo with a due date through today will be moved to ${addDaysIso(today, 1)}. Undated todos stay undated.`}
+        confirmLabel={`Push ${overdue.length + dueToday.length}`}
         busy={pushing}
         onConfirm={pushToTomorrow}
         onCancel={() => setPushOpen(false)}
