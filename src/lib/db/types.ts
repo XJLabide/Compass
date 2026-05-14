@@ -103,6 +103,13 @@ export interface ProgramDoc {
   /** Program template name, e.g. `"Upper/Lower"`. */
   name: string;
   sessions: ProgramSession[];
+  /**
+   * Optional custom day-of-week schedule. Keys are stringified DOW indices
+   * ("0"=Sun..."6"=Sat). Values are a session.id from `sessions[]` OR `null`
+   * for an explicit rest day. When absent, the default mapping is used
+   * (see scheduling.ts).
+   */
+  schedule?: Record<string, string | null>;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

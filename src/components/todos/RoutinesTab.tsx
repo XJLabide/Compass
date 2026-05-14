@@ -42,6 +42,7 @@ import {
 } from "@/lib/routines/helpers";
 import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type Row = { id: string; data: RoutineDoc };
 
@@ -313,6 +314,8 @@ function RoutineCard({
   const [draftName, setDraftName] = useState(data.name);
   const [draftDays, setDraftDays] = useState<number[]>(data.weekdays);
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const scheduleSet = useMemo(() => new Set(data.weekdays), [data.weekdays]);
   const scheduledToday = scheduleSet.has(todayDow);
@@ -366,13 +369,16 @@ function RoutineCard({
   );
 
   const remove = useCallback(async () => {
-    if (!confirm(`Delete "${data.name}"? This can't be undone.`)) return;
+    setRemoving(true);
     try {
       await deleteDoc(routinePath(uid, id));
+      setConfirmOpen(false);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setRemoving(false);
     }
-  }, [uid, id, data.name, onError]);
+  }, [uid, id, onError]);
 
   const saveEdit = useCallback(async () => {
     const trimmed = draftName.trim();
@@ -483,7 +489,12 @@ function RoutineCard({
                     onClick={() => setEditing(true)}
                     Icon={Pencil}
                   />
-                  <IconBtn label="Delete" onClick={remove} Icon={Trash2} danger />
+                  <IconBtn
+                    label="Delete"
+                    onClick={() => setConfirmOpen(true)}
+                    Icon={Trash2}
+                    danger
+                  />
                 </div>
               </div>
               <p className="mt-0.5 text-[11px] text-muted">
@@ -512,6 +523,17 @@ function RoutineCard({
               </div>
             </div>
           </div>
+
+          <ConfirmDialog
+            open={confirmOpen}
+            tone="danger"
+            title={`Delete "${data.name}"?`}
+            description="This routine and its entire streak history will be removed. This can't be undone."
+            confirmLabel="Delete"
+            busy={removing}
+            onConfirm={remove}
+            onCancel={() => setConfirmOpen(false)}
+          />
 
           {/* 28-day heatmap */}
           <div className="mt-3 flex gap-[3px] overflow-hidden">

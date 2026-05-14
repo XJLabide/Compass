@@ -56,6 +56,11 @@ export type TodayScheduled =
  * current day-of-week. Returns `{ kind: "rest" }` when no session is planned
  * for today (rest day, missing program, or empty `sessions[]`).
  *
+ * Resolution order:
+ *   1. If `program.schedule` is set and has an entry for `dayOfWeek`, honor it
+ *      verbatim (session.id lookup, or explicit `null` for rest).
+ *   2. Otherwise fall back to the default Mon-Tue-Thu-Fri mapping.
+ *
  * @param program Active program doc (or `null` if not loaded yet).
  * @param dayOfWeek 0..6, Sunday = 0 (matches `Date#getDay()`).
  */
@@ -66,11 +71,21 @@ export function getTodayScheduled(
   if (!program || program.sessions.length === 0) {
     return { kind: "rest" };
   }
+
+  // 1. Custom schedule path.
+  if (program.schedule && Object.prototype.hasOwnProperty.call(program.schedule, String(dayOfWeek))) {
+    const slot = program.schedule[String(dayOfWeek)];
+    if (slot === null || slot === undefined) return { kind: "rest" };
+    const session = program.sessions.find((s) => s.id === slot);
+    if (!session) return { kind: "rest" };
+    return { kind: "session", session };
+  }
+
+  // 2. Default Mon-Tue-Thu-Fri rotation.
   const slot = DEFAULT_DOW_MAP[dayOfWeek];
   if (slot === null || slot === undefined) {
     return { kind: "rest" };
   }
-  // Modulo so 2- or 3-session programs still cycle sensibly.
   const session = program.sessions[slot % program.sessions.length];
   if (!session) return { kind: "rest" };
   return { kind: "session", session };

@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import type { SessionDoc } from "@/lib/db/types";
 import { discardInProgressSession } from "@/lib/workout/recovery";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface ResumeBannerProps {
   uid: string;
@@ -21,6 +22,7 @@ interface ResumeBannerProps {
  */
 export default function ResumeBanner({ uid, inProgress }: ResumeBannerProps) {
   const [discarding, setDiscarding] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!inProgress) return null;
@@ -32,13 +34,8 @@ export default function ResumeBanner({ uid, inProgress }: ResumeBannerProps) {
   ).length;
 
   const handleDiscard = async () => {
+    setConfirmOpen(false);
     if (discarding) return;
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm("Discard this in-progress session? Logged sets will be hidden.")
-    ) {
-      return;
-    }
     setDiscarding(true);
     setError(null);
     try {
@@ -81,7 +78,7 @@ export default function ResumeBanner({ uid, inProgress }: ResumeBannerProps) {
         </Link>
         <button
           type="button"
-          onClick={handleDiscard}
+          onClick={() => setConfirmOpen(true)}
           disabled={discarding}
           className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-neutral-900/40 px-4 text-sm font-medium text-neutral-200 transition hover:bg-neutral-900/70 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -97,6 +94,17 @@ export default function ResumeBanner({ uid, inProgress }: ResumeBannerProps) {
           {error}
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        tone="danger"
+        title="Discard this session?"
+        description="Logged sets will be hidden from the recent list. This can't be undone."
+        confirmLabel="Discard"
+        busy={discarding}
+        onConfirm={handleDiscard}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }

@@ -26,6 +26,9 @@ import {
   getTodayScheduled,
 } from "@/lib/workout/scheduling";
 import { checkAndAutoFinalize } from "@/lib/workout/recovery";
+import Link from "next/link";
+import { Settings2 } from "lucide-react";
+
 import SessionListItem from "@/components/workout/SessionListItem";
 import ResumeBanner from "@/components/workout/ResumeBanner";
 import Skeleton from "@/components/ui/Skeleton";
@@ -237,10 +240,21 @@ export default function WorkoutPage() {
 
   return (
     <section>
-      <h1 className="text-2xl font-semibold text-neutral-100">Workout</h1>
-      <p className="mt-2 text-sm text-muted">
-        {today.localDate}
-      </p>
+      <div className="flex items-baseline justify-between gap-3 border-b border-border pb-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">
+            Workout
+          </h1>
+          <p className="mt-1 text-xs text-muted">{today.localDate}</p>
+        </div>
+        <Link
+          href="/workout/program"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-neutral-900 px-3 text-xs font-medium text-neutral-100 transition-colors hover:bg-neutral-800"
+        >
+          <Settings2 className="h-3.5 w-3.5 text-accent" />
+          Edit program
+        </Link>
+      </div>
 
       {loadError ? (
         <div
@@ -274,8 +288,14 @@ export default function WorkoutPage() {
               No program yet
             </p>
             <p className="mt-1 text-xs text-muted">
-              Set up your program in Settings to see today&apos;s session.
+              Open the program editor to set up your sessions.
             </p>
+            <Link
+              href="/workout/program"
+              className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-accent px-3 text-xs font-semibold text-neutral-900 hover:brightness-110"
+            >
+              Edit program
+            </Link>
           </>
         ) : today.scheduled.kind === "session" ? (
           <>

@@ -103,7 +103,8 @@ service cloud.firestore {
 
     function programValid(data) {
       return data.name is string
-        && data.sessions is list;
+        && data.sessions is list
+        && (!('schedule' in data) || data.schedule is map);
     }
 
     function todoValid(data) {
