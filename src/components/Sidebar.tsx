@@ -7,6 +7,7 @@ import clsx from "clsx";
 import {
   Dumbbell,
   Home,
+  Sun,
   ClipboardCheck,
   LineChart,
   Settings,
@@ -26,6 +27,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", Icon: Home },
+  { href: "/today", label: "Today", Icon: Sun },
   { href: "/todos", label: "Todos", Icon: CheckSquare },
   { href: "/money", label: "Money", Icon: Wallet },
   { href: "/workout", label: "Workout", Icon: Dumbbell },

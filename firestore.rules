@@ -57,6 +57,9 @@ service cloud.firestore {
         && isIntOpt(data, 'steps', 0, 1000000)
         && isIntOpt(data, 'mood', 1, 5)
         && (!('note' in data) || data.note is string)
+        && (!('struggles' in data) || (data.struggles is string && data.struggles.size() <= 5000))
+        && (!('wins' in data) || (data.wins is string && data.wins.size() <= 5000))
+        && (!('planTomorrow' in data) || (data.planTomorrow is string && data.planTomorrow.size() <= 5000))
         && data.localDate is string;
     }
 

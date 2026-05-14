@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import clsx from "clsx";
 import {
   Home,
+  Sun,
   Dumbbell,
   CheckSquare,
   Wallet,
@@ -31,12 +32,13 @@ type Tab = {
  */
 const PRIMARY_TABS: Tab[] = [
   { href: "/", label: "Home", Icon: Home },
+  { href: "/today", label: "Today", Icon: Sun },
   { href: "/todos", label: "Todos", Icon: CheckSquare },
   { href: "/money", label: "Money", Icon: Wallet },
-  { href: "/workout", label: "Workout", Icon: Dumbbell },
 ];
 
 const SECONDARY_LINKS: Tab[] = [
+  { href: "/workout", label: "Workout", Icon: Dumbbell },
   { href: "/check-in", label: "Check-in", Icon: ClipboardCheck },
   { href: "/history", label: "History", Icon: LineChart },
   { href: "/settings", label: "Settings", Icon: Settings },

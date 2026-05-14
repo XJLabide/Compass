@@ -193,6 +193,12 @@ export interface DailyDoc {
   /** 1..5 subjective rating. */
   mood?: number;
   note?: string;
+  /** Free-form reflection — what's hard right now. */
+  struggles?: string;
+  /** Free-form reflection — what went well. */
+  wins?: string;
+  /** Free-form plan for tomorrow. */
+  planTomorrow?: string;
   updatedAt: Timestamp;
 }
 
