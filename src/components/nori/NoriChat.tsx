@@ -266,7 +266,13 @@ export default function NoriChat({
           noriMessagesPath(uid, threadId),
           assistantDoc as unknown as NoriMessage,
         );
-        await touchThread(uid, threadId, history[history.length - 1]);
+        // Use the most recent USER message for the thread title — never a
+        // tool-result JSON (which would otherwise become the title on the
+        // follow-up turn after a tool fires).
+        const lastUserMsg = [...history].reverse().find(
+          (m) => m.role === "user",
+        );
+        await touchThread(uid, threadId, lastUserMsg);
 
         if (finalToolCalls.length > 0 && toolCtx) {
           for (const tc of finalToolCalls) {
@@ -748,19 +754,22 @@ function messageToOpenAI(m: UiMessage): OpenAIMessage {
 async function touchThread(
   uid: string,
   threadId: string,
-  last: UiMessage | undefined,
+  recentUserMessage: UiMessage | undefined,
 ) {
   try {
-    await setDoc(
-      noriThreadPath(uid, threadId),
-      {
-        title:
-          (last?.content ?? "Chat with Nori").slice(0, 80) || "Chat with Nori",
-        lastMessageAt: serverTimestamp(),
-        createdAt: serverTimestamp(),
-      } as unknown as Record<string, unknown>,
-      { merge: true },
-    );
+    // Always bump lastMessageAt + ensure createdAt is set on first write.
+    const patch: Record<string, unknown> = {
+      lastMessageAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    };
+    // Title comes from the most recent user message. If none yet (shouldn't
+    // happen in practice, but guard for follow-up-only turns), leave the
+    // existing title alone.
+    if (recentUserMessage?.content) {
+      patch.title =
+        recentUserMessage.content.slice(0, 80) || "Chat with Nori";
+    }
+    await setDoc(noriThreadPath(uid, threadId), patch, { merge: true });
   } catch {
     /* best-effort */
   }
