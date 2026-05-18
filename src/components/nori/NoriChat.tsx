@@ -46,7 +46,7 @@ import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
 import NoriMarkdown from "@/components/nori/NoriMarkdown";
 
-const DEFAULT_THREAD_ID = "default";
+export const DEFAULT_THREAD_ID = "default";
 
 interface UiToolCall extends NoriToolCall {}
 
@@ -97,8 +97,10 @@ function readLabel(name: string): string {
  */
 export default function NoriChat({
   onClose,
+  threadId = DEFAULT_THREAD_ID,
 }: {
   onClose?: () => void;
+  threadId?: string;
 }) {
   const { uid, effectiveProfile } = useUserData();
   const tz = effectiveProfile?.timezone ?? "UTC";
@@ -132,7 +134,7 @@ export default function NoriChat({
     if (!uid) return;
     const unsub = onSnapshot(
       query(
-        noriMessagesPath(uid, DEFAULT_THREAD_ID),
+        noriMessagesPath(uid, threadId),
         orderBy("createdAt", "asc"),
       ),
       (snap) => {
@@ -155,7 +157,7 @@ export default function NoriChat({
       (err) => setError(err.message),
     );
     return () => unsub();
-  }, [uid]);
+  }, [uid, threadId]);
 
   // Autoscroll
   useEffect(() => {
@@ -245,7 +247,7 @@ export default function NoriChat({
           }));
 
         const assistantDoc: Record<string, unknown> = {
-          threadId: DEFAULT_THREAD_ID,
+          threadId,
           role: "assistant",
           content: stream.content,
           createdAt: serverTimestamp(),
@@ -253,16 +255,16 @@ export default function NoriChat({
         if (finalToolCalls.length > 0)
           assistantDoc.toolCalls = finalToolCalls;
         await addDoc(
-          noriMessagesPath(uid, DEFAULT_THREAD_ID),
+          noriMessagesPath(uid, threadId),
           assistantDoc as unknown as NoriMessage,
         );
-        await touchThread(uid, history[history.length - 1]);
+        await touchThread(uid, threadId, history[history.length - 1]);
 
         if (finalToolCalls.length > 0 && toolCtx) {
           for (const tc of finalToolCalls) {
             if (tc.confirmed) {
               setStatus(statusForTool(tc.name));
-              await executeAndPersist(uid, toolCtx, tc);
+              await executeAndPersist(uid, threadId, toolCtx, tc);
             }
           }
         }
@@ -273,7 +275,7 @@ export default function NoriChat({
         setStatus(null);
       }
     },
-    [uid, tz, today, currency, effectiveProfile, toolCtx],
+    [uid, threadId, tz, today, currency, effectiveProfile, toolCtx],
   );
 
   // Follow-up turn after a tool result lands.
@@ -291,8 +293,8 @@ export default function NoriChat({
       const text = input.trim();
       if (!text || !uid || streaming) return;
       setInput("");
-      await addDoc(noriMessagesPath(uid, DEFAULT_THREAD_ID), {
-        threadId: DEFAULT_THREAD_ID,
+      await addDoc(noriMessagesPath(uid, threadId), {
+        threadId,
         role: "user",
         content: text,
         createdAt: serverTimestamp(),
@@ -300,7 +302,7 @@ export default function NoriChat({
       const next: UiMessage = { id: "pending", role: "user", content: text };
       await runTurn([...(messages ?? []), next]);
     },
-    [input, uid, streaming, messages, runTurn],
+    [input, uid, threadId, streaming, messages, runTurn],
   );
 
   const handleConfirm = useCallback(
@@ -312,20 +314,20 @@ export default function NoriChat({
         c.id === call.id ? { ...c, confirmed: accept, executed: false } : c,
       );
       await setDoc(
-        doc(noriMessagesPath(uid, DEFAULT_THREAD_ID), msgId),
+        doc(noriMessagesPath(uid, threadId), msgId),
         { toolCalls: updatedCalls },
         { merge: true },
       );
       if (accept) {
         setStatus(statusForTool(call.name));
-        await executeAndPersist(uid, toolCtx, {
+        await executeAndPersist(uid, threadId, toolCtx, {
           ...call,
           confirmed: true,
         });
         setStatus(null);
       } else {
-        await addDoc(noriMessagesPath(uid, DEFAULT_THREAD_ID), {
-          threadId: DEFAULT_THREAD_ID,
+        await addDoc(noriMessagesPath(uid, threadId), {
+          threadId,
           role: "tool",
           content: JSON.stringify({ ok: false, error: "User declined." }),
           toolCallId: call.id,
@@ -333,7 +335,7 @@ export default function NoriChat({
         } as unknown as NoriMessage);
       }
     },
-    [uid, toolCtx, messages],
+    [uid, threadId, toolCtx, messages],
   );
 
   return (
@@ -735,10 +737,14 @@ function messageToOpenAI(m: UiMessage): OpenAIMessage {
   return base;
 }
 
-async function touchThread(uid: string, last: UiMessage | undefined) {
+async function touchThread(
+  uid: string,
+  threadId: string,
+  last: UiMessage | undefined,
+) {
   try {
     await setDoc(
-      noriThreadPath(uid, DEFAULT_THREAD_ID),
+      noriThreadPath(uid, threadId),
       {
         title:
           (last?.content ?? "Chat with Nori").slice(0, 80) || "Chat with Nori",
@@ -754,6 +760,7 @@ async function touchThread(uid: string, last: UiMessage | undefined) {
 
 async function executeAndPersist(
   uid: string,
+  threadId: string,
   ctx: ToolContext,
   call: UiToolCall,
 ) {
@@ -762,8 +769,8 @@ async function executeAndPersist(
     arguments: call.arguments,
     confirmed: call.confirmed === true,
   });
-  await addDoc(noriMessagesPath(uid, DEFAULT_THREAD_ID), {
-    threadId: DEFAULT_THREAD_ID,
+  await addDoc(noriMessagesPath(uid, threadId), {
+    threadId,
     role: "tool",
     content: result,
     toolCallId: call.id,
