@@ -12,6 +12,8 @@ import {
   dailyConverter,
   exerciseConverter,
   expenseConverter,
+  noriMessageConverter,
+  noriThreadConverter,
   prConverter,
   profileConverter,
   programConverter,
@@ -24,6 +26,8 @@ import type {
   Exercise,
   ExpenseDoc,
   LocalDate,
+  NoriMessage,
+  NoriThread,
   PRDoc,
   Profile,
   ProgramDoc,
@@ -233,4 +237,63 @@ export function routinePath(
   return doc(userDoc(uid, db), "routines", routineId).withConverter(
     routineConverter,
   );
+}
+
+// ---------------------------------------------------------------------------
+// nori — users/{uid}/nori/threads/{threadId} + .../messages/{msgId}
+// ---------------------------------------------------------------------------
+
+export function noriThreadsPath(
+  uid: string,
+  db?: Firestore,
+): CollectionReference<NoriThread> {
+  return collection(userDoc(uid, db), "nori", "_root", "threads").withConverter(
+    noriThreadConverter,
+  );
+}
+
+export function noriThreadPath(
+  uid: string,
+  threadId: string,
+  db?: Firestore,
+): DocumentReference<NoriThread> {
+  return doc(
+    userDoc(uid, db),
+    "nori",
+    "_root",
+    "threads",
+    threadId,
+  ).withConverter(noriThreadConverter);
+}
+
+export function noriMessagesPath(
+  uid: string,
+  threadId: string,
+  db?: Firestore,
+): CollectionReference<NoriMessage> {
+  return collection(
+    userDoc(uid, db),
+    "nori",
+    "_root",
+    "threads",
+    threadId,
+    "messages",
+  ).withConverter(noriMessageConverter);
+}
+
+export function noriMessagePath(
+  uid: string,
+  threadId: string,
+  messageId: string,
+  db?: Firestore,
+): DocumentReference<NoriMessage> {
+  return doc(
+    userDoc(uid, db),
+    "nori",
+    "_root",
+    "threads",
+    threadId,
+    "messages",
+    messageId,
+  ).withConverter(noriMessageConverter);
 }

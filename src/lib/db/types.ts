@@ -251,6 +251,44 @@ export interface TodoDoc {
 }
 
 // ---------------------------------------------------------------------------
+// users/{uid}/nori/threads/{threadId} and .../messages/{msgId}
+// ---------------------------------------------------------------------------
+
+export interface NoriThread {
+  /** Human-readable title — first user message, truncated to ~80 chars. */
+  title: string;
+  /** Set by the most recent message write so threads can be ordered. */
+  lastMessageAt: Timestamp;
+  createdAt: Timestamp;
+}
+
+export type NoriMessageRole = "user" | "assistant" | "tool";
+
+export interface NoriToolCall {
+  /** Stable id returned by the LLM. Used to match assistant call → tool result. */
+  id: string;
+  /** Tool name (e.g. "add_todo"). */
+  name: string;
+  /** Stringified JSON args. */
+  arguments: string;
+  /** Did the user confirm this write? Read tools are auto-true. */
+  confirmed?: boolean;
+  /** Was the tool executed (regardless of pass/fail)? */
+  executed?: boolean;
+}
+
+export interface NoriMessage {
+  threadId: string;
+  role: NoriMessageRole;
+  content: string;
+  /** Present on `assistant` messages that proposed tool calls. */
+  toolCalls?: NoriToolCall[];
+  /** Present on `tool` messages — the id of the assistant tool_call this answers. */
+  toolCallId?: string;
+  createdAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
 // users/{uid}/routines/{routineId}
 // ---------------------------------------------------------------------------
 

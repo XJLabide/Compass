@@ -9,6 +9,8 @@ import type {
   DailyDoc,
   Exercise,
   ExpenseDoc,
+  NoriMessage,
+  NoriThread,
   PRDoc,
   Profile,
   ProgramDoc,
@@ -71,3 +73,9 @@ export const expenseConverter: FirestoreDataConverter<ExpenseDoc> =
 
 export const routineConverter: FirestoreDataConverter<RoutineDoc> =
   makePassthroughConverter<RoutineDoc>();
+
+export const noriThreadConverter: FirestoreDataConverter<NoriThread> =
+  makePassthroughConverter<NoriThread>();
+
+export const noriMessageConverter: FirestoreDataConverter<NoriMessage> =
+  makePassthroughConverter<NoriMessage>();

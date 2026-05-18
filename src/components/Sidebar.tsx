@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckSquare,
+  Sparkles,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -28,6 +29,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", Icon: Home },
   { href: "/today", label: "Today", Icon: Sun },
+  { href: "/nori", label: "Nori", Icon: Sparkles },
   { href: "/todos", label: "Todos", Icon: CheckSquare },
   { href: "/money", label: "Money", Icon: Wallet },
   { href: "/workout", label: "Workout", Icon: Dumbbell },
