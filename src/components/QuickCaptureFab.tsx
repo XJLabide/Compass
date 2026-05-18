@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
+import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import {
   dailyPath,
   expensesPath,
@@ -79,6 +80,8 @@ export default function QuickCaptureFab() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close]);
+
+  useBodyScrollLock(open);
 
   if (!uid) return null;
 

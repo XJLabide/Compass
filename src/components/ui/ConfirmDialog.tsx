@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import clsx from "clsx";
 
+import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
+
 /**
  * In-app confirmation modal. Renders as a centered card over a dimmed
  * backdrop. Replaces `window.confirm()` calls so prompts match the app's
@@ -46,6 +48,8 @@ export default function ConfirmDialog({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, busy, onCancel]);
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

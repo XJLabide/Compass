@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/lib/auth/useAuth";
 import { useUserData } from "@/lib/data/UserDataProvider";
 import { profilePath } from "@/lib/db/paths";
+import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import type {
   ExpenseCategory,
   Profile,
@@ -91,6 +92,8 @@ export default function OnboardingWizard() {
 
   // Hide the wizard if the user has already onboarded OR if the profile snapshot
   // hasn't resolved yet (avoids a flash for returning users).
+  const shouldShow = profileLoaded && Boolean(user) && profile?.onboarded !== true;
+  useBodyScrollLock(shouldShow);
   if (!profileLoaded || !user) return null;
   if (profile?.onboarded === true) return null;
 

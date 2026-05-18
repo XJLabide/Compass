@@ -6,6 +6,7 @@ import { Plus, Search, X } from "lucide-react";
 
 import { exercisesPath } from "@/lib/db/paths";
 import type { Exercise } from "@/lib/db/types";
+import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 
 /**
  * QuickAddExercise — searchable picker for the master exercise list.
@@ -56,6 +57,8 @@ export default function QuickAddExercise({
   const [rowsLoaded, setRowsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+
+  useBodyScrollLock(open);
 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);

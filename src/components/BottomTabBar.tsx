@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import clsx from "clsx";
+
+import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import {
   Home,
   Sun,
@@ -157,6 +159,7 @@ function MoreSheet({
   onClose: () => void;
   onPick: (href: string) => void;
 }) {
+  useBodyScrollLock(true);
   return (
     <div
       role="dialog"

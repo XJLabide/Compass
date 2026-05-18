@@ -13,6 +13,7 @@ import { Plus, Search, X } from "lucide-react";
 
 import { exercisesPath } from "@/lib/db/paths";
 import { getFirebaseDb } from "@/lib/firebase";
+import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import type { Exercise, ExerciseCategory, MuscleGroup } from "@/lib/db/types";
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
@@ -94,6 +95,8 @@ export default function ExercisePicker({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  useBodyScrollLock(true);
 
   return (
     <div
