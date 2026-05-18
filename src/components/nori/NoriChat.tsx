@@ -238,13 +238,21 @@ export default function NoriChat({
           stream.toolCalls.values(),
         )
           .filter((tc) => tc.name)
-          .map((tc) => ({
-            id: tc.id || `call_${Math.random().toString(36).slice(2)}`,
-            name: tc.name,
-            arguments: tc.arguments || "{}",
-            confirmed: !findTool(tc.name)?.isWrite,
-            executed: false,
-          }));
+          .map((tc) => {
+            const isWrite = Boolean(findTool(tc.name)?.isWrite);
+            // For reads, mark confirmed=true so the executor auto-runs them.
+            // For writes, OMIT the confirmed field entirely — `false` means
+            // explicit user decline, and `undefined` (missing) means pending.
+            // Firestore rejects undefined values so we build conditionally.
+            const base: UiToolCall = {
+              id: tc.id || `call_${Math.random().toString(36).slice(2)}`,
+              name: tc.name,
+              arguments: tc.arguments || "{}",
+              executed: false,
+            };
+            if (!isWrite) base.confirmed = true;
+            return base;
+          });
 
         const assistantDoc: Record<string, unknown> = {
           threadId,
