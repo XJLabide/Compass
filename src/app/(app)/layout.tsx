@@ -19,7 +19,7 @@ export default function AppShellLayout({
     <AuthGate>
       <UserDataProvider>
         <SidebarProvider>
-          <div className="flex min-h-screen flex-col">
+          <div className="flex min-h-dvh flex-col">
             <OfflineIndicator />
             {/* Mobile bottom tab bar (md:hidden is handled inside the component) */}
             <BottomTabBar />

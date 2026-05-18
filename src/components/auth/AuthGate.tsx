@@ -40,7 +40,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   if (loading || !user || !allowed) {
     return (
       <div
-        className="flex min-h-screen items-center justify-center"
+        className="flex min-h-dvh items-center justify-center"
         role="status"
         aria-live="polite"
         aria-busy="true"

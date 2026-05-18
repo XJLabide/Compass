@@ -7,5 +7,5 @@ export default function LoginLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="relative min-h-screen bg-bg">{children}</div>;
+  return <div className="relative min-h-dvh bg-bg">{children}</div>;
 }

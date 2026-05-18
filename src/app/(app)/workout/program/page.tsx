@@ -565,7 +565,7 @@ function SessionEditor({
             <span className="text-sm font-semibold text-neutral-100">
               {session.name}
             </span>
-            <Pencil className="h-3 w-3 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+            <Pencil className="h-3 w-3 text-muted opacity-60 transition-opacity group-hover:opacity-100" />
           </button>
         )}
         <span className="text-[10px] uppercase tracking-wide text-muted">

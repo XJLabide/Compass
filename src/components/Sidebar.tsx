@@ -51,7 +51,7 @@ export default function Sidebar() {
       className={clsx(
         // Hidden on mobile — only shown md+
         "hidden md:flex",
-        "fixed left-0 top-0 z-40 h-screen flex-col",
+        "fixed left-0 top-0 z-40 h-dvh flex-col",
         "border-r border-border bg-panel",
         "transition-[width] duration-200 ease-in-out",
         collapsed ? "w-16" : "w-56"

@@ -421,7 +421,7 @@ export default function MoneyPage() {
                   type="button"
                   onClick={() => remove(r.id)}
                   aria-label="Delete entry"
-                  className="shrink-0 rounded-md p-1 text-muted opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-300 focus-visible:opacity-100 group-hover:opacity-100"
+                  className="shrink-0 rounded-md p-1 text-muted opacity-60 transition-opacity hover:bg-red-500/10 hover:text-red-300 hover:opacity-100 focus-visible:opacity-100"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

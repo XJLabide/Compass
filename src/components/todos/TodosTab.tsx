@@ -590,7 +590,7 @@ function TodoRow({
         }}
         aria-label="Edit todo"
         title="Edit"
-        className="shrink-0 rounded-md p-1 text-muted opacity-0 transition-opacity hover:bg-neutral-800 hover:text-neutral-100 focus-visible:opacity-100 group-hover:opacity-100"
+        className="shrink-0 rounded-md p-1 text-muted opacity-60 transition-opacity hover:bg-neutral-800 hover:text-neutral-100 hover:opacity-100 focus-visible:opacity-100"
       >
         <Pencil className="h-4 w-4" />
       </button>
@@ -602,7 +602,7 @@ function TodoRow({
         }}
         aria-label="Delete todo"
         title="Delete"
-        className="shrink-0 rounded-md p-1 text-muted opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-300 focus-visible:opacity-100 group-hover:opacity-100"
+        className="shrink-0 rounded-md p-1 text-muted opacity-60 transition-opacity hover:bg-red-500/10 hover:text-red-300 hover:opacity-100 focus-visible:opacity-100"
       >
         <Trash2 className="h-4 w-4" />
       </button>

@@ -32,7 +32,7 @@ export default function LoginPage() {
     <>
       <LoginBackground />
 
-      <main className="relative z-10 flex min-h-screen items-center justify-center px-4 py-8">
+      <main className="relative z-10 flex min-h-dvh items-center justify-center px-4 py-8">
         <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/70 shadow-2xl shadow-black/50 backdrop-blur-xl lg:grid-cols-[1fr_1fr]">
           {/* Form half */}
           <section className="relative flex flex-col border-white/10 lg:border-r">

@@ -19,7 +19,7 @@ export default function NotAuthorizedPage() {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-10 pt-16">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-10 pt-16">
       <h1 className="text-2xl font-semibold text-neutral-100">
         Not authorized
       </h1>
