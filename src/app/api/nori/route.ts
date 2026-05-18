@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
   const system = buildSystemPrompt(body.context);
   const payload = {
     model: DEFAULT_MODEL,
+    stream: true,
     messages: [
       { role: "system", content: system },
       ...body.messages.map((m) => {
@@ -158,32 +159,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const data = (await res.json()) as {
-      choices?: Array<{
-        message: {
-          role: "assistant";
-          content: string | null;
-          tool_calls?: Array<{
-            id: string;
-            type: "function";
-            function: { name: string; arguments: string };
-          }>;
-        };
-      }>;
-    };
-
-    const message = data.choices?.[0]?.message;
-    if (!message) {
+    // Proxy the OpenRouter SSE stream straight to the client. The client
+    // assembles content + tool_calls from the deltas. We don't need to
+    // re-encode — just keep the bytes flowing.
+    if (!res.body) {
       return NextResponse.json(
-        { error: "Empty response from OpenRouter" },
+        { error: "OpenRouter returned an empty body" },
         { status: 502 },
       );
     }
-
-    return NextResponse.json({
-      role: "assistant",
-      content: message.content ?? "",
-      tool_calls: message.tool_calls ?? [],
+    return new Response(res.body, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        // Disable buffering on Vercel/edge proxies so chunks flow eagerly.
+        "X-Accel-Buffering": "no",
+      },
     });
   } catch (err) {
     return NextResponse.json(

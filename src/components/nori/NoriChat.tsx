@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   addDoc,
+  doc,
   onSnapshot,
   orderBy,
   query,
@@ -37,8 +38,13 @@ import type {
 import { getFirebaseDb } from "@/lib/firebase";
 import { executeTool, type ToolContext } from "@/lib/nori/executor";
 import { findTool } from "@/lib/nori/tools";
+import {
+  statusForTool,
+  STATUS_THINKING,
+} from "@/lib/nori/statusLabels";
 import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
+import NoriMarkdown from "@/components/nori/NoriMarkdown";
 
 const DEFAULT_THREAD_ID = "default";
 
@@ -64,17 +70,30 @@ interface OpenAIMessage {
   tool_call_id?: string;
 }
 
+interface StreamingState {
+  content: string;
+  toolCalls: Map<number, { id: string; name: string; arguments: string }>;
+  status: string;
+}
+
+/** Short label shown inside the assistant bubble next to a read-tool icon. */
+const READ_LABEL: Record<string, string> = {
+  list_todos: "Reading todos",
+  list_routines: "Reading routines",
+  list_expenses: "Reading expenses",
+  get_check_in: "Reading check-in",
+  list_recent_workouts: "Reading workouts",
+  summary: "Building summary",
+};
+function readLabel(name: string): string {
+  return READ_LABEL[name] ?? `Reading ${name.replace(/_/g, " ")}`;
+}
+
 /**
- * Single-thread chat with Nori. Persists messages to Firestore so the chat
- * survives reloads and is the same surface from /nori and the floating panel.
- *
- * Flow:
- *   1. User submits prompt → write user message to Firestore.
- *   2. POST to /api/nori with the full message history.
- *   3. Server responds with assistant text + (maybe) tool_calls.
- *   4. Write the assistant message to Firestore (toolCalls.confirmed=false for writes).
- *   5. Read tools auto-execute → tool result messages persisted → another /api/nori turn.
- *   6. Write tools wait for user confirm → on confirm, execute → tool result → another turn.
+ * Single-thread chat with Nori. Consumes the SSE stream from /api/nori,
+ * appends content deltas to a live assistant bubble, and surfaces a status
+ * pill ("Thinking…" → "Reading expenses…" → result). Markdown rendering
+ * via react-markdown.
  */
 export default function NoriChat({
   onClose,
@@ -103,7 +122,8 @@ export default function NoriChat({
 
   const [messages, setMessages] = useState<UiMessage[] | null>(null);
   const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
+  const [streaming, setStreaming] = useState<StreamingState | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
@@ -137,21 +157,28 @@ export default function NoriChat({
     return () => unsub();
   }, [uid]);
 
-  // Autoscroll to bottom on new messages
+  // Autoscroll
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages, sending]);
+  }, [messages, streaming, status]);
 
   // -------------------------------------------------------------------------
-  // Send turn → API → persist response → run auto tools (reads)
+  // Run a turn: stream from /api/nori, persist, auto-run reads.
   // -------------------------------------------------------------------------
   const runTurn = useCallback(
     async (history: UiMessage[]) => {
       if (!uid) return;
-      setSending(true);
       setError(null);
+      setStatus(STATUS_THINKING);
+      const stream: StreamingState = {
+        content: "",
+        toolCalls: new Map(),
+        status: STATUS_THINKING,
+      };
+      setStreaming(stream);
+
       try {
         const payload = {
           messages: history.map(messageToOpenAI),
@@ -168,49 +195,73 @@ export default function NoriChat({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) {
+        if (!res.ok || !res.body) {
           const data = (await res.json().catch(() => ({}))) as {
             error?: string;
           };
           throw new Error(data.error || `HTTP ${res.status}`);
         }
-        const data = (await res.json()) as {
-          role: "assistant";
-          content: string;
-          tool_calls?: Array<{
-            id: string;
-            type: "function";
-            function: { name: string; arguments: string };
-          }>;
-        };
-        const toolCalls: UiToolCall[] | undefined = data.tool_calls?.map(
-          (tc) => ({
-            id: tc.id,
-            name: tc.function.name,
-            arguments: tc.function.arguments,
-            confirmed: !findTool(tc.function.name)?.isWrite,
+
+        await consumeStream(res.body, (delta) => {
+          if (delta.contentDelta) {
+            stream.content += delta.contentDelta;
+            if (stream.status === STATUS_THINKING) {
+              stream.status = "";
+              setStatus(null);
+            }
+            setStreaming({ ...stream, toolCalls: new Map(stream.toolCalls) });
+          }
+          if (delta.toolCallDelta) {
+            const idx = delta.toolCallDelta.index;
+            const existing = stream.toolCalls.get(idx) ?? {
+              id: "",
+              name: "",
+              arguments: "",
+            };
+            if (delta.toolCallDelta.id) existing.id = delta.toolCallDelta.id;
+            if (delta.toolCallDelta.name)
+              existing.name = delta.toolCallDelta.name;
+            if (delta.toolCallDelta.argumentsDelta)
+              existing.arguments += delta.toolCallDelta.argumentsDelta;
+            stream.toolCalls.set(idx, existing);
+            if (existing.name) {
+              stream.status = statusForTool(existing.name);
+              setStatus(stream.status);
+            }
+            setStreaming({ ...stream, toolCalls: new Map(stream.toolCalls) });
+          }
+        });
+
+        const finalToolCalls: UiToolCall[] = Array.from(
+          stream.toolCalls.values(),
+        )
+          .filter((tc) => tc.name)
+          .map((tc) => ({
+            id: tc.id || `call_${Math.random().toString(36).slice(2)}`,
+            name: tc.name,
+            arguments: tc.arguments || "{}",
+            confirmed: !findTool(tc.name)?.isWrite,
             executed: false,
-          }),
-        );
+          }));
+
         const assistantDoc: Record<string, unknown> = {
           threadId: DEFAULT_THREAD_ID,
           role: "assistant",
-          content: data.content,
+          content: stream.content,
           createdAt: serverTimestamp(),
         };
-        if (toolCalls && toolCalls.length > 0) {
-          assistantDoc.toolCalls = toolCalls;
-        }
+        if (finalToolCalls.length > 0)
+          assistantDoc.toolCalls = finalToolCalls;
         await addDoc(
           noriMessagesPath(uid, DEFAULT_THREAD_ID),
           assistantDoc as unknown as NoriMessage,
         );
         await touchThread(uid, history[history.length - 1]);
 
-        // Auto-execute reads. Writes wait for user confirm.
-        if (toolCalls && toolCalls.length > 0 && toolCtx) {
-          for (const tc of toolCalls) {
-            if (tc.confirmed && !tc.executed) {
+        if (finalToolCalls.length > 0 && toolCtx) {
+          for (const tc of finalToolCalls) {
+            if (tc.confirmed) {
+              setStatus(statusForTool(tc.name));
               await executeAndPersist(uid, toolCtx, tc);
             }
           }
@@ -218,35 +269,27 @@ export default function NoriChat({
       } catch (err) {
         setError(err instanceof Error ? err.message : "Nori is unreachable.");
       } finally {
-        setSending(false);
+        setStreaming(null);
+        setStatus(null);
       }
     },
     [uid, tz, today, currency, effectiveProfile, toolCtx],
   );
 
-  // After tool execution, fetch a follow-up turn so Nori can respond to the result.
-  const runFollowUp = useCallback(async () => {
-    if (!uid || !messages) return;
-    await runTurn(messages);
-  }, [uid, messages, runTurn]);
-
-  // When the last message has all tool calls executed, trigger a follow-up.
+  // Follow-up turn after a tool result lands.
   useEffect(() => {
-    if (!messages || messages.length === 0 || sending) return;
+    if (!messages || messages.length === 0 || streaming) return;
     const last = messages[messages.length - 1];
     if (last.role !== "tool") return;
-    void runFollowUp();
+    void runTurn(messages);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages?.length]);
 
-  // -------------------------------------------------------------------------
-  // Submit handler
-  // -------------------------------------------------------------------------
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
       const text = input.trim();
-      if (!text || !uid || sending) return;
+      if (!text || !uid || streaming) return;
       setInput("");
       await addDoc(noriMessagesPath(uid, DEFAULT_THREAD_ID), {
         threadId: DEFAULT_THREAD_ID,
@@ -254,48 +297,33 @@ export default function NoriChat({
         content: text,
         createdAt: serverTimestamp(),
       } as unknown as NoriMessage);
-      const next: UiMessage = {
-        id: "pending",
-        role: "user",
-        content: text,
-      };
+      const next: UiMessage = { id: "pending", role: "user", content: text };
       await runTurn([...(messages ?? []), next]);
     },
-    [input, uid, sending, messages, runTurn],
+    [input, uid, streaming, messages, runTurn],
   );
 
-  // -------------------------------------------------------------------------
-  // Tool confirmation handler
-  // -------------------------------------------------------------------------
   const handleConfirm = useCallback(
     async (msgId: string, call: UiToolCall, accept: boolean) => {
       if (!uid || !toolCtx) return;
-      // 1. Mark the call confirmed/declined in the assistant message.
       const updatedCalls = (
         messages?.find((m) => m.id === msgId)?.toolCalls ?? []
       ).map((c) =>
-        c.id === call.id
-          ? { ...c, confirmed: accept, executed: false }
-          : c,
+        c.id === call.id ? { ...c, confirmed: accept, executed: false } : c,
       );
-      const updatedDoc: Record<string, unknown> = {
-        toolCalls: updatedCalls,
-      };
       await setDoc(
-        noriMessagesPath(uid, DEFAULT_THREAD_ID).firestore
-          ? noriMessagePathDoc(uid, msgId)
-          : noriMessagePathDoc(uid, msgId),
-        updatedDoc,
+        doc(noriMessagesPath(uid, DEFAULT_THREAD_ID), msgId),
+        { toolCalls: updatedCalls },
         { merge: true },
       );
-      // 2. If accepted, execute and persist the tool result.
       if (accept) {
+        setStatus(statusForTool(call.name));
         await executeAndPersist(uid, toolCtx, {
           ...call,
           confirmed: true,
         });
+        setStatus(null);
       } else {
-        // User declined — persist a "declined" tool result so the LLM knows.
         await addDoc(noriMessagesPath(uid, DEFAULT_THREAD_ID), {
           threadId: DEFAULT_THREAD_ID,
           role: "tool",
@@ -308,9 +336,6 @@ export default function NoriChat({
     [uid, toolCtx, messages],
   );
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
   return (
     <section className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -345,23 +370,27 @@ export default function NoriChat({
             <Skeleton className="h-10 w-3/4 ml-auto" />
             <Skeleton className="h-10 w-1/2" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && !streaming ? (
           <EmptyHints onPick={setInput} />
         ) : (
-          messages.map((m) => (
-            <MessageBubble
-              key={m.id}
-              m={m}
-              onConfirm={(call, accept) => handleConfirm(m.id, call, accept)}
-            />
-          ))
+          <>
+            {messages.map((m) => (
+              <MessageBubble
+                key={m.id}
+                m={m}
+                onConfirm={(call, accept) => handleConfirm(m.id, call, accept)}
+              />
+            ))}
+            {streaming && (streaming.content || streaming.toolCalls.size > 0) ? (
+              <StreamingBubble streaming={streaming} />
+            ) : null}
+          </>
         )}
-        {sending ? (
-          <div className="flex items-center gap-2 text-xs text-muted">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Nori is thinking…
-          </div>
+
+        {(status || streaming) && !error ? (
+          <StatusPill text={status ?? STATUS_THINKING} />
         ) : null}
+
         {error ? (
           <div
             role="alert"
@@ -389,11 +418,11 @@ export default function NoriChat({
             placeholder="Ask Nori anything about your day…"
             rows={2}
             className="flex-1 resize-none rounded-lg border border-border bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
-            disabled={sending}
+            disabled={Boolean(streaming)}
           />
           <button
             type="submit"
-            disabled={sending || !input.trim()}
+            disabled={Boolean(streaming) || !input.trim()}
             aria-label="Send"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-neutral-900 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -406,8 +435,6 @@ export default function NoriChat({
 }
 
 // ---------------------------------------------------------------------------
-// Bubbles, hints, helpers
-// ---------------------------------------------------------------------------
 function MessageBubble({
   m,
   onConfirm,
@@ -415,28 +442,27 @@ function MessageBubble({
   m: UiMessage;
   onConfirm: (call: UiToolCall, accept: boolean) => void;
 }) {
-  if (m.role === "tool") {
-    // Hidden by default — the LLM uses tool results internally; we don't
-    // need to show raw JSON to the user. Could render a compact "ran X" line.
-    return null;
-  }
+  if (m.role === "tool") return null;
   const isUser = m.role === "user";
   return (
-    <div
-      className={clsx(
-        "flex",
-        isUser ? "justify-end" : "justify-start",
-      )}
-    >
+    <div className={clsx("flex", isUser ? "justify-end" : "justify-start")}>
       <div
         className={clsx(
-          "max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed",
+          "max-w-[85%] rounded-2xl px-3 py-2",
           isUser
             ? "bg-accent/15 text-neutral-100"
             : "bg-neutral-900/60 text-neutral-100 border border-border",
         )}
       >
-        {m.content ? <p className="whitespace-pre-wrap">{m.content}</p> : null}
+        {m.content ? (
+          isUser ? (
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+              {m.content}
+            </p>
+          ) : (
+            <NoriMarkdown>{m.content}</NoriMarkdown>
+          )
+        ) : null}
         {m.toolCalls && m.toolCalls.length > 0 ? (
           <div className="mt-2 space-y-1.5">
             {m.toolCalls.map((tc) => (
@@ -449,6 +475,63 @@ function MessageBubble({
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function StreamingBubble({ streaming }: { streaming: StreamingState }) {
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[85%] rounded-2xl border border-border bg-neutral-900/60 px-3 py-2 text-neutral-100">
+        {streaming.content ? (
+          <NoriMarkdown>{streaming.content}</NoriMarkdown>
+        ) : null}
+        {streaming.toolCalls.size > 0 ? (
+          <div className="mt-2 space-y-1.5">
+            {[...streaming.toolCalls.values()].map((tc) => {
+              const def = findTool(tc.name);
+              if (!def) return null;
+              return (
+                <div
+                  key={tc.id || tc.name}
+                  className={clsx(
+                    "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px]",
+                    def.isWrite
+                      ? "border-amber-400/40 bg-amber-400/5 text-amber-200"
+                      : "border-border bg-neutral-900 text-muted",
+                  )}
+                >
+                  <Sparkles className="h-3 w-3 text-accent" />
+                  <span>
+                    {def.isWrite
+                      ? `Preparing ${def.confirmLabel ?? def.name}`
+                      : readLabel(tc.name)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+        {!streaming.content && streaming.toolCalls.size === 0 ? (
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            …
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ text }: { text: string }) {
+  if (!text) return null;
+  return (
+    <div className="flex items-center gap-2 text-xs text-muted">
+      <span className="relative flex h-2 w-2 items-center justify-center">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/60" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
+      </span>
+      <span>{text}</span>
     </div>
   );
 }
@@ -470,31 +553,29 @@ function ToolCallCard({
     }
   })();
 
-  // Reads: just a tiny pill confirming what's being looked up.
+  // Reads: friendly inline pill (no underscores, no raw tool name).
   if (!isWrite) {
     return (
       <div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-neutral-900 px-2 py-1 text-[10px] text-muted">
         <Sparkles className="h-3 w-3 text-accent" />
-        <span>Reading: {def?.name ?? call.name}</span>
+        <span>{readLabel(call.name)}</span>
       </div>
     );
   }
 
-  // Writes: confirm card.
-  const handled = call.confirmed === true || call.confirmed === false;
   if (call.executed) {
     return (
       <div className="inline-flex items-center gap-1.5 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[10px] text-emerald-300">
         <CheckCircle2 className="h-3 w-3" />
-        <span>Done: {def?.confirmLabel ?? def?.name ?? call.name}</span>
+        <span>Done · {def?.confirmLabel ?? def?.name ?? call.name}</span>
       </div>
     );
   }
-  if (handled && call.confirmed === false) {
+  if (call.confirmed === false) {
     return (
       <div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-neutral-900 px-2 py-1 text-[10px] text-muted">
         <X className="h-3 w-3" />
-        <span>Skipped: {def?.confirmLabel ?? call.name}</span>
+        <span>Skipped · {def?.confirmLabel ?? call.name}</span>
       </div>
     );
   }
@@ -507,14 +588,14 @@ function ToolCallCard({
           {def?.confirmLabel ?? call.name}
         </span>
       </div>
-      <pre className="mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap break-words text-[10px] leading-relaxed text-neutral-300">
+      <div className="mt-1.5 max-h-32 overflow-auto text-[10px] leading-relaxed text-neutral-300">
         {Object.entries(args).map(([k, v]) => (
           <div key={k}>
             <span className="text-muted">{k}: </span>
             {typeof v === "string" ? v : JSON.stringify(v)}
           </div>
         ))}
-      </pre>
+      </div>
       <div className="mt-2 flex gap-1.5">
         <button
           type="button"
@@ -546,9 +627,7 @@ function EmptyHints({ onPick }: { onPick: (text: string) => void }) {
   ];
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted">
-        Try one of these to get started:
-      </p>
+      <p className="text-xs text-muted">Try one of these to get started:</p>
       <div className="flex flex-wrap gap-1.5">
         {hints.map((h) => (
           <button
@@ -566,18 +645,84 @@ function EmptyHints({ onPick }: { onPick: (text: string) => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// SSE stream parsing
 // ---------------------------------------------------------------------------
-function messageToOpenAI(m: UiMessage): OpenAIMessage {
-  const base: OpenAIMessage = {
-    role: m.role,
-    content: m.content ?? "",
+interface DeltaEvent {
+  contentDelta?: string;
+  toolCallDelta?: {
+    index: number;
+    id?: string;
+    name?: string;
+    argumentsDelta?: string;
   };
+}
+
+async function consumeStream(
+  body: ReadableStream<Uint8Array>,
+  onDelta: (d: DeltaEvent) => void,
+): Promise<void> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buffer.indexOf("\n\n")) !== -1) {
+      const raw = buffer.slice(0, idx).trim();
+      buffer = buffer.slice(idx + 2);
+      if (!raw) continue;
+      const dataLine = raw
+        .split("\n")
+        .find((l) => l.startsWith("data:"))
+        ?.slice(5)
+        .trim();
+      if (!dataLine) continue;
+      if (dataLine === "[DONE]") return;
+      let parsed: {
+        choices?: Array<{
+          delta?: {
+            content?: string;
+            tool_calls?: Array<{
+              index?: number;
+              id?: string;
+              function?: { name?: string; arguments?: string };
+            }>;
+          };
+        }>;
+      };
+      try {
+        parsed = JSON.parse(dataLine);
+      } catch {
+        continue;
+      }
+      const delta = parsed.choices?.[0]?.delta;
+      if (!delta) continue;
+      if (typeof delta.content === "string" && delta.content.length > 0) {
+        onDelta({ contentDelta: delta.content });
+      }
+      if (Array.isArray(delta.tool_calls)) {
+        for (const tc of delta.tool_calls) {
+          const fn = tc.function ?? {};
+          onDelta({
+            toolCallDelta: {
+              index: tc.index ?? 0,
+              id: tc.id,
+              name: fn.name,
+              argumentsDelta: fn.arguments,
+            },
+          });
+        }
+      }
+    }
+  }
+}
+
+function messageToOpenAI(m: UiMessage): OpenAIMessage {
+  const base: OpenAIMessage = { role: m.role, content: m.content ?? "" };
   if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {
-    // Only include tool_calls that have been executed (or skipped) — pending
-    // ones haven't gone back to the LLM yet. For simplicity we include all
-    // calls; the LLM tolerates "pending" but won't see a matching tool result
-    // until the user confirms.
     base.tool_calls = m.toolCalls.map((c) => ({
       id: c.id,
       type: "function" as const,
@@ -588,12 +733,6 @@ function messageToOpenAI(m: UiMessage): OpenAIMessage {
     base.tool_call_id = m.toolCallId;
   }
   return base;
-}
-
-function noriMessagePathDoc(uid: string, messageId: string) {
-  const path = noriMessagesPath(uid, DEFAULT_THREAD_ID);
-  const { doc } = require("firebase/firestore") as typeof import("firebase/firestore");
-  return doc(path, messageId);
 }
 
 async function touchThread(uid: string, last: UiMessage | undefined) {
@@ -623,9 +762,6 @@ async function executeAndPersist(
     arguments: call.arguments,
     confirmed: call.confirmed === true,
   });
-  // Mark the original call as executed so the UI flips to "Done".
-  // (We don't update the assistant doc here; the success badge keys off the
-  // tool result message's existence.)
   await addDoc(noriMessagesPath(uid, DEFAULT_THREAD_ID), {
     threadId: DEFAULT_THREAD_ID,
     role: "tool",
