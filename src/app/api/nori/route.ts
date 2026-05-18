@@ -126,6 +126,10 @@ export async function POST(req: NextRequest) {
     tools: openAIFormatTools(),
     tool_choice: "auto",
     temperature: 0.4,
+    // Cap output so OpenRouter doesn't reserve the model's full 64K ceiling
+    // against your credit balance. 2048 tokens is plenty for chat answers
+    // and keeps each turn predictable cost-wise.
+    max_tokens: Number(process.env.NORI_MAX_TOKENS || 2048),
   };
 
   try {
