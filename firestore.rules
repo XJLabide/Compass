@@ -197,11 +197,9 @@ service cloud.firestore {
       }
 
       // Nori (AI assistant) chat threads + messages.
-      // Threads live at: users/{uid}/nori/_root/threads/{threadId}
-      // Messages live at: .../threads/{threadId}/messages/{messageId}
-      // We use a single fixed parent doc id ("_root") to avoid wildcards on
-      // the intermediate path segment.
-      match /nori/_root/threads/{threadId} {
+      // Threads: users/{uid}/noriThreads/{threadId}
+      // Messages: .../noriThreads/{threadId}/messages/{messageId}
+      match /noriThreads/{threadId} {
         allow read, write: if isOwner(uid);
         match /messages/{messageId} {
           allow read, write: if isOwner(uid);

@@ -247,7 +247,7 @@ export function noriThreadsPath(
   uid: string,
   db?: Firestore,
 ): CollectionReference<NoriThread> {
-  return collection(userDoc(uid, db), "nori", "_root", "threads").withConverter(
+  return collection(userDoc(uid, db), "noriThreads").withConverter(
     noriThreadConverter,
   );
 }
@@ -257,13 +257,9 @@ export function noriThreadPath(
   threadId: string,
   db?: Firestore,
 ): DocumentReference<NoriThread> {
-  return doc(
-    userDoc(uid, db),
-    "nori",
-    "_root",
-    "threads",
-    threadId,
-  ).withConverter(noriThreadConverter);
+  return doc(userDoc(uid, db), "noriThreads", threadId).withConverter(
+    noriThreadConverter,
+  );
 }
 
 export function noriMessagesPath(
@@ -273,9 +269,7 @@ export function noriMessagesPath(
 ): CollectionReference<NoriMessage> {
   return collection(
     userDoc(uid, db),
-    "nori",
-    "_root",
-    "threads",
+    "noriThreads",
     threadId,
     "messages",
   ).withConverter(noriMessageConverter);
@@ -289,9 +283,7 @@ export function noriMessagePath(
 ): DocumentReference<NoriMessage> {
   return doc(
     userDoc(uid, db),
-    "nori",
-    "_root",
-    "threads",
+    "noriThreads",
     threadId,
     "messages",
     messageId,
