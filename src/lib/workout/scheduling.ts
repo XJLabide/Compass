@@ -10,8 +10,8 @@ import type { ProgramDoc, ProgramSession } from "@/lib/db/types";
  *   Monday    → sessions[0]
  *   Tuesday   → sessions[1]
  *   Wednesday → rest
- *   Thursday  → sessions[2 % len]
- *   Friday    → sessions[3 % len]
+ *   Thursday  → sessions[2] (rest if program has < 3 sessions)
+ *   Friday    → sessions[3] (rest if program has < 4 sessions)
  *   Saturday  → rest
  *   Sunday    → rest
  *
@@ -19,9 +19,10 @@ import type { ProgramDoc, ProgramSession } from "@/lib/db/types";
  *   - 4-day Upper/Lower split aligns with our seeded program (Upper A, Lower A,
  *     Upper B, Lower B), giving a Mon/Tue/Thu/Fri lifting week and three rest
  *     days (Wed/Sat/Sun).
- *   - We use modulo on the session index so a 2- or 3-session program still
- *     produces a sensible rotation, and a 4+-session program never indexes
- *     past the end.
+ *   - Slots that exceed the program's session count fall back to rest rather
+ *     than wrapping with modulo: wrapping a 2-session program over the 4
+ *     lifting slots produced Mon=0, Tue=1, Thu=0, Fri=1 — Mon and Thu would
+ *     double-schedule the same session, which surprises users.
  *
  * `dayOfWeek` is 0..6 with **Sunday = 0** to match `Date#getDay()` so callers
  * can pass `new Date().getDay()` directly (in the user's local timezone — the
@@ -86,7 +87,14 @@ export function getTodayScheduled(
   if (slot === null || slot === undefined) {
     return { kind: "rest" };
   }
-  const session = program.sessions[slot % program.sessions.length];
+  // No modulo here: wrapping a 2-session program over the 4 lifting slots
+  // produced [Mon=0, Tue=1, Thu=0, Fri=1], so Mon and Thu collapsed onto the
+  // same session. Treat overflow slots as rest days so a short program
+  // doesn't accidentally double-schedule itself.
+  if (slot >= program.sessions.length) {
+    return { kind: "rest" };
+  }
+  const session = program.sessions[slot];
   if (!session) return { kind: "rest" };
   return { kind: "session", session };
 }

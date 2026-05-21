@@ -61,7 +61,14 @@ export interface ExerciseSwapPickerProps {
   forExerciseId?: string;
   /** Hide these ids from the list (already-planned in the parent edit dialog). */
   excludeIds?: string[];
-  onPick: (newExerciseId: string) => void;
+  /**
+   * Called when the user picks an exercise. The optional `name` is provided
+   * by the picker on paths where the canonical display name is known locally
+   * (create-custom, library-add, pool selection) so the parent can render
+   * the name immediately instead of momentarily showing the raw id while the
+   * user-exercises snapshot catches up.
+   */
+  onPick: (newExerciseId: string, name?: string) => void;
   onCancel: () => void;
 }
 
@@ -163,6 +170,11 @@ export default function ExerciseSwapPicker({
   // Archive confirmation state. Key = exercise id; value = true while confirm row is shown.
   const [archiveConfirming, setArchiveConfirming] = useState<string | null>(null);
   const [archiving, setArchiving] = useState<string | null>(null);
+  /** Per-row archive error keyed by exerciseId. Rendered inline so failures
+   *  (e.g. rules rejection) are visible instead of silently dismissed. */
+  const [archiveErrors, setArchiveErrors] = useState<Record<string, string>>(
+    {},
+  );
 
   // Library-search state (Step 4: lazy ExerciseDB search).
   const [libQuery, setLibQuery] = useState("");
@@ -200,6 +212,7 @@ export default function ExerciseSwapPicker({
       setLibRowErrors({});
       setArchiveConfirming(null);
       setArchiving(null);
+      setArchiveErrors({});
       libAbortRef.current?.abort();
       libAbortRef.current = null;
     }
@@ -410,12 +423,16 @@ export default function ExerciseSwapPicker({
   // Handlers
   // ---------------------------------------------------------------------------
 
-  function pick(exerciseId: string) {
+  function pick(exerciseId: string, nameHint?: string) {
     // Track the chosen id for the next "recent" render. The parent edit-flow
     // also calls pushRecent on swap-confirm; this covers the picker-only path
     // (e.g. add flow doesn't always go through a confirm dialog).
     pushRecent(exerciseId);
-    onPick(exerciseId);
+    // Resolve display name from the pool when the caller didn't supply one;
+    // covers cases where we know the row we just clicked.
+    const name =
+      nameHint ?? pool.find((e) => e.id === exerciseId)?.name ?? undefined;
+    onPick(exerciseId, name);
   }
 
   async function handleCreate() {
@@ -445,9 +462,10 @@ export default function ExerciseSwapPicker({
       };
       await setDoc(exercisePath(uid, id), payload as Exercise);
       // Immediately select it — the subscription in the parent will pick up
-      // the new doc on the next snapshot tick.
+      // the new doc on the next snapshot tick. Pass the name through so the
+      // parent doesn't flash the raw id while waiting for the snapshot.
       pushRecent(id);
-      onPick(id);
+      onPick(id, trimmed);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to create exercise.";
@@ -458,18 +476,38 @@ export default function ExerciseSwapPicker({
 
   async function handleArchive(exerciseId: string) {
     setArchiving(exerciseId);
+    // Clear any previous error for this row before retrying.
+    setArchiveErrors((prev) => {
+      if (!(exerciseId in prev)) return prev;
+      const { [exerciseId]: _omit, ...rest } = prev;
+      return rest;
+    });
     try {
       await updateDoc(exercisePath(uid, exerciseId), {
         archived: true,
         updatedAt: serverTimestamp(),
       });
       // Row disappears on the next render because buildPickerPool filters archived.
-    } catch {
-      // On error, just dismiss the confirm so the user can retry.
-    } finally {
       setArchiveConfirming(null);
+    } catch (err) {
+      // Surface the failure inline on the row so the user understands why the
+      // exercise didn't disappear, and keep the confirm UI open so they can
+      // retry or cancel. Previously this was swallowed silently.
+      const message =
+        err instanceof Error ? err.message : "Failed to archive exercise.";
+      setArchiveErrors((prev) => ({ ...prev, [exerciseId]: message }));
+    } finally {
       setArchiving(null);
     }
+  }
+
+  /** Dismiss the inline archive error for a row (called from Cancel). */
+  function clearArchiveError(exerciseId: string) {
+    setArchiveErrors((prev) => {
+      if (!(exerciseId in prev)) return prev;
+      const { [exerciseId]: _omit, ...rest } = prev;
+      return rest;
+    });
   }
 
   /**
@@ -545,7 +583,9 @@ export default function ExerciseSwapPicker({
     try {
       await setDoc(exercisePath(uid, id), payload as Exercise);
       pushRecent(id);
-      onPick(id);
+      // Pass the name through so the parent doesn't flash the raw id while
+      // waiting for the user-exercises snapshot.
+      onPick(id, result.name);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to add to library.";
@@ -745,23 +785,37 @@ export default function ExerciseSwapPicker({
                         return (
                         <li key={`all-${e.id}`}>
                           {isConfirming ? (
-                            <div className="flex items-center gap-2 rounded-md border border-border bg-neutral-900/60 px-3 py-2 text-[11px] text-neutral-200">
-                              <span className="min-w-0 flex-1 truncate">Archive <span className="font-medium">{e.name}</span>? Old logged sets keep this name.</span>
-                              <button
-                                type="button"
-                                disabled={isArchiving}
-                                onClick={() => void handleArchive(e.id)}
-                                className="shrink-0 rounded-md bg-amber-600/80 px-2 py-1 text-[11px] font-semibold text-neutral-100 hover:bg-amber-600 disabled:opacity-50"
-                              >
-                                {isArchiving ? "Archiving…" : "Archive"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setArchiveConfirming(null)}
-                                className="shrink-0 rounded-md border border-border bg-neutral-800 px-2 py-1 text-[11px] font-medium text-neutral-300 hover:bg-neutral-700"
-                              >
-                                Cancel
-                              </button>
+                            <div className="rounded-md border border-border bg-neutral-900/60 px-3 py-2 text-[11px] text-neutral-200">
+                              <div className="flex items-center gap-2">
+                                <span className="min-w-0 flex-1 truncate">Archive <span className="font-medium">{e.name}</span>? Old logged sets keep this name.</span>
+                                <button
+                                  type="button"
+                                  disabled={isArchiving}
+                                  onClick={() => void handleArchive(e.id)}
+                                  className="shrink-0 rounded-md bg-amber-600/80 px-2 py-1 text-[11px] font-semibold text-neutral-100 hover:bg-amber-600 disabled:opacity-50"
+                                >
+                                  {isArchiving ? "Archiving…" : archiveErrors[e.id] ? "Retry" : "Archive"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    clearArchiveError(e.id);
+                                    setArchiveConfirming(null);
+                                  }}
+                                  className="shrink-0 rounded-md border border-border bg-neutral-800 px-2 py-1 text-[11px] font-medium text-neutral-300 hover:bg-neutral-700"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                              {archiveErrors[e.id] ? (
+                                <p
+                                  role="alert"
+                                  aria-live="polite"
+                                  className="mt-1.5 rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-300"
+                                >
+                                  {archiveErrors[e.id]}
+                                </p>
+                              ) : null}
                             </div>
                           ) : (
                           <div className="flex items-center gap-1">
@@ -914,7 +968,9 @@ export default function ExerciseSwapPicker({
                         {dedup.kind === "match" ? (
                           <button
                             type="button"
-                            onClick={() => pick(dedup.existingId)}
+                            onClick={() =>
+                              pick(dedup.existingId, dedup.existingName)
+                            }
                             className="shrink-0 rounded-md border border-border bg-neutral-900 px-2 py-1.5 text-[11px] font-medium text-neutral-200 hover:bg-neutral-800"
                           >
                             Select

@@ -37,6 +37,7 @@ import { finishSession as runPRDetection } from "@/lib/workout/finishSession";
 import { isPastEditWindow } from "@/lib/workout/recovery";
 import { applyProgramSwap } from "@/lib/workout/applyProgramSwap";
 import { getMasterExercise } from "@/lib/workout/exerciseSubs";
+import { isPlaceholderSet } from "@/lib/workout/placeholderSet";
 import { Pencil } from "lucide-react";
 
 /**
@@ -242,13 +243,14 @@ export default function WorkoutSessionPage() {
   }, [session, program]);
 
   // Group logged sets by exercise for cheap lookup in the render loop.
-  // We also strip out any "placeholder" zero-set we wrote on quick-add to
-  // anchor the exercise into the session: a set with weight=0 AND reps=0 is
-  // not a real logged set, just a marker.
+  // We also strip out any "placeholder" set we wrote on quick-add to anchor
+  // the exercise into the session: a set marked `placeholder: true` (or, for
+  // legacy docs, a 0×0 set with no `placeholder` field) is not a real logged
+  // set, just a marker. See `isPlaceholderSet` for the full rule.
   const setsByExercise = useMemo(() => {
     const map = new Map<string, LoggedSet[]>();
     (session?.sets ?? []).forEach((set) => {
-      if (set.weightKg === 0 && set.reps === 0) return; // placeholder anchor
+      if (isPlaceholderSet(set)) return;
       const arr = map.get(set.exerciseId) ?? [];
       arr.push(set);
       map.set(set.exerciseId, arr);
@@ -342,6 +344,7 @@ export default function WorkoutSessionPage() {
         weightKg: 0,
         reps: 0,
         order: nextOrder,
+        placeholder: true,
       };
       const patch: { sets: LoggedSet[]; updatedAt: FieldValue } = {
         sets: [...existing, anchor],
@@ -368,9 +371,9 @@ export default function WorkoutSessionPage() {
       const finishedMs = Date.now();
       const durationMin = computeDurationMin(startedMs, finishedMs);
 
-      // Prune zero/zero placeholder anchors so they don't pollute history.
+      // Prune placeholder anchors so they don't pollute history.
       const cleanedSets = (session.sets ?? []).filter(
-        (s) => !(s.weightKg === 0 && s.reps === 0),
+        (s) => !isPlaceholderSet(s),
       );
 
       const patch: {
@@ -413,7 +416,7 @@ export default function WorkoutSessionPage() {
   const loggedExerciseIds = useMemo(() => {
     const s = new Set<string>();
     (session?.sets ?? []).forEach((set) => {
-      if (set.weightKg === 0 && set.reps === 0) return; // placeholder anchor
+      if (isPlaceholderSet(set)) return;
       s.add(set.exerciseId);
     });
     return s;
@@ -501,7 +504,7 @@ export default function WorkoutSessionPage() {
   // otherwise allow late edits (e.g. rules-level guard mirrors this).
   const isLocked = session ? isPastEditWindow(session) : false;
   const totalSets = (session?.sets ?? []).filter(
-    (s) => !(s.weightKg === 0 && s.reps === 0),
+    (s) => !isPlaceholderSet(s),
   ).length;
 
   return (

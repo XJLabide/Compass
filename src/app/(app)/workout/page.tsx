@@ -170,22 +170,44 @@ export default function WorkoutPage() {
           setInProgress(null);
           return;
         }
-        // Pick the most recently started; fall back to first doc.
-        let best: RecentRow | null = null;
-        let bestMs = -Infinity;
-        snap.docs.forEach((d) => {
+        // Prefer docs with a real `startedAt` (most recent first). If none
+        // have timestamps, fall back to `createdAt` desc, then doc-id desc as
+        // a final deterministic tiebreaker. Avoids arbitrary "first doc wins"
+        // when multiple legacy in-progress docs lack `startedAt`.
+        const toMs = (
+          ts: unknown,
+        ): number | null => {
+          const t = ts as { toMillis?: () => number } | undefined;
+          return t && typeof t.toMillis === "function" ? t.toMillis() : null;
+        };
+        const rows = snap.docs.map((d) => {
           const data = d.data();
-          const ts = data.startedAt as unknown as
-            | { toMillis?: () => number }
-            | undefined;
-          const ms =
-            ts && typeof ts.toMillis === "function" ? ts.toMillis() : 0;
-          if (ms > bestMs) {
-            bestMs = ms;
-            best = { id: d.id, session: data };
-          }
+          return {
+            id: d.id,
+            session: data,
+            startedMs: toMs(data.startedAt),
+            createdMs: toMs(data.createdAt),
+          };
         });
-        setInProgress(best);
+        rows.sort((a, b) => {
+          // Docs with startedAt always come before docs without.
+          const aHas = a.startedMs !== null;
+          const bHas = b.startedMs !== null;
+          if (aHas !== bHas) return aHas ? -1 : 1;
+          if (aHas && bHas) {
+            // Most recent startedAt first.
+            return (b.startedMs as number) - (a.startedMs as number);
+          }
+          // Neither has startedAt — fall back to createdAt desc, then id desc.
+          const aC = a.createdMs;
+          const bC = b.createdMs;
+          if (aC !== null && bC !== null && aC !== bC) return bC - aC;
+          if (aC !== null && bC === null) return -1;
+          if (aC === null && bC !== null) return 1;
+          return b.id.localeCompare(a.id);
+        });
+        const top = rows[0];
+        setInProgress(top ? { id: top.id, session: top.session } : null);
       },
       (err) => setLoadError(err.message),
     );

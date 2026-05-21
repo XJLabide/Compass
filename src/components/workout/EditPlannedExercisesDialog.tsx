@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -169,7 +169,17 @@ export default function EditPlannedExercisesDialog({
   // Confirm dialog for destructive actions on logged exercises.
   const [confirm, setConfirm] = useState<
     | { kind: "remove"; index: number; name: string }
-    | { kind: "swap"; index: number; newId: string; oldName: string; newName: string }
+    | {
+        kind: "swap";
+        index: number;
+        newId: string;
+        /** Captured at swap time so we don't re-lookup after the snapshot may
+         *  have changed. Carries the picker's display name through the
+         *  destructive-action confirm dialog. */
+        newNameHint?: string;
+        oldName: string;
+        newName: string;
+      }
     | null
   >(null);
 
@@ -211,26 +221,42 @@ export default function EditPlannedExercisesDialog({
 
   useBodyScrollLock(open);
 
-  // Reset draft + swaps whenever the dialog opens for a fresh edit.
+  // Track the last `initial` reference we reset against so we can detect when
+  // the parent swapped in a new array while the dialog stayed open (e.g. the
+  // user navigated between sessions without closing the editor). Without this
+  // guard, the original effect was hard-pinned to `[open]` and would miss the
+  // change, leaving stale state in the dialog.
+  const lastInitialRef = useRef<PlannedExercise[] | null>(null);
+
   useEffect(() => {
-    if (open) {
-      const sorted = [...initial].sort((a, b) => a.order - b.order);
-      setDraft(renumber(sorted));
-      setRepsText(sorted.map((d) => formatReps(d.repRangeLow, d.repRangeHigh)));
-      setNotesOpenForIndex(
-        new Set(
-          sorted
-            .map((d, i) => (d.notes && d.notes.length > 0 ? i : -1))
-            .filter((i) => i >= 0),
-        ),
-      );
-      setSwaps([]);
-      setPicker(null);
-      setConfirm(null);
-      setSaveError(null);
+    // Reset when the dialog opens OR the `initial` array reference changes
+    // while it's already open. We compare by reference identity — the parent
+    // passes a stable array (either `slot.exercises` or `pendingOverride`)
+    // and only swaps it when the underlying source actually changed.
+    if (!open) {
+      // Clear the ref so the next open re-runs the reset even if `initial`
+      // happens to be the same reference as last time.
+      lastInitialRef.current = null;
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    if (lastInitialRef.current === initial) return;
+    lastInitialRef.current = initial;
+
+    const sorted = [...initial].sort((a, b) => a.order - b.order);
+    setDraft(renumber(sorted));
+    setRepsText(sorted.map((d) => formatReps(d.repRangeLow, d.repRangeHigh)));
+    setNotesOpenForIndex(
+      new Set(
+        sorted
+          .map((d, i) => (d.notes && d.notes.length > 0 ? i : -1))
+          .filter((i) => i >= 0),
+      ),
+    );
+    setSwaps([]);
+    setPicker(null);
+    setConfirm(null);
+    setSaveError(null);
+  }, [open, initial]);
 
   // Esc to cancel (only when no nested picker/confirm is open).
   useEffect(() => {
@@ -347,11 +373,14 @@ export default function EditPlannedExercisesDialog({
   }
 
   /** Apply a swap to draft + track it in the swaps array. */
-  function applySwap(index: number, newId: string) {
+  function applySwap(index: number, newId: string, nameHint?: string) {
     const original = draft[index];
     const fromId = original.exerciseId;
     if (fromId === newId) return;
-    const newName = nameForExerciseId(newId);
+    // Prefer the name the picker supplied (it always knows it locally,
+    // including for freshly-created custom exercises that may not be in the
+    // pool snapshot yet). Fall back to the pool lookup.
+    const newName = nameHint ?? nameForExerciseId(newId);
     pushRecent(newId);
     setDraft((prev) => {
       const next = [...prev];
@@ -371,7 +400,7 @@ export default function EditPlannedExercisesDialog({
     });
   }
 
-  function requestSwap(index: number, newId: string) {
+  function requestSwap(index: number, newId: string, nameHint?: string) {
     const original = draft[index];
     if (original.exerciseId === newId) {
       setPicker(null);
@@ -382,18 +411,19 @@ export default function EditPlannedExercisesDialog({
         kind: "swap",
         index,
         newId,
+        newNameHint: nameHint,
         oldName: original.name,
-        newName: nameForExerciseId(newId),
+        newName: nameHint ?? nameForExerciseId(newId),
       });
       setPicker(null);
       return;
     }
-    applySwap(index, newId);
+    applySwap(index, newId, nameHint);
     setPicker(null);
   }
 
-  function addExercise(newId: string) {
-    const newName = nameForExerciseId(newId);
+  function addExercise(newId: string, nameHint?: string) {
+    const newName = nameHint ?? nameForExerciseId(newId);
     pushRecent(newId);
     setDraft((prev) => {
       const next: Draft = {
@@ -410,13 +440,13 @@ export default function EditPlannedExercisesDialog({
     setPicker(null);
   }
 
-  function handlePick(newId: string) {
+  function handlePick(newId: string, name?: string) {
     if (!picker) return;
     if (picker.mode === "swap") {
-      requestSwap(picker.index, newId);
+      requestSwap(picker.index, newId, name);
       return;
     }
-    addExercise(newId);
+    addExercise(newId, name);
   }
 
   function handleConfirm() {
@@ -424,7 +454,7 @@ export default function EditPlannedExercisesDialog({
     if (confirm.kind === "remove") {
       removeAt(confirm.index);
     } else {
-      applySwap(confirm.index, confirm.newId);
+      applySwap(confirm.index, confirm.newId, confirm.newNameHint);
     }
     setConfirm(null);
   }

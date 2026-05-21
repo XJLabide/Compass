@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import type { SessionDoc } from "@/lib/db/types";
 import { discardInProgressSession } from "@/lib/workout/recovery";
+import { isPlaceholderSet } from "@/lib/workout/placeholderSet";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface ResumeBannerProps {
@@ -30,7 +31,7 @@ export default function ResumeBanner({ uid, inProgress }: ResumeBannerProps) {
   const { id, session } = inProgress;
   const label = session.name || "Session";
   const setsCount = (session.sets ?? []).filter(
-    (s) => !(s.weightKg === 0 && s.reps === 0),
+    (s) => !isPlaceholderSet(s),
   ).length;
 
   const handleDiscard = async () => {

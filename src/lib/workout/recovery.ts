@@ -10,6 +10,7 @@ import {
 import { sessionPath, sessionsPath } from "@/lib/db/paths";
 import type { LoggedSet, SessionDoc } from "@/lib/db/types";
 import { finishSession } from "@/lib/workout/finishSession";
+import { isPlaceholderSet } from "@/lib/workout/placeholderSet";
 
 /**
  * Recovery helpers for in-progress workout sessions.
@@ -94,10 +95,10 @@ export async function checkAndAutoFinalize(uid: string): Promise<{
     if (now - startedMs < AUTO_FINALIZE_MS) continue;
 
     try {
-      // Prune zero/zero placeholders the live logger uses as anchors so they
-      // don't pollute history or PR computation.
+      // Prune placeholder anchors the live logger uses to surface quick-added
+      // exercises so they don't pollute history or PR computation.
       const cleanedSets: LoggedSet[] = (session.sets ?? []).filter(
-        (s) => !(s.weightKg === 0 && s.reps === 0),
+        (s) => !isPlaceholderSet(s),
       );
 
       const patch: {

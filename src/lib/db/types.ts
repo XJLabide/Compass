@@ -170,6 +170,13 @@ export interface LoggedSet {
   isPR?: boolean;
   /** 0-based order across the whole session (or per-exercise; consumer decides). */
   order: number;
+  /**
+   * True for "anchor" sets we write to surface a quick-added exercise as its
+   * own card before any real set is logged. Pruned at finish time. Without
+   * this flag we'd have to infer placeholders from weight=0 && reps=0, which
+   * accidentally swallows legitimate 0×0 logs (e.g. assisted bodyweight).
+   */
+  placeholder?: boolean;
 }
 
 /** Session lifecycle. `in_progress` is the live-logger state; `completed` is finalized;
