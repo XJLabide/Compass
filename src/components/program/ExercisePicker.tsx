@@ -14,6 +14,7 @@ import { Plus, Search, X } from "lucide-react";
 import { exercisesPath } from "@/lib/db/paths";
 import { EXERCISE_MASTER } from "@/lib/data/exerciseMaster";
 import { getFirebaseDb } from "@/lib/firebase";
+import { generateCustomId } from "@/lib/workout/customExerciseId";
 import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import type { Exercise, ExerciseCategory, MuscleGroup } from "@/lib/db/types";
 
@@ -223,15 +224,6 @@ export default function ExercisePicker({
   );
 }
 
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
-}
-
 function AddCustomForm({
   uid,
   onAdded,
@@ -247,25 +239,36 @@ function AddCustomForm({
   const [primaryMuscle, setPrimaryMuscle] = useState<MuscleGroup>("chest");
   const [category, setCategory] = useState<ExerciseCategory>("accessory");
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
       const trimmed = name.trim();
-      if (!trimmed) return;
-      const slug = slugify(trimmed) || `exercise-${Date.now()}`;
+      if (!trimmed) {
+        // Inline validation: don't write, surface error against the name input.
+        setNameError("Name is required.");
+        return;
+      }
+      setNameError(null);
+      // Use the shared collision-proof id generator (slug + 6-hex uuid suffix)
+      // so a custom "Bench Press" doesn't shadow the master `bench-press` doc.
+      const id = generateCustomId(trimmed);
       setSaving(true);
       try {
         const db = getFirebaseDb();
-        const ref = doc(db, "users", uid, "exercises", slug);
+        const ref = doc(db, "users", uid, "exercises", id);
         await setDoc(ref, {
           name: trimmed,
           primaryMuscle,
           category,
           seeded: false,
+          // Mark provenance so Phase-3 archive-from-library can target user
+          // exercises and skip seeded master ids.
+          source: "custom",
           createdAt: serverTimestamp(),
         });
-        onAdded({ id: slug, name: trimmed });
+        onAdded({ id, name: trimmed });
       } catch (err) {
         onError(err instanceof Error ? err.message : "Failed to add exercise");
       } finally {
@@ -280,12 +283,21 @@ function AddCustomForm({
       <input
         type="text"
         value={name}
-        onChange={(e) => setName(e.target.value)}
+        onChange={(e) => {
+          setName(e.target.value);
+          if (nameError && e.target.value.trim()) setNameError(null);
+        }}
         placeholder="Exercise name"
         maxLength={64}
         autoFocus
+        aria-invalid={nameError ? true : undefined}
         className="h-9 w-full rounded-md border border-border bg-neutral-900 px-2.5 text-sm text-neutral-100 focus:border-accent focus:outline-none"
       />
+      {nameError ? (
+        <p role="alert" className="text-xs text-red-300">
+          {nameError}
+        </p>
+      ) : null}
       <div className="grid grid-cols-2 gap-2">
         <select
           value={primaryMuscle}

@@ -14,6 +14,7 @@ import type {
   MuscleGroup,
 } from "@/lib/db/types";
 import { suggestSubstitutes } from "@/lib/workout/exerciseSubs";
+import { generateCustomId } from "@/lib/workout/customExerciseId";
 import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import { getRecent, pushRecent } from "@/lib/workout/recentExercises";
 import Skeleton from "@/components/ui/Skeleton";
@@ -105,29 +106,6 @@ const CATEGORY_OPTIONS: ExerciseCategory[] = [
 ];
 
 const RECENT_SHOWN = 5;
-
-/** Slugify a free-form name into a stable id prefix. */
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-}
-
-/** Generate a custom-exercise id: slug + "-" + 6 hex chars from a UUID. */
-function generateCustomId(name: string): string {
-  const slug = slugify(name) || "exercise";
-  // `crypto.randomUUID` is available in modern browsers + Node 19+. The picker
-  // is client-only ("use client" + open=true gate), so window is defined.
-  const uuid =
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const suffix = uuid.replace(/-/g, "").slice(0, 6);
-  return `${slug}-${suffix}`;
-}
 
 /**
  * Canonical form of an exercise name for dedup comparison.

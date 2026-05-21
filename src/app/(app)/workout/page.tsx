@@ -386,6 +386,7 @@ export default function WorkoutPage() {
       await applyProgramSwap({
         uid: user.uid,
         program,
+        sessionId: head.sessionId,
         sessionName: head.sessionName,
         fromId: head.fromId,
         toId: head.toId,
@@ -631,6 +632,7 @@ export default function WorkoutPage() {
           open={editOpen}
           title={`Edit ${rotation.next.name}`}
           sessionName={rotation.next.name}
+          sessionId={rotation.next.id}
           initial={pendingOverride ?? rotation.next.exercises}
           onSave={handleEditSave}
           onCancel={() => setEditOpen(false)}

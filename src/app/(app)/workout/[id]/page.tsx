@@ -449,6 +449,7 @@ export default function WorkoutSessionPage() {
       await applyProgramSwap({
         uid: user.uid,
         program,
+        sessionId: head.sessionId,
         sessionName: head.sessionName,
         fromId: head.fromId,
         toId: head.toId,
@@ -661,6 +662,7 @@ export default function WorkoutSessionPage() {
         open={editOpen}
         title="Edit this session"
         sessionName={session?.name ?? "Session"}
+        sessionId={session?.programSessionId}
         initial={editInitial}
         loggedExerciseIds={loggedExerciseIds}
         onSave={handleEditSave}

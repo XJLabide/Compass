@@ -41,11 +41,18 @@ import ExerciseSwapPicker, { buildPickerPool } from "./ExerciseSwapPicker";
 /**
  * Swap performed during this edit session, surfaced to the parent so it can
  * prompt "save this swap to the program?".
+ *
+ * `sessionId` is the preferred match key for `applyProgramSwap` — it survives
+ * the user renaming the session between the swap and the prompt. `sessionName`
+ * remains for display + as a legacy fallback for sessions whose id has drifted
+ * (e.g. ad-hoc / freeform sessions started without a programSessionId).
  */
 export interface PlannedExerciseSwap {
   fromId: string;
   toId: string;
-  /** The session name we're editing (e.g. "Upper A"). */
+  /** Stable program session id (matches `ProgramSession.id`). May be empty for ad-hoc sessions. */
+  sessionId: string;
+  /** The session name we're editing (e.g. "Upper A"). Used for display + legacy fallback. */
   sessionName: string;
 }
 
@@ -54,6 +61,9 @@ export interface EditPlannedExercisesDialogProps {
   title: string;
   /** Display name of the session being edited (for the "save swap?" prompt). */
   sessionName: string;
+  /** Program session id — captured at swap time so applyProgramSwap can match
+   *  on id even if the user renames the session later. Empty for ad-hoc. */
+  sessionId?: string;
   initial: PlannedExercise[];
   /**
    * Mid-session only: exercises with logged sets. Used to confirm before
@@ -116,6 +126,7 @@ export default function EditPlannedExercisesDialog({
   open,
   title,
   sessionName,
+  sessionId,
   initial,
   loggedExerciseIds,
   onSave,
@@ -353,7 +364,10 @@ export default function EditPlannedExercisesDialog({
       // Avoid recording a swap that ends up back at the original id elsewhere
       // (e.g. user swapped A→B→A — net zero, skip the prompt).
       if (newId === fromId) return filtered;
-      return [...filtered, { fromId, toId: newId, sessionName }];
+      return [
+        ...filtered,
+        { fromId, toId: newId, sessionId: sessionId ?? "", sessionName },
+      ];
     });
   }
 
