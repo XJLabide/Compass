@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Trophy } from "lucide-react";
+import { Check, HelpCircle, Trophy } from "lucide-react";
 
 import type { LoggedSet, UnitSystem } from "@/lib/db/types";
 import {
@@ -10,6 +10,11 @@ import {
   roundDisplayWeight,
   weightUnitLabel,
 } from "@/lib/workout/units";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 import {
   REP_STEP,
@@ -21,7 +26,7 @@ import {
 /**
  * SetRow — a single (weight, reps, RPE) row inside an `ExerciseCard`.
  *
- * Design rules (from `fn-4-p9x.2`):
+ * Design rules (from `fn-4-p9x.2`, refreshed in p9x.4 UX overhaul):
  *   - +/- steppers on weight and reps using smart deltas (reps = 1,
  *     metric weight = 2.5 kg, imperial weight = 5 lb).
  *   - Direct numeric entry via `inputmode="decimal"` for the soft-numpad.
@@ -29,6 +34,11 @@ import {
  *   - RPE is an optional 1..10 selector. We use a compact `<select>` so it
  *     drops a native picker on mobile — overkill for desktop but the right
  *     primitive for thumb-driven use.
+ *   - Empty state: untouched inputs render `null`, NOT `0`. The placeholder
+ *     (ghost / last-set value) shows in muted grey. First +/- press jumps to
+ *     the placeholder before incrementing.
+ *   - Labels (WEIGHT (LB|KG) / REPS / RPE+?) only render on the first set
+ *     row of an exercise — controlled by `showLabels`.
  *
  * Data model:
  *   The row is "uncommitted" until the user presses **Log**. While editing,
@@ -53,19 +63,15 @@ export interface SetRowProps {
    */
   logged?: LoggedSet;
   /**
-   * Starting values for the editor. Typically derived from the previous set
-   * of the same exercise so a lifter only adjusts what changed.
+   * Ghost prefill — last set's weight & reps (or last-session top set as
+   * fallback). Rendered as muted-grey placeholder text when the input is
+   * empty. First +/- press jumps to this value, then increments. Typing
+   * replaces it.
+   *
+   * Weight is in canonical kg; converted to display units locally.
    */
-  prefill?: { weightKg: number; reps: number; rpe?: number };
-  /**
-   * Optional "ghost" suggestion sourced from a prior session (fn-4-p9x.3
-   * cross-session prefill). Unlike `prefill`, ghost values are NOT pushed
-   * into the input state — they render as placeholder/hint text inside the
-   * empty input. The user must touch the stepper or type a value to "accept"
-   * the suggestion (which then becomes the committed value). This prevents
-   * accidentally logging stale numbers without thinking.
-   */
-  ghost?: { weightKg: number; reps: number; rpe?: number };
+  placeholderWeightKg?: number;
+  placeholderReps?: number;
   /** Called when the user commits the row by pressing Log. */
   onLogged?: (input: { weightKg: number; reps: number; rpe?: number }) => void;
   /** Disable interaction while a write is in flight. */
@@ -76,6 +82,12 @@ export interface SetRowProps {
    * acceptance criterion.
    */
   autoFocus?: boolean;
+  /**
+   * If true the row renders the WEIGHT/REPS/RPE eyebrow labels above each
+   * input. Parent passes true only for the FIRST set row of an exercise to
+   * cut visual repetition on subsequent sets.
+   */
+  showLabels?: boolean;
 }
 
 export default function SetRow(props: SetRowProps) {
@@ -83,11 +95,12 @@ export default function SetRow(props: SetRowProps) {
     setNumber,
     unitSystem,
     logged,
-    prefill,
-    ghost,
+    placeholderWeightKg,
+    placeholderReps,
     onLogged,
     disabled,
     autoFocus,
+    showLabels,
   } = props;
 
   const isLogged = Boolean(logged);
@@ -95,41 +108,49 @@ export default function SetRow(props: SetRowProps) {
   // -- Local edit state ------------------------------------------------------
   // Stored in DISPLAY units for weight so the input string the user sees
   // matches the underlying number exactly (no kg<->lb thrash on every render).
-  const initialWeightDisplay = roundDisplayWeight(
-    kgToDisplay(
-      logged?.weightKg ?? prefill?.weightKg ?? 0,
-      unitSystem,
-    ),
-  );
-  const initialReps = logged?.reps ?? prefill?.reps ?? 0;
-  const initialRpe = logged?.rpe ?? prefill?.rpe;
+  //
+  // For UNTOUCHED editable rows, weight & reps are `null` (empty). The
+  // placeholder (ghost) renders as muted-grey hint text in that state.
+  // For LOGGED rows we always use the committed values.
+  const initialWeightDisplay: number | null = isLogged
+    ? roundDisplayWeight(kgToDisplay(logged!.weightKg, unitSystem))
+    : null;
+  const initialReps: number | null = isLogged ? logged!.reps : null;
+  const initialRpe = logged?.rpe;
 
-  const [weightDisplay, setWeightDisplay] =
-    useState<number>(initialWeightDisplay);
-  const [reps, setReps] = useState<number>(initialReps);
+  const [weightDisplay, setWeightDisplay] = useState<number | null>(
+    initialWeightDisplay,
+  );
+  const [reps, setReps] = useState<number | null>(initialReps);
   const [rpe, setRpe] = useState<number | undefined>(initialRpe);
 
   const weightInputRef = useRef<HTMLInputElement | null>(null);
   const repsInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Reset local state if the prefill or unit system changes (e.g. a previous
-  // set was just logged and bumped our prefill, or the user toggled units in
-  // settings while we were on this page).
+  // Derived placeholder values, in display units.
+  const placeholderWeightDisplay: number | null =
+    typeof placeholderWeightKg === "number"
+      ? roundDisplayWeight(kgToDisplay(placeholderWeightKg, unitSystem))
+      : null;
+  const placeholderRepsValue: number | null =
+    typeof placeholderReps === "number" ? placeholderReps : null;
+
+  // Reset local state if the placeholder identity or unit system changes
+  // (e.g. a previous set was just logged and bumped our placeholder, or
+  // the user toggled units in settings while we were on this page).
+  // We only touch logged rows once at mount via initial state.
   useEffect(() => {
     if (isLogged) return;
-    setWeightDisplay(
-      roundDisplayWeight(
-        kgToDisplay(prefill?.weightKg ?? 0, unitSystem),
-      ),
-    );
-    setReps(prefill?.reps ?? 0);
-    setRpe(prefill?.rpe);
-    // We intentionally re-run on prefill identity / unit change.
+    setWeightDisplay(null);
+    setReps(null);
+    setRpe(undefined);
+    // We intentionally re-run on placeholder identity / unit change so the
+    // ghost text updates and the row visibly "resets" after the parent
+    // re-keys it post-log.
   }, [
     isLogged,
-    prefill?.weightKg,
-    prefill?.reps,
-    prefill?.rpe,
+    placeholderWeightKg,
+    placeholderReps,
     unitSystem,
   ]);
 
@@ -146,29 +167,46 @@ export default function SetRow(props: SetRowProps) {
   // converted to display units on the fly.
   const weightStepKg =
     unitSystem === "imperial" ? WEIGHT_STEP_KG_IMPERIAL : WEIGHT_STEP_KG_METRIC;
+  // Silence unused-var warning while keeping the canonical-step constant
+  // imported for future use (e.g. analytics on adjustment magnitude).
+  void weightStepKg;
   const weightStepDisplay = unitSystem === "imperial" ? 5 : 2.5;
 
   function stepWeight(direction: 1 | -1) {
     setWeightDisplay((curr) => {
-      const next = roundDisplayWeight(curr + direction * weightStepDisplay);
+      // First-press semantics: if the field is empty, jump to the placeholder
+      // (or 0 if none) BEFORE applying the increment. This mirrors the
+      // "tap-to-accept-the-suggestion-then-tweak" workflow from the spec.
+      const base = curr ?? placeholderWeightDisplay ?? 0;
+      const next = roundDisplayWeight(base + direction * weightStepDisplay);
       return Math.max(0, next);
     });
   }
 
   function stepReps(direction: 1 | -1) {
-    setReps((curr) => Math.max(0, curr + direction * REP_STEP));
+    setReps((curr) => {
+      const base = curr ?? placeholderRepsValue ?? 0;
+      return Math.max(0, base + direction * REP_STEP);
+    });
   }
 
   // -- Commit ----------------------------------------------------------------
   function commit() {
     if (!onLogged || disabled || isLogged) return;
-    if (reps <= 0) return; // require at least 1 rep
-    const weightKg = displayToKg(weightDisplay, unitSystem);
+    // Resolve effective values: if user hasn't touched a field, fall back to
+    // the placeholder. A row with neither typed nor placeholder values is
+    // unloggable.
+    const effectiveWeightDisplay =
+      weightDisplay ?? placeholderWeightDisplay ?? null;
+    const effectiveReps = reps ?? placeholderRepsValue ?? null;
+    if (effectiveReps == null || effectiveReps <= 0) return; // require at least 1 rep
+    if (effectiveWeightDisplay == null) return;
+    const weightKg = displayToKg(effectiveWeightDisplay, unitSystem);
     onLogged({
       // round canonical kg to 0.001 so we don't accumulate float drift across
       // many lb<->kg roundtrips on imperial-mode increments.
       weightKg: Math.round(weightKg * 1000) / 1000,
-      reps,
+      reps: effectiveReps,
       rpe,
     });
   }
@@ -187,192 +225,243 @@ export default function SetRow(props: SetRowProps) {
     }
   }
 
-  // -- Ghost (cross-session suggestion) -------------------------------------
-  // We show the ghost as placeholder-style text inside the empty inputs and
-  // as a one-tap "Use last" affordance. Accepting the ghost pushes its
-  // values into local state (same path the stepper buttons use), so the
-  // ordinary commit flow handles persistence.
-  const ghostWeightDisplay = ghost
-    ? roundDisplayWeight(kgToDisplay(ghost.weightKg, unitSystem))
-    : null;
-  const ghostReps = ghost?.reps ?? null;
-  const ghostVisible =
-    !isLogged && ghost !== undefined && weightDisplay === 0 && reps === 0;
-
-  function acceptGhost() {
-    if (!ghost) return;
-    setWeightDisplay(
-      roundDisplayWeight(kgToDisplay(ghost.weightKg, unitSystem)),
-    );
-    setReps(ghost.reps);
-    if (typeof ghost.rpe === "number") setRpe(ghost.rpe);
-  }
-
   // -- Render ----------------------------------------------------------------
-  // Note: we use uncontrolled-ish patterns for the number inputs (controlled
-  // value but accepting bare text) so the user can transiently clear the
-  // field while typing. Empty becomes 0.
+  // We use controlled inputs where empty string === null in our state model.
   const weightLabel = weightUnitLabel(unitSystem);
+  const weightLabelUpper = weightLabel.toUpperCase();
+
+  // Display strings for the inputs. Empty string when null so the `placeholder`
+  // attribute is what the user sees.
+  const weightInputValue =
+    weightDisplay == null
+      ? ""
+      : Number.isFinite(weightDisplay)
+        ? String(weightDisplay)
+        : "";
+  const repsInputValue =
+    reps == null ? "" : Number.isFinite(reps) ? String(reps) : "";
+
+  // Placeholder strings — what's shown when the field is empty. Fall back
+  // to em-dash so the field is never visually blank.
+  const weightPlaceholder =
+    placeholderWeightDisplay != null ? String(placeholderWeightDisplay) : "—";
+  const repsPlaceholder =
+    placeholderRepsValue != null ? String(placeholderRepsValue) : "—";
+
+  // Common eyebrow-label classes — match `text-muted` muted labels elsewhere.
+  const eyebrowClass =
+    "text-[10px] font-medium uppercase tracking-wider text-muted";
 
   return (
     <div className="space-y-1">
-    {ghostVisible ? (
-      <button
-        type="button"
-        onClick={acceptGhost}
-        className="ml-10 inline-flex items-center gap-1 rounded-md border border-dashed border-border bg-transparent px-2 py-0.5 text-[10px] font-medium text-muted transition hover:border-accent2/60 hover:text-accent2"
-        aria-label={`Use previous: ${ghostWeightDisplay} ${weightLabel} × ${ghostReps} reps`}
+      <div
+        data-set-number={setNumber}
+        className={`flex min-h-11 items-stretch gap-2 rounded-lg border px-2 py-2 text-sm ${
+          isLogged
+            ? "border-border/60 bg-neutral-900/30 text-neutral-300"
+            : "border-border bg-neutral-900/60 text-neutral-100"
+        }`}
       >
-        Last: {ghostWeightDisplay} {weightLabel} × {ghostReps}
-        {typeof ghost?.rpe === "number" ? ` @${ghost.rpe}` : ""}
-        <span aria-hidden="true">↩</span>
-      </button>
-    ) : null}
-    <div
-      data-set-number={setNumber}
-      className={`flex min-h-11 items-center gap-2 rounded-lg border px-2 py-2 text-sm ${
-        isLogged
-          ? "border-border/60 bg-neutral-900/30 text-neutral-300"
-          : "border-border bg-neutral-900/60 text-neutral-100"
-      }`}
-    >
-      {/* Set number badge */}
-      <div className="w-8 shrink-0 text-center text-xs font-medium text-muted">
-        {setNumber}
-      </div>
+        {/* Set number badge — vertically centered in the row regardless of
+            whether labels are visible. */}
+        <div className="flex w-8 shrink-0 items-end justify-center pb-2 text-center text-xs font-medium text-muted">
+          {setNumber}
+        </div>
 
-      {/* Weight cluster */}
-      <div className="flex items-center gap-1">
-        <StepperButton
-          direction="decrement"
-          ariaLabel={`Decrease weight by ${weightStepDisplay} ${weightLabel}`}
-          onPress={() => stepWeight(-1)}
-          disabled={isLogged || disabled}
-        />
-        <label className="sr-only" htmlFor={`weight-${setNumber}`}>
-          Weight in {weightLabel}
-        </label>
-        <input
-          ref={weightInputRef}
-          id={`weight-${setNumber}`}
-          type="number"
-          inputMode="decimal"
-          step={weightStepDisplay}
-          min={0}
-          value={Number.isFinite(weightDisplay) ? weightDisplay : 0}
-          onChange={(e) => {
-            const raw = e.target.value;
-            setWeightDisplay(raw === "" ? 0 : Number(raw));
-          }}
-          onKeyDown={handleWeightKeyDown}
-          onFocus={(e) => e.currentTarget.select()}
-          disabled={isLogged || disabled}
-          aria-label={`Set ${setNumber} weight in ${weightLabel}`}
-          className="h-11 w-16 rounded-md border border-border bg-panel2 px-1 text-center font-mono text-base tabular-nums text-neutral-100 outline-none focus:border-accent disabled:opacity-70"
-        />
-        <StepperButton
-          direction="increment"
-          ariaLabel={`Increase weight by ${weightStepDisplay} ${weightLabel}`}
-          onPress={() => stepWeight(1)}
-          disabled={isLogged || disabled}
-        />
-      </div>
+        {/* Weight cluster */}
+        <div className="flex flex-col gap-0.5">
+          {showLabels ? (
+            <label
+              htmlFor={`weight-${setNumber}`}
+              className={eyebrowClass}
+            >
+              WEIGHT ({weightLabelUpper})
+            </label>
+          ) : null}
+          <div className="flex items-center gap-1">
+            <StepperButton
+              direction="decrement"
+              ariaLabel={`Decrease weight by ${weightStepDisplay} ${weightLabel}`}
+              onPress={() => stepWeight(-1)}
+              disabled={isLogged || disabled}
+            />
+            <input
+              ref={weightInputRef}
+              id={`weight-${setNumber}`}
+              type="text"
+              inputMode="decimal"
+              pattern="[0-9]*\.?[0-9]*"
+              value={weightInputValue}
+              placeholder={weightPlaceholder}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") {
+                  setWeightDisplay(null);
+                  return;
+                }
+                // Allow partial decimal entry — only commit numbers when
+                // valid; reject NaN by ignoring the keystroke.
+                const parsed = Number(raw);
+                if (!Number.isNaN(parsed)) {
+                  setWeightDisplay(parsed);
+                }
+              }}
+              onKeyDown={handleWeightKeyDown}
+              onFocus={(e) => e.currentTarget.select()}
+              disabled={isLogged || disabled}
+              aria-label={`Set ${setNumber} weight in ${weightLabel}`}
+              className="h-11 w-16 rounded-md border border-border bg-panel2 px-1 text-center font-mono text-base tabular-nums text-neutral-100 outline-none focus:border-accent disabled:opacity-70 placeholder:text-neutral-500 placeholder:font-mono"
+            />
+            <StepperButton
+              direction="increment"
+              ariaLabel={`Increase weight by ${weightStepDisplay} ${weightLabel}`}
+              onPress={() => stepWeight(1)}
+              disabled={isLogged || disabled}
+            />
+          </div>
+        </div>
 
-      {/* Reps cluster */}
-      <div className="flex items-center gap-1">
-        <StepperButton
-          direction="decrement"
-          ariaLabel="Decrease reps"
-          onPress={() => stepReps(-1)}
-          disabled={isLogged || disabled}
-        />
-        <label className="sr-only" htmlFor={`reps-${setNumber}`}>
-          Reps
-        </label>
-        <input
-          ref={repsInputRef}
-          id={`reps-${setNumber}`}
-          type="number"
-          inputMode="numeric"
-          step={1}
-          min={0}
-          value={Number.isFinite(reps) ? reps : 0}
-          onChange={(e) => {
-            const raw = e.target.value;
-            setReps(raw === "" ? 0 : Math.max(0, Math.floor(Number(raw))));
-          }}
-          onKeyDown={handleRepsKeyDown}
-          onFocus={(e) => e.currentTarget.select()}
-          disabled={isLogged || disabled}
-          aria-label={`Set ${setNumber} reps`}
-          className="h-11 w-12 rounded-md border border-border bg-panel2 px-1 text-center font-mono text-base tabular-nums text-neutral-100 outline-none focus:border-accent disabled:opacity-70"
-        />
-        <StepperButton
-          direction="increment"
-          ariaLabel="Increase reps"
-          onPress={() => stepReps(1)}
-          disabled={isLogged || disabled}
-        />
-      </div>
+        {/* Reps cluster */}
+        <div className="flex flex-col gap-0.5">
+          {showLabels ? (
+            <label htmlFor={`reps-${setNumber}`} className={eyebrowClass}>
+              REPS
+            </label>
+          ) : null}
+          <div className="flex items-center gap-1">
+            <StepperButton
+              direction="decrement"
+              ariaLabel="Decrease reps"
+              onPress={() => stepReps(-1)}
+              disabled={isLogged || disabled}
+            />
+            <input
+              ref={repsInputRef}
+              id={`reps-${setNumber}`}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={repsInputValue}
+              placeholder={repsPlaceholder}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") {
+                  setReps(null);
+                  return;
+                }
+                const parsed = Number(raw);
+                if (!Number.isNaN(parsed)) {
+                  setReps(Math.max(0, Math.floor(parsed)));
+                }
+              }}
+              onKeyDown={handleRepsKeyDown}
+              onFocus={(e) => e.currentTarget.select()}
+              disabled={isLogged || disabled}
+              aria-label={`Set ${setNumber} reps`}
+              className="h-11 w-12 rounded-md border border-border bg-panel2 px-1 text-center font-mono text-base tabular-nums text-neutral-100 outline-none focus:border-accent disabled:opacity-70 placeholder:text-neutral-500 placeholder:font-mono"
+            />
+            <StepperButton
+              direction="increment"
+              ariaLabel="Increase reps"
+              onPress={() => stepReps(1)}
+              disabled={isLogged || disabled}
+            />
+          </div>
+        </div>
 
-      {/* RPE — compact native select for mobile */}
-      <div className="ml-auto flex items-center gap-1">
-        <label
-          htmlFor={`rpe-${setNumber}`}
-          className="text-[10px] font-medium uppercase tracking-wide text-muted"
-        >
-          RPE
-        </label>
-        <select
-          id={`rpe-${setNumber}`}
-          value={rpe ?? ""}
-          onChange={(e) => {
-            const v = e.target.value;
-            setRpe(v === "" ? undefined : Number(v));
-          }}
-          disabled={isLogged || disabled}
-          aria-label={`Set ${setNumber} RPE`}
-          className="h-11 w-14 rounded-md border border-border bg-panel2 px-1 text-center font-mono text-sm text-neutral-100 outline-none focus:border-accent disabled:opacity-70"
-        >
-          <option value="">–</option>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Commit button — collapses into a static check (or PR trophy) for already-logged rows */}
-      {isLogged ? (
-        logged?.isPR ? (
-          <span
-            aria-label="Personal record"
-            title="Personal record"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-amber-400/50 bg-amber-400/10 text-amber-300 shadow-[0_0_0_1px_rgba(251,191,36,0.15)]"
+        {/* RPE — compact native select for mobile, with help tooltip */}
+        <div className="ml-auto flex flex-col gap-0.5">
+          {showLabels ? (
+            <div className="flex items-center gap-1">
+              <label htmlFor={`rpe-${setNumber}`} className={eyebrowClass}>
+                RPE
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="What is RPE?"
+                    className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-muted transition hover:text-neutral-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                  >
+                    <HelpCircle aria-hidden="true" className="h-3 w-3" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="top"
+                  align="end"
+                  className="max-w-[14rem] text-[11px] leading-relaxed"
+                >
+                  Rate of Perceived Exertion (1 = very easy, 10 = max effort).
+                  Optional.
+                </PopoverContent>
+              </Popover>
+            </div>
+          ) : null}
+          <select
+            id={`rpe-${setNumber}`}
+            value={rpe ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              setRpe(v === "" ? undefined : Number(v));
+            }}
+            disabled={isLogged || disabled}
+            aria-label={`Set ${setNumber} RPE`}
+            className="h-11 w-14 rounded-md border border-border bg-panel2 px-1 text-center font-mono text-sm text-neutral-100 outline-none focus:border-accent disabled:opacity-70"
           >
-            <Trophy className="h-4 w-4" />
-          </span>
-        ) : (
-          <span
-            aria-label="Logged"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-accent2/40 bg-accent2/10 text-accent2"
-            title="Logged"
-          >
-            <Check className="h-4 w-4" />
-          </span>
-        )
-      ) : (
-        <button
-          type="button"
-          onClick={commit}
-          disabled={disabled || reps <= 0}
-          className="inline-flex h-11 shrink-0 items-center justify-center rounded-lg bg-accent px-3 text-sm font-semibold text-neutral-900 transition active:scale-95 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Log
-        </button>
-      )}
-    </div>
+            <option value="">–</option>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Commit button — collapses into a static check (or PR trophy) for already-logged rows */}
+        <div className="flex flex-col gap-0.5">
+          {showLabels ? (
+            // Invisible spacer so the Log button stays vertically aligned
+            // with the inputs when labels are showing.
+            <span aria-hidden="true" className={eyebrowClass}>
+              &nbsp;
+            </span>
+          ) : null}
+          {isLogged ? (
+            logged?.isPR ? (
+              <span
+                aria-label="Personal record"
+                title="Personal record"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-amber-400/50 bg-amber-400/10 text-amber-300 shadow-[0_0_0_1px_rgba(251,191,36,0.15)]"
+              >
+                <Trophy className="h-4 w-4" />
+              </span>
+            ) : (
+              <span
+                aria-label="Logged"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-accent2/40 bg-accent2/10 text-accent2"
+                title="Logged"
+              >
+                <Check className="h-4 w-4" />
+              </span>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={commit}
+              disabled={
+                disabled ||
+                // Disable Log when there's nothing to commit AND nothing to
+                // fall back to via placeholder.
+                ((reps ?? placeholderRepsValue ?? 0) <= 0) ||
+                (weightDisplay == null && placeholderWeightDisplay == null)
+              }
+              className="inline-flex h-11 shrink-0 items-center justify-center rounded-lg bg-accent px-3 text-sm font-semibold text-neutral-900 transition active:scale-95 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Log
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

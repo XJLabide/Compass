@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Dumbbell, ChevronDown } from "lucide-react";
 
@@ -78,30 +78,61 @@ export default function ExerciseCard({
     [loggedSetsForExercise],
   );
 
-  // In-session prefill: once the user has logged at least one set this
-  // session, prefill the next row from the last set they just logged. This
-  // is the "minimum-friction" path — they only adjust what changed.
+  // ---------------------------------------------------------------------------
+  // Placeholder (ghost prefill) for the next-set row.
   //
-  // First set of the exercise (logged.length === 0) intentionally gets NO
-  // prefill — the cross-session ghost prop (rendered as a placeholder
-  // affordance, not auto-filled) handles that hint per task spec.
-  const inSessionPrefill = useMemo(() => {
+  // Priority:
+  //   1. Last set logged THIS session for this exercise.
+  //   2. Cross-session ghost from `lastSessionGhost` (the heaviest set of
+  //      the same exercise in the most recent completed session of the same
+  //      program slot).
+  //   3. Reps fall back to `planned.repRangeLow` when nothing else exists.
+  //   4. Weight has no further fallback — placeholder stays undefined and
+  //      the input shows "—".
+  // ---------------------------------------------------------------------------
+  const nextRowPlaceholder = useMemo(() => {
     const last = logged[logged.length - 1];
-    if (!last) return undefined;
+    if (last) {
+      return {
+        weightKg: last.weightKg,
+        reps: last.reps,
+      };
+    }
+    if (lastSessionGhost) {
+      return {
+        weightKg: lastSessionGhost.weightKg,
+        reps: lastSessionGhost.reps,
+      };
+    }
     return {
-      weightKg: last.weightKg,
-      reps: last.reps,
-      rpe: last.rpe,
+      weightKg: undefined as number | undefined,
+      reps:
+        planned.targetSets > 0 && planned.repRangeLow > 0
+          ? planned.repRangeLow
+          : undefined,
     };
-  }, [logged]);
-
-  // Ghost only renders on the very first set of the exercise. After the
-  // user has logged something this session, the in-session prefill is the
-  // better suggestion.
-  const ghostForNext = logged.length === 0 ? lastSessionGhost : undefined;
+  }, [logged, lastSessionGhost, planned.targetSets, planned.repRangeLow]);
 
   const targetSets = planned.targetSets;
   const completed = logged.length;
+
+  // ---------------------------------------------------------------------------
+  // Auto-focus signal. We thread a row-id string to SetRow; whichever row's
+  // id matches `autoFocusRowId` will focus its weight input on mount.
+  //
+  // After every successful Log we set `autoFocusRowId` to the next-set row's
+  // id (which the parent rerenders thanks to `key=next-${completed}`).
+  // ---------------------------------------------------------------------------
+  const nextRowId = `next-${completed}`;
+  const [autoFocusRowId, setAutoFocusRowId] = useState<string | null>(null);
+
+  // When the completed count bumps, re-target the autofocus to the new
+  // next-row id. This is what implements "focus jumps to row N+1 after Log".
+  useEffect(() => {
+    if (completed > 0) {
+      setAutoFocusRowId(`next-${completed}`);
+    }
+  }, [completed]);
 
   async function handleLogged(input: {
     weightKg: number;
@@ -117,6 +148,9 @@ export default function ExerciseCard({
         reps: input.reps,
         rpe: input.rpe,
       });
+      // After a successful log the parent's snapshot will increment
+      // `logged.length`; the useEffect above then flips `autoFocusRowId` to
+      // the new next-row's id, which triggers focus in SetRow.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save set.");
     } finally {
@@ -226,6 +260,8 @@ export default function ExerciseCard({
             setNumber={i + 1}
             unitSystem={unitSystem}
             logged={set}
+            // Labels only on the very first row of the exercise.
+            showLabels={i === 0}
           />
         ))}
 
@@ -236,14 +272,17 @@ export default function ExerciseCard({
         <SetRow
           // Key includes `completed` so the row remounts (and refocuses /
           // re-prefills) after each successful Log.
-          key={`next-${completed}`}
+          key={nextRowId}
           setNumber={completed + 1}
           unitSystem={unitSystem}
-          prefill={inSessionPrefill}
-          ghost={ghostForNext}
+          placeholderWeightKg={nextRowPlaceholder.weightKg}
+          placeholderReps={nextRowPlaceholder.reps}
           onLogged={handleLogged}
           disabled={pending}
-          autoFocus={completed > 0}
+          // Only the first row of an exercise (logged.length === 0 means the
+          // next row IS row #1) shows the WEIGHT/REPS/RPE eyebrows.
+          showLabels={completed === 0}
+          autoFocus={autoFocusRowId === nextRowId}
         />
 
         {error ? (
