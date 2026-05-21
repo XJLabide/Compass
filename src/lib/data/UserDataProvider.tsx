@@ -16,7 +16,7 @@ import { onSnapshot } from "firebase/firestore";
 import { useAuth } from "@/lib/auth/useAuth";
 import { isAllowed } from "@/lib/auth/allowlist";
 import { profilePath, programPath } from "@/lib/db/paths";
-import { ensureSeeded } from "@/lib/db/seed";
+import { ensureSeeded, migrateStaleSeededExercises } from "@/lib/db/seed";
 import type { Profile, ProgramDoc } from "@/lib/db/types";
 
 type UserDataContextValue = {
@@ -207,6 +207,24 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [user, profileLoaded, profile, seedNonce]);
+
+  // -------------------------------------------------------------------------
+  // Migration: run migrateStaleSeededExercises once per user sign-in for ALL
+  // users (seeded or not). The migration is idempotent — it's a no-op when
+  // there's nothing to delete. We gate on a ref to prevent re-runs on every
+  // render. Runs fire-and-forget; failure is logged but never surfaces to UI.
+  // -------------------------------------------------------------------------
+  const migratedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    if (!isAllowed(user.email)) return;
+    if (migratedRef.current === user.uid) return;
+    migratedRef.current = user.uid;
+    migrateStaleSeededExercises(user.uid).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn("[migration] migrateStaleSeededExercises failed:", err);
+    });
+  }, [user]);
 
   const retrySeed = useCallback(() => {
     setSeedError(null);

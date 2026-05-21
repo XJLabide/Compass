@@ -454,25 +454,18 @@ export default function WorkoutPage() {
       if (fromUser) return fromUser;
       const fromMaster = EXERCISE_MASTER.find((e) => e.id === id);
       if (!fromMaster) return null;
-      // Synthesize a partial Exercise from the master seed so the detail
-      // sheet can render before the user's collection mirrors it.
+      // Synthesize an Exercise from the master seed so the detail sheet can
+      // render before the user's collection mirrors it. Spread all master
+      // fields (including gifUrl, instructions, etc.) so nothing is dropped.
       return {
-        name: fromMaster.name,
-        primaryMuscle: fromMaster.primaryMuscle,
-        category: fromMaster.category,
+        ...fromMaster,
         seeded: true,
-        gifUrl: fromMaster.gifUrl,
-        instructions: fromMaster.instructions,
-        equipments: fromMaster.equipments,
-        secondaryMuscles: fromMaster.secondaryMuscles,
-        aliases: fromMaster.aliases,
         source: "master",
-        apiId: fromMaster.apiId,
         // `createdAt` is required on the type; we won't read it in the sheet
         // so a placeholder is fine. Type-cast to avoid threading an undefined
         // through the strict type.
         createdAt: undefined as unknown as Exercise["createdAt"],
-      };
+      } as unknown as Exercise;
     },
     [userExercises],
   );
