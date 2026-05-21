@@ -10,20 +10,28 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  updateDoc,
   where,
   type QuerySnapshot,
 } from "firebase/firestore";
 
 import { useAuth } from "@/lib/auth/useAuth";
-import { profilePath, programPath, sessionsPath } from "@/lib/db/paths";
+import {
+  exercisePath,
+  exercisesPath,
+  profilePath,
+  programPath,
+  sessionsPath,
+} from "@/lib/db/paths";
 import type {
+  Exercise,
   PlannedExercise,
   Profile,
   ProgramDoc,
   SessionDoc,
 } from "@/lib/db/types";
+import { EXERCISE_MASTER } from "@/lib/data/exerciseMaster";
 import {
-  buildRotationCaption,
   computeLocalDate,
   getRotationView,
 } from "@/lib/workout/scheduling";
@@ -34,10 +42,13 @@ import {
 } from "@/lib/workout/prefill";
 import { applyProgramSwap } from "@/lib/workout/applyProgramSwap";
 import { getMasterExercise } from "@/lib/workout/exerciseSubs";
+import {
+  computeWeeklyStats,
+  estimateSessionMinutes,
+} from "@/lib/workout/landingStats";
 import Link from "next/link";
-import { Pencil, Settings2 } from "lucide-react";
+import { Settings2 } from "lucide-react";
 
-import SessionListItem from "@/components/workout/SessionListItem";
 import ResumeBanner from "@/components/workout/ResumeBanner";
 import Skeleton from "@/components/ui/Skeleton";
 import EditPlannedExercisesDialog, {
@@ -45,22 +56,46 @@ import EditPlannedExercisesDialog, {
 } from "@/components/workout/EditPlannedExercisesDialog";
 import SaveSwapPrompt from "@/components/workout/SaveSwapPrompt";
 
+import WorkoutHero from "@/components/workout/landing/WorkoutHero";
+import NextUpCard from "@/components/workout/landing/NextUpCard";
+import LastSessionCard from "@/components/workout/landing/LastSessionCard";
+import WeeklyProgressCard from "@/components/workout/landing/WeeklyProgressCard";
+import ExerciseDetailSheet from "@/components/workout/landing/ExerciseDetailSheet";
+
 type RecentRow = { id: string; session: SessionDoc };
 
-const RECENT_LIMIT = 5;
+// Bumped from 5 because weekly stats (this-week + last-week volume) need a
+// rolling ~14-day window. The landing page only displays the most-recent one,
+// so the extra rows are stats fuel — not UI rows.
+const RECENT_LIMIT = 30;
 const ROTATION_QUERY_LIMIT = 50;
 
+const DEFAULT_WEEKLY_TARGET = 4;
+
 /**
- * `/workout` index.
+ * `/workout` index — the workout landing page.
  *
- * Sections:
- *   1. Next Up — shows the rotation-picked session from the active program,
- *      plus a "Start session" CTA that writes a new in-progress session doc
- *      and routes to `/workout/[id]`.
- *   2. Recent — live `limit(5)` query of the user's sessions, newest first.
+ * Layout (top to bottom):
+ *   1. WorkoutHero      — gym photo + tagline
+ *   2. NextUpCard       — rotation-picked session w/ Start CTA
+ *   3. LastSessionCard  — most-recent completed session recap
+ *   4. WeeklyProgressCard — 3-col workouts/volume/streak
  *
- * All data is realtime via `onSnapshot`. The page is fully client-rendered
- * since auth and Firestore live on the client (see `src/lib/firebase.ts`).
+ * Behavior preserved from the prior version:
+ *   - Pre-session Edit dialog (with override-save flow)
+ *   - SaveSwapPrompt for "save this swap to your program?"
+ *   - ResumeBanner for any in-progress session
+ *   - Edit Program link in the header
+ *   - 24h auto-finalize sweep on mount
+ *   - Rotation logic via `getRotationView`
+ *
+ * New behavior:
+ *   - Tapping an exercise (or "View details" in the kebab) opens
+ *     `ExerciseDetailSheet` with the master-resolved Exercise doc.
+ *   - The kebab's "Swap" and "Edit" both open the Edit dialog (single source
+ *     of truth for edits).
+ *   - "Archive" flips `archived: true` on the user's exercise doc (master
+ *     exercises are shielded — the button disables).
  */
 export default function WorkoutPage() {
   const router = useRouter();
@@ -86,6 +121,12 @@ export default function WorkoutPage() {
   const [swapQueue, setSwapQueue] = useState<PlannedExerciseSwap[]>([]);
   const [savingSwap, setSavingSwap] = useState(false);
 
+  // Detail sheet state — open when set; cleared on close.
+  const [sheetState, setSheetState] = useState<{
+    exercise: Exercise | null;
+    planned: PlannedExercise;
+  } | null>(null);
+
   // Map of programSessionId → most recent completed Date, for rotation logic.
   // null = not yet fetched.
   const [lastCompletedMap, setLastCompletedMap] = useState<Map<string, Date> | null>(null);
@@ -93,6 +134,13 @@ export default function WorkoutPage() {
   // Heaviest-set-per-exercise from the most recent completed session for the
   // rotation-picked slot. null = not yet fetched; empty Map = fetched, no prior session.
   const [prefillMap, setPrefillMap] = useState<PrefillMap | null>(null);
+
+  // User's custom exercise docs (for name lookups + archive writes). Master
+  // exercises don't live in Firestore so we keep the EXERCISE_MASTER as the
+  // fallback in `lookupExercise` below.
+  const [userExercises, setUserExercises] = useState<
+    ReadonlyMap<string, Exercise>
+  >(new Map());
 
   // ---------------------------------------------------------------------------
   // Subscribe to profile (for timezone) and active program (for rotation).
@@ -126,8 +174,8 @@ export default function WorkoutPage() {
   }, [user?.uid]);
 
   // ---------------------------------------------------------------------------
-  // Subscribe to the 5 most recent sessions. Realtime so finishing a session in
-  // another tab updates this list.
+  // Subscribe to the recent sessions. Realtime so finishing a session in
+  // another tab updates this list. Bumped to 30 for the weekly-stats roll-up.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!user?.uid) return;
@@ -170,10 +218,6 @@ export default function WorkoutPage() {
           setInProgress(null);
           return;
         }
-        // Prefer docs with a real `startedAt` (most recent first). If none
-        // have timestamps, fall back to `createdAt` desc, then doc-id desc as
-        // a final deterministic tiebreaker. Avoids arbitrary "first doc wins"
-        // when multiple legacy in-progress docs lack `startedAt`.
         const toMs = (
           ts: unknown,
         ): number | null => {
@@ -190,15 +234,12 @@ export default function WorkoutPage() {
           };
         });
         rows.sort((a, b) => {
-          // Docs with startedAt always come before docs without.
           const aHas = a.startedMs !== null;
           const bHas = b.startedMs !== null;
           if (aHas !== bHas) return aHas ? -1 : 1;
           if (aHas && bHas) {
-            // Most recent startedAt first.
             return (b.startedMs as number) - (a.startedMs as number);
           }
-          // Neither has startedAt — fall back to createdAt desc, then id desc.
           const aC = a.createdMs;
           const bC = b.createdMs;
           if (aC !== null && bC !== null && aC !== bC) return bC - aC;
@@ -215,9 +256,35 @@ export default function WorkoutPage() {
   }, [user?.uid]);
 
   // ---------------------------------------------------------------------------
+  // Subscribe to the user's exercise collection. We need this to:
+  //   - resolve gif/instructions for the detail sheet
+  //   - flip `archived: true` on archive
+  // EXERCISE_MASTER provides the fallback for seeded exercises that aren't in
+  // the user's collection yet.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onSnapshot(
+      exercisesPath(user.uid),
+      (snap) => {
+        const m = new Map<string, Exercise>();
+        snap.docs.forEach((d) => {
+          m.set(d.id, d.data());
+        });
+        setUserExercises(m);
+      },
+      (err) => {
+        // Non-fatal: detail sheet will just fall back to master.
+        // eslint-disable-next-line no-console
+        console.warn("Exercise subscription failed:", err.message);
+      },
+    );
+    return () => unsub();
+  }, [user?.uid]);
+
+  // ---------------------------------------------------------------------------
   // On mount (per uid), scan for in-progress sessions older than 24h and
-  // auto-finalize them. Best-effort; we don't block render or surface errors
-  // beyond the existing loadError channel for the query failure case.
+  // auto-finalize them. Best-effort.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!user?.uid) return;
@@ -248,7 +315,6 @@ export default function WorkoutPage() {
     () => program?.sessions.map((s) => s.id) ?? [],
     [program?.sessions],
   );
-  // Stable string key so the effect only re-fires when the actual ids change.
   const sessionIdsKey = sessionIds.join(",");
 
   useEffect(() => {
@@ -259,7 +325,7 @@ export default function WorkoutPage() {
     }
 
     let cancelled = false;
-    setLastCompletedMap(null); // clear while re-fetching
+    setLastCompletedMap(null);
 
     const q = query(
       sessionsPath(user.uid),
@@ -277,7 +343,6 @@ export default function WorkoutPage() {
           const data = d.data();
           const pid = data.programSessionId;
           if (!pid || !idSet.has(pid) || map.has(pid)) return;
-          // startedAt may be a Firestore Timestamp or null on very old docs.
           const ts = data.startedAt as unknown as
             | { toDate?: () => Date }
             | undefined;
@@ -289,7 +354,7 @@ export default function WorkoutPage() {
       })
       .catch(() => {
         if (cancelled) return;
-        setLastCompletedMap(new Map()); // fail gracefully
+        setLastCompletedMap(new Map());
       });
 
     return () => {
@@ -309,7 +374,6 @@ export default function WorkoutPage() {
   // ---------------------------------------------------------------------------
   // When the rotation slot is determined, fetch the most recent completed
   // session for that slot to prefill exercise weights.
-  // One-shot getDocs — re-runs only when the slot id changes.
   // ---------------------------------------------------------------------------
   const nextSessionId = rotation?.next?.id ?? null;
 
@@ -347,12 +411,71 @@ export default function WorkoutPage() {
   }, [user?.uid, nextSessionId]);
 
   // ---------------------------------------------------------------------------
-  // Local date for display.
+  // Derived state.
   // ---------------------------------------------------------------------------
   const localDate = useMemo(() => {
     const tz = profile?.timezone || "UTC";
     return computeLocalDate(new Date(), tz);
   }, [profile?.timezone]);
+
+  // Most-recent COMPLETED session (the in-progress one is shown via ResumeBanner).
+  const lastCompletedSession = useMemo<RecentRow | null>(() => {
+    if (!recent) return null;
+    for (const row of recent) {
+      const status = row.session.status;
+      if (!status || status === "completed") return row;
+    }
+    return null;
+  }, [recent]);
+
+  const recentSessions = useMemo<SessionDoc[]>(
+    () => (recent ?? []).map((r) => r.session),
+    [recent],
+  );
+
+  const weeklyStats = useMemo(
+    () =>
+      computeWeeklyStats(recentSessions, {
+        target: DEFAULT_WEEKLY_TARGET,
+      }),
+    [recentSessions],
+  );
+
+  const estimatedMinutes = useMemo(() => {
+    if (!rotation?.next) return 0;
+    return estimateSessionMinutes(rotation, recentSessions, rotation.next.id);
+  }, [rotation, recentSessions]);
+
+  const unitSystem = profile?.unitSystem ?? "imperial";
+
+  const lookupExercise = useCallback(
+    (id: string): Exercise | null => {
+      const fromUser = userExercises.get(id);
+      if (fromUser) return fromUser;
+      const fromMaster = EXERCISE_MASTER.find((e) => e.id === id);
+      if (!fromMaster) return null;
+      // Synthesize a partial Exercise from the master seed so the detail
+      // sheet can render before the user's collection mirrors it.
+      return {
+        name: fromMaster.name,
+        primaryMuscle: fromMaster.primaryMuscle,
+        category: fromMaster.category,
+        seeded: true,
+        gifUrl: fromMaster.gifUrl,
+        instructions: fromMaster.instructions,
+        equipments: fromMaster.equipments,
+        secondaryMuscles: fromMaster.secondaryMuscles,
+        aliases: fromMaster.aliases,
+        source: "master",
+        apiId: fromMaster.apiId,
+        // `createdAt` is required on the type; we won't read it in the sheet
+        // so a placeholder is fine. Type-cast to avoid threading an undefined
+        // through the strict type.
+        createdAt: undefined as unknown as Exercise["createdAt"],
+      };
+    },
+    [userExercises],
+  );
 
   // ---------------------------------------------------------------------------
   // Start session: write an in-progress session doc and route to the logger.
@@ -389,7 +512,7 @@ export default function WorkoutPage() {
   }, [user?.uid, rotation, localDate, router, pendingOverride]);
 
   // ---------------------------------------------------------------------------
-  // Pre-session edit handlers.
+  // Edit + swap-save handlers (preserved from prior version).
   // ---------------------------------------------------------------------------
   const handleEditSave = useCallback(
     (next: PlannedExercise[], swaps: PlannedExerciseSwap[]) => {
@@ -414,7 +537,6 @@ export default function WorkoutPage() {
         toId: head.toId,
       });
     } catch (err) {
-      // Non-fatal: we just drop this swap from the queue without persisting.
       // eslint-disable-next-line no-console
       console.warn("Save swap to program failed:", err);
     } finally {
@@ -437,11 +559,101 @@ export default function WorkoutPage() {
     : "";
 
   // ---------------------------------------------------------------------------
+  // Detail sheet + kebab actions.
+  // ---------------------------------------------------------------------------
+  const openDetailSheet = useCallback(
+    (planned: PlannedExercise) => {
+      const exercise = lookupExercise(planned.exerciseId);
+      setSheetState({ exercise, planned });
+    },
+    [lookupExercise],
+  );
+
+  const handleArchive = useCallback(
+    async (planned: PlannedExercise) => {
+      if (!user?.uid) return;
+      const ex = lookupExercise(planned.exerciseId);
+      // Only allow archiving user-owned exercises. Master/seeded exercises
+      // live in the static seed list, not in Firestore — they have no doc to
+      // mutate. The UI already disables this button for master, but guard
+      // here too so a stray call from elsewhere can't blow up.
+      if (!ex || ex.source === "master" || ex.seeded) return;
+      try {
+        await updateDoc(exercisePath(user.uid, planned.exerciseId), {
+          archived: true,
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("Archive failed:", err);
+      }
+    },
+    [user?.uid, lookupExercise],
+  );
+
+  const handleExerciseAction = useCallback(
+    (planned: PlannedExercise, action: "view" | "swap" | "edit" | "archive") => {
+      if (action === "view") {
+        openDetailSheet(planned);
+        return;
+      }
+      if (action === "swap" || action === "edit") {
+        // Both reuse the Edit dialog (single source of truth for edits).
+        setEditOpen(true);
+        return;
+      }
+      if (action === "archive") {
+        void handleArchive(planned);
+      }
+    },
+    [openDetailSheet, handleArchive],
+  );
+
+  // Sheet's "Swap" / "Edit" share the same handler; "Archive" pipes through
+  // the same archive call. Closing the sheet after the action mirrors the
+  // kebab flow.
+  const sheetActions = useMemo(
+    () => ({
+      onSwap: () => {
+        setSheetState(null);
+        setEditOpen(true);
+      },
+      onEdit: () => {
+        setSheetState(null);
+        setEditOpen(true);
+      },
+      onArchive: () => {
+        if (sheetState?.planned) {
+          void handleArchive(sheetState.planned);
+        }
+        setSheetState(null);
+      },
+    }),
+    [sheetState, handleArchive],
+  );
+
+  // Header "View details →" opens the sheet for the first exercise as a
+  // reasonable default; it's the entry point to the full list view.
+  const handleHeaderViewDetails = useCallback(() => {
+    if (!rotation?.next) return;
+    const list = pendingOverride ?? rotation.next.exercises;
+    if (list.length === 0) return;
+    openDetailSheet(list[0]);
+  }, [rotation, pendingOverride, openDetailSheet]);
+
+  // Last-top-set for the detail sheet, looked up from the prefill map.
+  const sheetLastTopSet = useMemo(() => {
+    if (!sheetState?.planned) return null;
+    const entry = prefillMap?.get(sheetState.planned.exerciseId);
+    if (!entry) return null;
+    return { weightKg: entry.weightKg, reps: entry.reps };
+  }, [sheetState, prefillMap]);
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
   return (
-    <section>
+    <section className="pb-8">
       <div className="flex items-baseline justify-between gap-3 border-b border-border pb-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">
@@ -473,179 +685,66 @@ export default function WorkoutPage() {
         <ResumeBanner uid={user.uid} inProgress={inProgress} />
       ) : null}
 
-      {/* Next Up */}
-      <div className="mt-6 rounded-xl border border-border bg-neutral-900/40 p-4">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-muted">
-          Next Up
-        </h2>
+      {/* 1. Hero */}
+      <div className="mt-5">
+        <WorkoutHero />
+      </div>
+
+      {/* 2. Next Up */}
+      <div className="mt-5">
         {!programLoaded || rotation === null ? (
-          <div className="mt-3 space-y-2">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-3 w-40" />
-            <Skeleton className="h-11 w-full" />
+          <div className="rounded-2xl border border-border bg-panel/60 p-4 sm:p-5">
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-11 w-full" />
+            </div>
           </div>
         ) : !program ? (
-          <>
-            <p className="mt-1 text-lg font-semibold text-neutral-100">
-              No program yet
-            </p>
-            <p className="mt-1 text-xs text-muted">
-              Open the program editor to set up your sessions.
-            </p>
-            <Link
-              href="/workout/program"
-              className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-accent px-3 text-xs font-semibold text-neutral-900 hover:brightness-110"
-            >
-              Edit program
-            </Link>
-          </>
+          <EmptyProgramCard kind="no-program" />
         ) : rotation.next ? (
-          <>
-            <p className="mt-1 text-lg font-semibold text-neutral-100">
-              {rotation.next.name}
-            </p>
-            <p className="mt-0.5 text-xs text-muted">
-              {(pendingOverride ?? rotation.next.exercises).length} planned exercise
-              {(pendingOverride ?? rotation.next.exercises).length === 1 ? "" : "s"}
-              {pendingOverride ? (
-                <span className="ml-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-amber-300">
-                  edited
-                </span>
-              ) : null}
-            </p>
-            <p className="mt-0.5 text-[11px] text-muted/70">
-              {buildRotationCaption(rotation.slots)}
-            </p>
-
-            {/* Exercise preview list */}
-            {(() => {
-              const exercises = pendingOverride ?? rotation.next.exercises;
-              const unitSystem = profile?.unitSystem ?? "imperial";
-              const MAX_SHOWN = 5;
-              const shown = exercises.slice(0, MAX_SHOWN);
-              const overflow = exercises.length - MAX_SHOWN;
-
-              return (
-                <ul className="mt-3 space-y-1.5">
-                  {shown.map((ex) => {
-                    const setRep =
-                      ex.repRangeLow === ex.repRangeHigh
-                        ? `${ex.targetSets} × ${ex.repRangeLow}`
-                        : `${ex.targetSets} × ${ex.repRangeLow}-${ex.repRangeHigh}`;
-
-                    const entry = prefillMap?.get(ex.exerciseId);
-                    let lastLabel: string;
-                    if (!entry || !entry.reps) {
-                      lastLabel = "—";
-                    } else {
-                      const displayWeight =
-                        unitSystem === "imperial"
-                          ? Math.round(entry.weightKg * 2.20462)
-                          : entry.weightKg;
-                      const unit = unitSystem === "imperial" ? "lb" : "kg";
-                      lastLabel = `${displayWeight} ${unit} × ${entry.reps}`;
-                    }
-
-                    return (
-                      <li
-                        key={ex.exerciseId}
-                        className="flex items-baseline gap-2 text-xs"
-                      >
-                        <span className="min-w-0 flex-1 truncate text-sm text-neutral-100">
-                          {ex.name}
-                        </span>
-                        <span className="shrink-0 text-muted">{setRep}</span>
-                        <span className="shrink-0 text-muted">
-                          last:{" "}
-                          <span className={prefillMap === null ? "opacity-50" : ""}>
-                            {prefillMap === null ? "—" : lastLabel}
-                          </span>
-                        </span>
-                      </li>
-                    );
-                  })}
-                  {overflow > 0 && (
-                    <li className="text-xs text-muted">+ {overflow} more</li>
-                  )}
-                </ul>
-              );
-            })()}
-
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={handleStart}
-                disabled={starting}
-                className="inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-accent px-4 text-sm font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {starting ? "Starting…" : "Start session"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditOpen(true)}
-                disabled={starting}
-                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-border bg-neutral-900 px-3 text-xs font-medium text-neutral-100 transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Edit session"
-              >
-                <Pencil className="h-3.5 w-3.5 text-accent" />
-                Edit
-              </button>
-            </div>
-            {startError ? (
-              <div
-                role="alert"
-                aria-live="polite"
-                className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
-              >
-                {startError}
-              </div>
-            ) : null}
-          </>
+          <NextUpCard
+            rotation={rotation}
+            pendingOverride={pendingOverride}
+            estimatedMinutes={estimatedMinutes}
+            starting={starting}
+            startError={startError}
+            onStart={handleStart}
+            onEdit={() => setEditOpen(true)}
+            onExerciseAction={handleExerciseAction}
+            onHeaderViewDetails={handleHeaderViewDetails}
+          />
         ) : (
-          // program exists but has no sessions
-          <>
-            <p className="mt-1 text-lg font-semibold text-neutral-100">
-              No sessions yet
-            </p>
-            <p className="mt-1 text-xs text-muted">
-              Add sessions in the program editor to get started.
-            </p>
-            <Link
-              href="/workout/program"
-              className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-accent px-3 text-xs font-semibold text-neutral-900 hover:brightness-110"
-            >
-              Edit program
-            </Link>
-          </>
+          <EmptyProgramCard kind="no-sessions" />
         )}
       </div>
 
-      {/* Recent */}
-      <div className="mt-6">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-muted">
-          Recent sessions
+      {/* 3. Last Session */}
+      <div className="mt-5">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          Last session
         </h2>
         {!recentLoaded ? (
-          <div className="mt-2 space-y-2">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        ) : !recent || recent.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">
-            No sessions logged yet. Start your first one above.
-          </p>
+          <Skeleton className="h-16 w-full rounded-2xl" />
         ) : (
-          <ul className="mt-2 space-y-2">
-            {recent.map((row) => (
-              <SessionListItem
-                key={row.id}
-                id={row.id}
-                session={row.session}
-              />
-            ))}
-          </ul>
+          <LastSessionCard
+            session={
+              lastCompletedSession
+                ? {
+                    id: lastCompletedSession.id,
+                    doc: lastCompletedSession.session,
+                  }
+                : null
+            }
+            unitSystem={unitSystem}
+          />
         )}
+      </div>
+
+      {/* 4. Weekly Progress */}
+      <div className="mt-5">
+        <WeeklyProgressCard weeklyStats={weeklyStats} unitSystem={unitSystem} />
       </div>
 
       {/* Pre-session edit dialog */}
@@ -671,6 +770,43 @@ export default function WorkoutPage() {
         onYes={handleSwapYes}
         onNo={handleSwapNo}
       />
+
+      {/* Exercise detail sheet */}
+      <ExerciseDetailSheet
+        open={sheetState !== null}
+        onOpenChange={(open) => {
+          if (!open) setSheetState(null);
+        }}
+        exercise={sheetState?.exercise ?? null}
+        planned={sheetState?.planned ?? null}
+        lastTopSet={sheetLastTopSet}
+        unitSystem={unitSystem}
+        actions={sheetActions}
+      />
     </section>
+  );
+}
+
+/** Inline empty-state for the Next-Up slot. */
+function EmptyProgramCard({ kind }: { kind: "no-program" | "no-sessions" }) {
+  const title = kind === "no-program" ? "No program yet" : "No sessions yet";
+  const description =
+    kind === "no-program"
+      ? "Open the program editor to set up your sessions."
+      : "Add sessions in the program editor to get started.";
+  return (
+    <div className="rounded-2xl border border-border bg-panel/60 p-4 sm:p-5">
+      <span className="inline-flex items-center rounded-full bg-accent/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-accent">
+        Next Up
+      </span>
+      <p className="mt-3 text-lg font-semibold text-neutral-100">{title}</p>
+      <p className="mt-1 text-xs text-muted">{description}</p>
+      <Link
+        href="/workout/program"
+        className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-accent px-3 text-xs font-semibold text-neutral-900 hover:brightness-110"
+      >
+        Edit program
+      </Link>
+    </div>
   );
 }

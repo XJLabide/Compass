@@ -8,6 +8,11 @@ const nextConfig = {
         hostname: "static.exercisedb.dev",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
     ],
   },
 };
