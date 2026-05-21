@@ -43,14 +43,20 @@ export interface ExerciseCardProps {
    */
   lastSessionGhost?: { weightKg: number; reps: number; rpe?: number };
   /**
-   * Persist a single new set. The parent immutably replaces `sets[]` on the
-   * session doc. Throws / rejects on failure — the card surfaces the error.
+   * Persist one or more identical sets in a single atomic write. The parent
+   * immutably replaces `sets[]` on the session doc, appending `setCount`
+   * copies of the same (weight, reps, rpe) payload with sequential `order`
+   * numbers. Throws / rejects on failure — the card surfaces the error.
+   *
+   * `setCount` is always >= 1; for the legacy one-set-per-tap flow the row
+   * passes 1 and the parent's code path is functionally identical to before.
    */
   onLogSet: (input: {
     exerciseId: string;
     weightKg: number;
     reps: number;
     rpe?: number;
+    setCount: number;
   }) => Promise<void>;
   /** Animated GIF URL from ExerciseDB. Rendered as an always-visible thumbnail. */
   gifUrl?: string;
@@ -138,6 +144,7 @@ export default function ExerciseCard({
     weightKg: number;
     reps: number;
     rpe?: number;
+    setCount: number;
   }) {
     setPending(true);
     setError(null);
@@ -147,16 +154,26 @@ export default function ExerciseCard({
         weightKg: input.weightKg,
         reps: input.reps,
         rpe: input.rpe,
+        setCount: input.setCount,
       });
       // After a successful log the parent's snapshot will increment
-      // `logged.length`; the useEffect above then flips `autoFocusRowId` to
-      // the new next-row's id, which triggers focus in SetRow.
+      // `logged.length` by `setCount`; the useEffect above then flips
+      // `autoFocusRowId` to the new next-row's id, which triggers focus in
+      // SetRow. Single-set logs behave exactly as before.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save set.");
     } finally {
       setPending(false);
     }
   }
+
+  // Default value for the SETS stepper on the editable row. We default to
+  // however many sets remain in the plan, clamped to >= 1. If the lifter
+  // has already hit (or exceeded) their planned set count, we drop back to
+  // 1 — they may still want to add an extra working set, but we shouldn't
+  // pre-stage a bulk-log of more than 1 past the plan.
+  const remainingTarget = targetSets - completed;
+  const defaultSetCount = remainingTarget > 1 ? remainingTarget : 1;
 
   return (
     <article className="rounded-xl border border-border bg-neutral-900/40">
@@ -277,6 +294,7 @@ export default function ExerciseCard({
           unitSystem={unitSystem}
           placeholderWeightKg={nextRowPlaceholder.weightKg}
           placeholderReps={nextRowPlaceholder.reps}
+          defaultSetCount={defaultSetCount}
           onLogged={handleLogged}
           disabled={pending}
           // Only the first row of an exercise (logged.length === 0 means the

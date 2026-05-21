@@ -365,21 +365,29 @@ export default function WorkoutSessionPage() {
       weightKg: number;
       reps: number;
       rpe?: number;
+      setCount: number;
     }) => {
       if (!user?.uid || !sessionId || !session) {
         throw new Error("Session not ready.");
       }
+      // Defensive clamp — the SetRow stepper already enforces [1, 10] but
+      // we don't trust the call site to have done that.
+      const count = Math.max(1, Math.min(10, Math.floor(input.setCount)));
       const existing = session.sets ?? [];
-      const nextOrder =
+      const baseOrder =
         existing.reduce((max, s) => Math.max(max, s.order), -1) + 1;
-      const newSet: LoggedSet = {
+      // Build N identical sets with sequential order numbers
+      // (baseOrder + 0, baseOrder + 1, ..., baseOrder + count - 1) and append
+      // all of them in a single immutable replacement so the write is atomic
+      // and onSnapshot fires once with the final state.
+      const newSets: LoggedSet[] = Array.from({ length: count }, (_, i) => ({
         exerciseId: input.exerciseId,
         weightKg: input.weightKg,
         reps: input.reps,
-        order: nextOrder,
+        order: baseOrder + i,
         ...(typeof input.rpe === "number" ? { rpe: input.rpe } : {}),
-      };
-      const nextSets: LoggedSet[] = [...existing, newSet];
+      }));
+      const nextSets: LoggedSet[] = [...existing, ...newSets];
 
       const patch: { sets: LoggedSet[]; updatedAt: FieldValue } = {
         sets: nextSets,

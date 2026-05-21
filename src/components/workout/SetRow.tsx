@@ -52,6 +52,9 @@ import {
  *   the eye doesn't have to re-parse the layout — the only difference is the
  *   "Log" button collapses into a checkmark and inputs are disabled.
  */
+/** Maximum number of identical sets that can be bulk-logged in one tap. */
+export const MAX_BULK_SETS = 10;
+
 export interface SetRowProps {
   /** Display index — what the lifter sees ("Set 1", "Set 2", ...). 1-based. */
   setNumber: number;
@@ -72,8 +75,19 @@ export interface SetRowProps {
    */
   placeholderWeightKg?: number;
   placeholderReps?: number;
+  /**
+   * Default value for the SETS stepper on the editable row. The parent
+   * computes this as `max(1, targetSets - alreadyLoggedCount)` so the lifter
+   * can bulk-log the entire remaining plan in one tap. Defaults to 1.
+   */
+  defaultSetCount?: number;
   /** Called when the user commits the row by pressing Log. */
-  onLogged?: (input: { weightKg: number; reps: number; rpe?: number }) => void;
+  onLogged?: (input: {
+    weightKg: number;
+    reps: number;
+    rpe?: number;
+    setCount: number;
+  }) => void;
   /** Disable interaction while a write is in flight. */
   disabled?: boolean;
   /**
@@ -97,6 +111,7 @@ export default function SetRow(props: SetRowProps) {
     logged,
     placeholderWeightKg,
     placeholderReps,
+    defaultSetCount,
     onLogged,
     disabled,
     autoFocus,
@@ -124,6 +139,14 @@ export default function SetRow(props: SetRowProps) {
   const [reps, setReps] = useState<number | null>(initialReps);
   const [rpe, setRpe] = useState<number | undefined>(initialRpe);
 
+  // Bulk-log "SETS" stepper. Defaults to the parent-supplied remaining-target
+  // count (clamped to [1, MAX_BULK_SETS]); a value of 1 keeps today's
+  // one-set-per-tap behavior identical. Only meaningful on editable rows.
+  const initialSetCount = isLogged
+    ? 1
+    : Math.min(MAX_BULK_SETS, Math.max(1, defaultSetCount ?? 1));
+  const [setCount, setSetCount] = useState<number>(initialSetCount);
+
   const weightInputRef = useRef<HTMLInputElement | null>(null);
   const repsInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -144,14 +167,18 @@ export default function SetRow(props: SetRowProps) {
     setWeightDisplay(null);
     setReps(null);
     setRpe(undefined);
+    setSetCount(Math.min(MAX_BULK_SETS, Math.max(1, defaultSetCount ?? 1)));
     // We intentionally re-run on placeholder identity / unit change so the
     // ghost text updates and the row visibly "resets" after the parent
-    // re-keys it post-log.
+    // re-keys it post-log. defaultSetCount is included so the SETS stepper
+    // re-syncs to the parent's "remaining target" computation when a fresh
+    // next-row mounts after a bulk-log.
   }, [
     isLogged,
     placeholderWeightKg,
     placeholderReps,
     unitSystem,
+    defaultSetCount,
   ]);
 
   // Auto-focus the weight field when the parent advances to this row.
@@ -190,6 +217,12 @@ export default function SetRow(props: SetRowProps) {
     });
   }
 
+  function stepSetCount(direction: 1 | -1) {
+    setSetCount((curr) =>
+      Math.min(MAX_BULK_SETS, Math.max(1, curr + direction)),
+    );
+  }
+
   // -- Commit ----------------------------------------------------------------
   function commit() {
     if (!onLogged || disabled || isLogged) return;
@@ -202,12 +235,19 @@ export default function SetRow(props: SetRowProps) {
     if (effectiveReps == null || effectiveReps <= 0) return; // require at least 1 rep
     if (effectiveWeightDisplay == null) return;
     const weightKg = displayToKg(effectiveWeightDisplay, unitSystem);
+    // Clamp setCount defensively at the commit boundary — the stepper enforces
+    // [1, MAX_BULK_SETS] but a stray prop could push it out of range.
+    const safeSetCount = Math.min(
+      MAX_BULK_SETS,
+      Math.max(1, Math.floor(setCount)),
+    );
     onLogged({
       // round canonical kg to 0.001 so we don't accumulate float drift across
       // many lb<->kg roundtrips on imperial-mode increments.
       weightKg: Math.round(weightKg * 1000) / 1000,
       reps: effectiveReps,
       rpe,
+      setCount: safeSetCount,
     });
   }
 
@@ -263,9 +303,13 @@ export default function SetRow(props: SetRowProps) {
         }`}
       >
         {/* Set number badge — vertically centered in the row regardless of
-            whether labels are visible. */}
-        <div className="flex w-8 shrink-0 items-end justify-center pb-2 text-center text-xs font-medium text-muted">
-          {setNumber}
+            whether labels are visible. On the editable row, when SETS > 1 the
+            badge widens to a range (e.g. "1–3") to telegraph which set
+            numbers the Log tap will create. */}
+        <div className="flex min-w-8 shrink-0 items-end justify-center pb-2 text-center text-xs font-medium text-muted">
+          {!isLogged && setCount > 1
+            ? `${setNumber}–${setNumber + setCount - 1}`
+            : setNumber}
         </div>
 
         {/* Weight cluster */}
@@ -369,8 +413,61 @@ export default function SetRow(props: SetRowProps) {
           </div>
         </div>
 
+        {/* Sets cluster — bulk-log N identical sets in one tap. Hidden on
+            already-logged rows since each historical row is a single set. */}
+        {!isLogged ? (
+          <div className="ml-auto flex flex-col gap-0.5">
+            {showLabels ? (
+              <label htmlFor={`sets-${setNumber}`} className={eyebrowClass}>
+                SETS
+              </label>
+            ) : null}
+            <div className="flex items-center gap-1">
+              <StepperButton
+                direction="decrement"
+                ariaLabel="Decrease set count"
+                onPress={() => stepSetCount(-1)}
+                disabled={disabled || setCount <= 1}
+              />
+              <input
+                id={`sets-${setNumber}`}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={String(setCount)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setSetCount(1);
+                    return;
+                  }
+                  const parsed = Number(raw);
+                  if (!Number.isNaN(parsed)) {
+                    setSetCount(
+                      Math.min(
+                        MAX_BULK_SETS,
+                        Math.max(1, Math.floor(parsed)),
+                      ),
+                    );
+                  }
+                }}
+                onFocus={(e) => e.currentTarget.select()}
+                disabled={disabled}
+                aria-label={`Number of identical sets to log (1 to ${MAX_BULK_SETS})`}
+                className="h-11 w-10 rounded-md border border-border bg-panel2 px-1 text-center font-mono text-base tabular-nums text-neutral-100 outline-none focus:border-accent disabled:opacity-70"
+              />
+              <StepperButton
+                direction="increment"
+                ariaLabel="Increase set count"
+                onPress={() => stepSetCount(1)}
+                disabled={disabled || setCount >= MAX_BULK_SETS}
+              />
+            </div>
+          </div>
+        ) : null}
+
         {/* RPE — compact native select for mobile, with help tooltip */}
-        <div className="ml-auto flex flex-col gap-0.5">
+        <div className={`${isLogged ? "ml-auto" : ""} flex flex-col gap-0.5`}>
           {showLabels ? (
             <div className="flex items-center gap-1">
               <label htmlFor={`rpe-${setNumber}`} className={eyebrowClass}>
