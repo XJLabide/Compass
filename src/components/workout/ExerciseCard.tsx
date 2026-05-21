@@ -152,6 +152,12 @@ export default function ExerciseCard({
         </div>
       </header>
 
+      {planned.notes && planned.notes.trim().length > 0 ? (
+        <p className="border-b border-border bg-neutral-900/30 px-3 py-1.5 text-[11px] italic text-muted">
+          {planned.notes}
+        </p>
+      ) : null}
+
       <div className="space-y-1.5 p-2">
         {logged.map((set, i) => (
           <SetRow

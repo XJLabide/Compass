@@ -93,6 +93,13 @@ export interface PlannedExercise {
   repRangeHigh: number;
   /** 0-based display order within the session. */
   order: number;
+  /**
+   * Optional per-exercise free-form note. Surfaced on the logger card so the
+   * lifter sees session-specific cues (e.g. "tempo 3-1-1", "drop set on last").
+   * Max 500 chars (enforced at the edit input layer; not at rules-level since
+   * sessionValid permits any plannedExercises list shape).
+   */
+  notes?: string;
 }
 
 export interface ProgramSession {
