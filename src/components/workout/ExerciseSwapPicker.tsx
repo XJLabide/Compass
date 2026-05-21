@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, Search, ArrowLeftRight, Plus, Library } from "lucide-react";
+import { X, Search, ArrowLeftRight, Plus, Library, Archive } from "lucide-react";
 import clsx from "clsx";
-import { serverTimestamp, setDoc } from "firebase/firestore";
+import { serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 
 import { EXERCISE_MASTER, type SeedExercise } from "@/lib/data/exerciseMaster";
 import { inferCategory, mapApiMuscle } from "@/lib/data/muscleMapping";
@@ -51,6 +51,10 @@ export interface ExerciseSwapPickerProps {
     aliases?: string[];
     /** ExerciseDB id — used for exact dedup against library-search results. */
     apiId?: string;
+    /** "master" | "api" | "custom" — present on user docs; undefined on master entries passed directly. */
+    source?: string;
+    /** Soft-delete flag. Archived entries are already filtered before pool is built. */
+    archived?: boolean;
   }>;
   /** Original exercise id being replaced. Omit for "add new" flow. */
   forExerciseId?: string;
@@ -178,6 +182,10 @@ export default function ExerciseSwapPicker({
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
+  // Archive confirmation state. Key = exercise id; value = true while confirm row is shown.
+  const [archiveConfirming, setArchiveConfirming] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState<string | null>(null);
+
   // Library-search state (Step 4: lazy ExerciseDB search).
   const [libQuery, setLibQuery] = useState("");
   const [libResults, setLibResults] = useState<LibrarySearchResult[]>([]);
@@ -212,6 +220,8 @@ export default function ExerciseSwapPicker({
       setLibSearched(false);
       setLibAddingId(null);
       setLibRowErrors({});
+      setArchiveConfirming(null);
+      setArchiving(null);
       libAbortRef.current?.abort();
       libAbortRef.current = null;
     }
@@ -465,6 +475,22 @@ export default function ExerciseSwapPicker({
         err instanceof Error ? err.message : "Failed to create exercise.";
       setCreateError(message);
       setCreating(false);
+    }
+  }
+
+  async function handleArchive(exerciseId: string) {
+    setArchiving(exerciseId);
+    try {
+      await updateDoc(exercisePath(uid, exerciseId), {
+        archived: true,
+        updatedAt: serverTimestamp(),
+      });
+      // Row disappears on the next render because buildPickerPool filters archived.
+    } catch {
+      // On error, just dismiss the confirm so the user can retry.
+    } finally {
+      setArchiveConfirming(null);
+      setArchiving(null);
     }
   }
 
@@ -733,22 +759,61 @@ export default function ExerciseSwapPicker({
                       {g.muscle}
                     </p>
                     <ul className="space-y-1">
-                      {g.items.map((e) => (
+                      {g.items.map((e) => {
+                        // User-owned: source is "api" or "custom" (not "master" and not undefined from EXERCISE_MASTER pass-through).
+                        const isUserOwned = e.source === "api" || e.source === "custom";
+                        const isConfirming = archiveConfirming === e.id;
+                        const isArchiving = archiving === e.id;
+                        return (
                         <li key={`all-${e.id}`}>
-                          <button
-                            type="button"
-                            onClick={() => pick(e.id)}
-                            className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-200 transition hover:bg-neutral-800"
-                          >
-                            <span className="min-w-0 flex-1 truncate">
-                              {e.name}
-                            </span>
-                            <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">
-                              {e.category}
-                            </span>
-                          </button>
+                          {isConfirming ? (
+                            <div className="flex items-center gap-2 rounded-md border border-border bg-neutral-900/60 px-3 py-2 text-[11px] text-neutral-200">
+                              <span className="min-w-0 flex-1 truncate">Archive <span className="font-medium">{e.name}</span>? Old logged sets keep this name.</span>
+                              <button
+                                type="button"
+                                disabled={isArchiving}
+                                onClick={() => void handleArchive(e.id)}
+                                className="shrink-0 rounded-md bg-amber-600/80 px-2 py-1 text-[11px] font-semibold text-neutral-100 hover:bg-amber-600 disabled:opacity-50"
+                              >
+                                {isArchiving ? "Archiving…" : "Archive"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setArchiveConfirming(null)}
+                                className="shrink-0 rounded-md border border-border bg-neutral-800 px-2 py-1 text-[11px] font-medium text-neutral-300 hover:bg-neutral-700"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => pick(e.id)}
+                              className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-200 transition hover:bg-neutral-800"
+                            >
+                              <span className="min-w-0 flex-1 truncate">
+                                {e.name}
+                              </span>
+                              <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">
+                                {e.category}
+                              </span>
+                            </button>
+                            {isUserOwned ? (
+                              <button
+                                type="button"
+                                onClick={() => setArchiveConfirming(e.id)}
+                                aria-label={`Archive ${e.name}`}
+                                className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-neutral-800 hover:text-amber-400"
+                              >
+                                <Archive aria-hidden="true" className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
+                          </div>
+                          )}
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   </div>
                 ))
@@ -1033,6 +1098,7 @@ export function buildPickerPool(
   category: string;
   aliases?: string[];
   apiId?: string;
+  source?: string;
 }> {
   const byId = new Map<
     string,
@@ -1043,6 +1109,7 @@ export function buildPickerPool(
       category: string;
       aliases?: string[];
       apiId?: string;
+      source?: string;
     }
   >();
   EXERCISE_MASTER.forEach((e: SeedExercise) => {
@@ -1055,15 +1122,18 @@ export function buildPickerPool(
       apiId: e.apiId,
     });
   });
-  userExercises.forEach(({ id, ex }) => {
-    byId.set(id, {
-      id,
-      name: ex.name,
-      primaryMuscle: ex.primaryMuscle,
-      category: ex.category,
-      aliases: ex.aliases,
-      apiId: ex.apiId,
+  userExercises
+    .filter(({ ex }) => !ex.archived)
+    .forEach(({ id, ex }) => {
+      byId.set(id, {
+        id,
+        name: ex.name,
+        primaryMuscle: ex.primaryMuscle,
+        category: ex.category,
+        aliases: ex.aliases,
+        apiId: ex.apiId,
+        source: ex.source,
+      });
     });
-  });
   return [...byId.values()];
 }

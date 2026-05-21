@@ -6,18 +6,16 @@ import {
 } from "firebase/firestore";
 
 import { getFirebaseDb } from "@/lib/firebase";
-import { EXERCISE_MASTER } from "@/lib/data/exerciseMaster";
 import {
   UPPER_LOWER_PROGRAM_NAME,
   UPPER_LOWER_SESSIONS,
 } from "@/lib/data/upperLowerProgram";
 
 import {
-  exercisePath,
   profilePath,
   programPath,
 } from "./paths";
-import type { Exercise, Profile, ProgramDoc } from "./types";
+import type { Profile, ProgramDoc } from "./types";
 
 /**
  * First-run seeder.
@@ -25,13 +23,18 @@ import type { Exercise, Profile, ProgramDoc } from "./types";
  * On the first sign-in for a user (no `profile` doc exists), writes:
  *   - `users/{uid}/profile/profile`     — defaults from `defaultProfile()`
  *   - `users/{uid}/program/active`      — the Upper/Lower 4-day template
- *   - `users/{uid}/exercises/{slug}`    — the seeded master list (~25 lifts)
+ *
+ * NOTE: The master exercise list (EXERCISE_MASTER) is intentionally NOT seeded
+ * into Firestore. It lives in code as the read-only source of truth. Only
+ * user-created custom exercises and API imports are stored in
+ * `users/{uid}/exercises/`. All readers merge EXERCISE_MASTER + user collection
+ * at runtime (see buildPickerPool / getExerciseDef patterns).
  *
  * Idempotent: if the profile doc already exists, returns immediately with no
  * writes. Callers can safely invoke this on every auth resolution.
  *
  * All seeded writes happen in a single `writeBatch` so partial failures don't
- * leave the user with exercises but no program (or vice versa).
+ * leave the user with a profile but no program (or vice versa).
  *
  * NOTE on defaults: the epic spec calls for `weeklyGainKg: 0.2`, but the
  * canonical `Profile.weeklyGainLb` (from fn-3-167.1) stores pounds. We store
@@ -100,17 +103,6 @@ export async function ensureSeeded(
     updatedAt: now as unknown as ProgramDoc["updatedAt"],
   };
   batch.set(programPath(user.uid, db), program);
-
-  for (const seed of EXERCISE_MASTER) {
-    const exercise: Exercise = {
-      name: seed.name,
-      primaryMuscle: seed.primaryMuscle,
-      category: seed.category,
-      seeded: true,
-      createdAt: now as unknown as Exercise["createdAt"],
-    };
-    batch.set(exercisePath(user.uid, seed.id, db), exercise);
-  }
 
   await batch.commit();
 }

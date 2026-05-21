@@ -12,6 +12,7 @@ import {
 import { Plus, Search, X } from "lucide-react";
 
 import { exercisesPath } from "@/lib/db/paths";
+import { EXERCISE_MASTER } from "@/lib/data/exerciseMaster";
 import { getFirebaseDb } from "@/lib/firebase";
 import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import type { Exercise, ExerciseCategory, MuscleGroup } from "@/lib/db/types";
@@ -69,8 +70,30 @@ export default function ExercisePicker({
     const q = query(exercisesPath(uid), orderBy("name"));
     const unsub = onSnapshot(
       q,
-      (snap) =>
-        setItems(snap.docs.map((d) => ({ id: d.id, data: d.data() }))),
+      (snap) => {
+        // Merge master (read-only, code-side) with user's Firestore docs.
+        // User doc wins on id collision so custom overrides shadow master.
+        const userMap = new Map(snap.docs.map((d) => [d.id, d.data()]));
+        const masterItems = EXERCISE_MASTER
+          .filter((e) => !userMap.has(e.id))
+          .map((e) => ({
+            id: e.id,
+            data: {
+              name: e.name,
+              primaryMuscle: e.primaryMuscle as Exercise["primaryMuscle"],
+              category: e.category as Exercise["category"],
+              seeded: true,
+              createdAt: null as unknown as Exercise["createdAt"],
+            },
+          }));
+        const userItems = snap.docs
+          .map((d) => ({ id: d.id, data: d.data() }))
+          .filter((it) => !it.data.archived);
+        const merged = [...masterItems, ...userItems].sort((a, b) =>
+          a.data.name.localeCompare(b.data.name),
+        );
+        setItems(merged);
+      },
       () => setItems([]),
     );
     return () => unsub();

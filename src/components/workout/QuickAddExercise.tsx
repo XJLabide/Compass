@@ -5,6 +5,7 @@ import { onSnapshot, type QuerySnapshot } from "firebase/firestore";
 import { Plus, Search, X } from "lucide-react";
 
 import { exercisesPath } from "@/lib/db/paths";
+import { EXERCISE_MASTER } from "@/lib/data/exerciseMaster";
 import type { Exercise } from "@/lib/db/types";
 import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 
@@ -63,13 +64,30 @@ export default function QuickAddExercise({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // -- Live subscription to the master exercise list ------------------------
+  // -- Live subscription: merge master (code) + user's Firestore exercises ---
   useEffect(() => {
     if (!uid) return;
     const unsub = onSnapshot(
       exercisesPath(uid),
       (snap: QuerySnapshot<Exercise>) => {
-        const next: Row[] = snap.docs.map((d) => ({ id: d.id, ex: d.data() }));
+        // User Firestore docs win on id collision (custom overrides master).
+        const userMap = new Map(snap.docs.map((d) => [d.id, d.data()]));
+        const masterRows: Row[] = EXERCISE_MASTER
+          .filter((e) => !userMap.has(e.id))
+          .map((e) => ({
+            id: e.id,
+            ex: {
+              name: e.name,
+              primaryMuscle: e.primaryMuscle as Exercise["primaryMuscle"],
+              category: e.category as Exercise["category"],
+              seeded: true,
+              createdAt: null as unknown as Exercise["createdAt"],
+            },
+          }));
+        const userRows: Row[] = snap.docs
+          .filter((d) => !d.data().archived)
+          .map((d) => ({ id: d.id, ex: d.data() }));
+        const next = [...masterRows, ...userRows];
         // Sort alphabetically by name; this is the stable list order for the
         // filtered view too (the filter preserves order, doesn't re-rank).
         next.sort((a, b) =>

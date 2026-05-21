@@ -20,6 +20,7 @@ import type {
   SessionDoc,
   UnitSystem,
 } from "@/lib/db/types";
+import { EXERCISE_MASTER } from "@/lib/data/exerciseMaster";
 import { kgToDisplay, weightUnitLabel } from "@/lib/workout/units";
 import Skeleton from "@/components/ui/Skeleton";
 
@@ -111,7 +112,18 @@ export default function VolumeByMuscle({
       try {
         const snap = await getDocs(exercisesPath(uid));
         if (cancelled) return;
+        // Seed map from master first so master exercise IDs always resolve,
+        // then overlay Firestore docs so user customs/edits win on collision.
         const map = new Map<string, Exercise>();
+        EXERCISE_MASTER.forEach((e) =>
+          map.set(e.id, {
+            name: e.name,
+            primaryMuscle: e.primaryMuscle as Exercise["primaryMuscle"],
+            category: e.category as Exercise["category"],
+            seeded: true,
+            createdAt: null as unknown as Exercise["createdAt"],
+          }),
+        );
         snap.docs.forEach((d) => map.set(d.id, d.data()));
         setExMap(map);
       } catch {
