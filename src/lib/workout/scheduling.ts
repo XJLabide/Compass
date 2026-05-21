@@ -91,6 +91,114 @@ export function getTodayScheduled(
   return { kind: "session", session };
 }
 
+// ---------------------------------------------------------------------------
+// Rotation-based scheduling (v2)
+// ---------------------------------------------------------------------------
+
+export interface RotationSlot {
+  session: ProgramSession;
+  /** ms since last completed; null if never done */
+  msSinceLast: number | null;
+}
+
+export interface RotationView {
+  /** The next session to do. Null only if the program has zero sessions. */
+  next: ProgramSession | null;
+  /** All slots, sorted oldest-completed-first (next at index 0). */
+  slots: RotationSlot[];
+}
+
+/**
+ * Pick the next program session to do based on what hasn't been done in the
+ * longest. Never-completed sessions sort to the top in `program.sessions`
+ * order. Ties between completed sessions broken by `program.sessions` order.
+ *
+ * @param program Active program doc (or `null` if not loaded yet).
+ * @param lastCompletedBySlot Map of programSessionId → most recent completed Date.
+ * @param now Reference "now" (defaults to `new Date()`).
+ */
+export function getRotationView(
+  program: ProgramDoc | null,
+  lastCompletedBySlot: Map<string, Date>,
+  now: Date = new Date(),
+): RotationView {
+  if (!program || program.sessions.length === 0) {
+    return { next: null, slots: [] };
+  }
+
+  const slots: RotationSlot[] = program.sessions.map((session) => {
+    const last = lastCompletedBySlot.get(session.id);
+    return {
+      session,
+      msSinceLast: last != null ? now.getTime() - last.getTime() : null,
+    };
+  });
+
+  // Sort: never-done (null) first (stable in program order), then by oldest
+  // completion (largest msSinceLast first), ties fall back to program order.
+  const sorted = [...slots].sort((a, b) => {
+    const aNever = a.msSinceLast === null;
+    const bNever = b.msSinceLast === null;
+    if (aNever && bNever) return 0; // preserve program order
+    if (aNever) return -1;
+    if (bNever) return 1;
+    // Both completed — oldest first (larger msSinceLast first).
+    return (b.msSinceLast as number) - (a.msSinceLast as number);
+  });
+
+  return {
+    next: sorted[0]?.session ?? null,
+    slots: sorted,
+  };
+}
+
+/**
+ * Format milliseconds-since-last into a human label.
+ *   0 → "today"
+ *   1 day → "yesterday"
+ *   N days → "{N} days"
+ */
+export function formatMsSince(ms: number): string {
+  const days = Math.floor(ms / 86_400_000);
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days} days`;
+}
+
+/**
+ * Build the rotation caption shown under the session name on the workout index.
+ *
+ * Format: "Lower A: yesterday · Upper A: 3 days · never: Upper B, Lower B"
+ * At most 4 slots shown. If all never-done: "Pick anything — nothing logged yet".
+ */
+export function buildRotationCaption(slots: RotationSlot[]): string {
+  const MAX = 4;
+  const shown = slots.slice(0, MAX);
+
+  const completedParts: string[] = [];
+  const neverNames: string[] = [];
+
+  for (const slot of shown) {
+    if (slot.msSinceLast === null) {
+      neverNames.push(slot.session.name);
+    } else {
+      completedParts.push(
+        `${slot.session.name}: ${formatMsSince(slot.msSinceLast)}`,
+      );
+    }
+  }
+
+  if (completedParts.length === 0) {
+    return "Pick anything — nothing logged yet";
+  }
+
+  const parts = [...completedParts];
+  if (neverNames.length > 0) {
+    parts.push(`never: ${neverNames.join(", ")}`);
+  }
+  return parts.join(" · ");
+}
+
 /**
  * Compute the user's `YYYY-MM-DD` localDate for a JS Date.
  *

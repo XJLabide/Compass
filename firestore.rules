@@ -73,6 +73,7 @@ service cloud.firestore {
       return data.localDate is string
         && data.name is string
         && data.sets is list
+        && (!('plannedExercises' in data) || data.plannedExercises is list)
         && (!('durationMin' in data)
             || (data.durationMin is number && data.durationMin >= 0 && data.durationMin <= 1440))
         && (!('notes' in data) || data.notes is string);
@@ -150,32 +151,38 @@ service cloud.firestore {
 
       match /profile/{docId} {
         allow read: if isOwner(uid);
-        allow write: if isOwner(uid) && profileValid(request.resource.data);
+        allow create, update: if isOwner(uid) && profileValid(request.resource.data);
+        allow delete: if isOwner(uid);
       }
 
       match /program/{docId} {
         allow read: if isOwner(uid);
-        allow write: if isOwner(uid) && programValid(request.resource.data);
+        allow create, update: if isOwner(uid) && programValid(request.resource.data);
+        allow delete: if isOwner(uid);
       }
 
       match /exercises/{exerciseId} {
         allow read: if isOwner(uid);
-        allow write: if isOwner(uid) && exerciseValid(request.resource.data);
+        allow create, update: if isOwner(uid) && exerciseValid(request.resource.data);
+        allow delete: if isOwner(uid);
       }
 
       match /sessions/{sessionId} {
         allow read: if isOwner(uid);
-        allow write: if isOwner(uid) && sessionValid(request.resource.data);
+        allow create, update: if isOwner(uid) && sessionValid(request.resource.data);
+        allow delete: if isOwner(uid);
       }
 
       match /daily/{dateId} {
         allow read: if isOwner(uid);
-        allow write: if isOwner(uid) && dailyValid(request.resource.data);
+        allow create, update: if isOwner(uid) && dailyValid(request.resource.data);
+        allow delete: if isOwner(uid);
       }
 
       match /prs/{prId} {
         allow read: if isOwner(uid);
-        allow write: if isOwner(uid) && prValid(request.resource.data);
+        allow create, update: if isOwner(uid) && prValid(request.resource.data);
+        allow delete: if isOwner(uid);
       }
 
       match /todos/{todoId} {

@@ -172,6 +172,13 @@ export interface SessionDoc {
   durationMin?: number;
   notes?: string;
   sets: LoggedSet[];
+  /**
+   * Per-session snapshot of planned exercises. Populated at session start from
+   * the program template. Editing here (swap/add/remove/reorder/sets-reps) does
+   * NOT affect the program template; it's a session-local override. The logger
+   * reads this when present, otherwise falls back to the program template.
+   */
+  plannedExercises?: PlannedExercise[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

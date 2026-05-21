@@ -14,6 +14,7 @@ import { profilePath } from "@/lib/db/paths";
 import type { Profile, Timezone, UnitSystem } from "@/lib/db/types";
 
 import {
+  AlertTriangle,
   Bell,
   Clock,
   Globe,
@@ -27,6 +28,7 @@ import {
 
 import InstallPrompt from "@/components/InstallPrompt";
 import CustomCategoriesSection from "@/components/settings/CustomCategoriesSection";
+import DangerZoneSection from "@/components/settings/DangerZoneSection";
 import DayWindowSection from "@/components/settings/DayWindowSection";
 import NotificationsSection from "@/components/settings/NotificationsSection";
 import TargetInput from "@/components/settings/TargetInput";
@@ -317,6 +319,14 @@ export default function SettingsPage() {
             {signOutError}
           </div>
         ) : null}
+      </SettingsGroup>
+
+      <SettingsGroup
+        icon={AlertTriangle}
+        title="Danger zone"
+        subtitle="Irreversible actions. Read carefully."
+      >
+        <DangerZoneSection />
       </SettingsGroup>
     </section>
   );

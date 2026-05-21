@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   addDoc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -16,34 +17,46 @@ import {
 import { useAuth } from "@/lib/auth/useAuth";
 import { profilePath, programPath, sessionsPath } from "@/lib/db/paths";
 import type {
+  PlannedExercise,
   Profile,
   ProgramDoc,
   SessionDoc,
 } from "@/lib/db/types";
 import {
+  buildRotationCaption,
   computeLocalDate,
-  getLocalDayOfWeek,
-  getTodayScheduled,
+  getRotationView,
 } from "@/lib/workout/scheduling";
 import { checkAndAutoFinalize } from "@/lib/workout/recovery";
+import {
+  heaviestSetByExercise,
+  type PrefillMap,
+} from "@/lib/workout/prefill";
+import { applyProgramSwap } from "@/lib/workout/applyProgramSwap";
+import { getMasterExercise } from "@/lib/workout/exerciseSubs";
 import Link from "next/link";
-import { Settings2 } from "lucide-react";
+import { Pencil, Settings2 } from "lucide-react";
 
 import SessionListItem from "@/components/workout/SessionListItem";
 import ResumeBanner from "@/components/workout/ResumeBanner";
 import Skeleton from "@/components/ui/Skeleton";
+import EditPlannedExercisesDialog, {
+  type PlannedExerciseSwap,
+} from "@/components/workout/EditPlannedExercisesDialog";
+import SaveSwapPrompt from "@/components/workout/SaveSwapPrompt";
 
 type RecentRow = { id: string; session: SessionDoc };
 
 const RECENT_LIMIT = 5;
+const ROTATION_QUERY_LIMIT = 50;
 
 /**
  * `/workout` index.
  *
  * Sections:
- *   1. Today — shows the scheduled session name from the active program (or
- *      "Rest day"), plus a "Start session" CTA that writes a new in-progress
- *      session doc and routes to `/workout/[id]`.
+ *   1. Next Up — shows the rotation-picked session from the active program,
+ *      plus a "Start session" CTA that writes a new in-progress session doc
+ *      and routes to `/workout/[id]`.
  *   2. Recent — live `limit(5)` query of the user's sessions, newest first.
  *
  * All data is realtime via `onSnapshot`. The page is fully client-rendered
@@ -64,8 +77,25 @@ export default function WorkoutPage() {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
+  // Pre-session edit state.
+  const [editOpen, setEditOpen] = useState(false);
+  const [pendingOverride, setPendingOverride] = useState<PlannedExercise[] | null>(
+    null,
+  );
+  /** Swap prompts queued by the most recent edit-save. We drain one at a time. */
+  const [swapQueue, setSwapQueue] = useState<PlannedExerciseSwap[]>([]);
+  const [savingSwap, setSavingSwap] = useState(false);
+
+  // Map of programSessionId → most recent completed Date, for rotation logic.
+  // null = not yet fetched.
+  const [lastCompletedMap, setLastCompletedMap] = useState<Map<string, Date> | null>(null);
+
+  // Heaviest-set-per-exercise from the most recent completed session for the
+  // rotation-picked slot. null = not yet fetched; empty Map = fetched, no prior session.
+  const [prefillMap, setPrefillMap] = useState<PrefillMap | null>(null);
+
   // ---------------------------------------------------------------------------
-  // Subscribe to profile (for timezone) and active program (for today's slot).
+  // Subscribe to profile (for timezone) and active program (for rotation).
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!user?.uid) return;
@@ -189,42 +219,144 @@ export default function WorkoutPage() {
   }, [user?.uid]);
 
   // ---------------------------------------------------------------------------
-  // Compute today's scheduled session from the active program.
+  // Fetch last-completed session per slot for rotation. One-shot getDocs that
+  // re-runs when uid or the set of session ids changes.
   // ---------------------------------------------------------------------------
-  const today = useMemo(() => {
-    const tz = profile?.timezone || "UTC";
-    const now = new Date();
-    const dow = getLocalDayOfWeek(now, tz);
-    return {
-      localDate: computeLocalDate(now, tz),
-      scheduled: getTodayScheduled(program, dow),
+  const sessionIds = useMemo(
+    () => program?.sessions.map((s) => s.id) ?? [],
+    [program?.sessions],
+  );
+  // Stable string key so the effect only re-fires when the actual ids change.
+  const sessionIdsKey = sessionIds.join(",");
+
+  useEffect(() => {
+    if (!user?.uid || !programLoaded) return;
+    if (sessionIds.length === 0) {
+      setLastCompletedMap(new Map());
+      return;
+    }
+
+    let cancelled = false;
+    setLastCompletedMap(null); // clear while re-fetching
+
+    const q = query(
+      sessionsPath(user.uid),
+      where("status", "==", "completed"),
+      orderBy("startedAt", "desc"),
+      limit(ROTATION_QUERY_LIMIT),
+    );
+
+    getDocs(q)
+      .then((snap) => {
+        if (cancelled) return;
+        const map = new Map<string, Date>();
+        const idSet = new Set(sessionIds);
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          const pid = data.programSessionId;
+          if (!pid || !idSet.has(pid) || map.has(pid)) return;
+          // startedAt may be a Firestore Timestamp or null on very old docs.
+          const ts = data.startedAt as unknown as
+            | { toDate?: () => Date }
+            | undefined;
+          const date =
+            ts && typeof ts.toDate === "function" ? ts.toDate() : null;
+          if (date) map.set(pid, date);
+        });
+        setLastCompletedMap(map);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLastCompletedMap(new Map()); // fail gracefully
+      });
+
+    return () => {
+      cancelled = true;
     };
-  }, [program, profile?.timezone]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, programLoaded, sessionIdsKey]);
+
+  // ---------------------------------------------------------------------------
+  // Compute rotation view.
+  // ---------------------------------------------------------------------------
+  const rotation = useMemo(() => {
+    if (!programLoaded || lastCompletedMap === null) return null;
+    return getRotationView(program, lastCompletedMap);
+  }, [program, programLoaded, lastCompletedMap]);
+
+  // ---------------------------------------------------------------------------
+  // When the rotation slot is determined, fetch the most recent completed
+  // session for that slot to prefill exercise weights.
+  // One-shot getDocs — re-runs only when the slot id changes.
+  // ---------------------------------------------------------------------------
+  const nextSessionId = rotation?.next?.id ?? null;
+
+  useEffect(() => {
+    if (!user?.uid || !nextSessionId) {
+      setPrefillMap(null);
+      return;
+    }
+    let cancelled = false;
+    setPrefillMap(null);
+    const q = query(
+      sessionsPath(user.uid),
+      where("programSessionId", "==", nextSessionId),
+      where("status", "==", "completed"),
+      orderBy("startedAt", "desc"),
+      limit(1),
+    );
+    getDocs(q)
+      .then((snap) => {
+        if (cancelled) return;
+        if (snap.empty) {
+          setPrefillMap(new Map());
+          return;
+        }
+        const sessionData = snap.docs[0].data();
+        setPrefillMap(heaviestSetByExercise(sessionData.sets ?? []));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPrefillMap(new Map());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, nextSessionId]);
+
+  // ---------------------------------------------------------------------------
+  // Local date for display.
+  // ---------------------------------------------------------------------------
+  const localDate = useMemo(() => {
+    const tz = profile?.timezone || "UTC";
+    return computeLocalDate(new Date(), tz);
+  }, [profile?.timezone]);
 
   // ---------------------------------------------------------------------------
   // Start session: write an in-progress session doc and route to the logger.
   // ---------------------------------------------------------------------------
   const handleStart = useCallback(async () => {
-    if (!user?.uid) return;
-    if (today.scheduled.kind !== "session") return;
+    if (!user?.uid || !rotation?.next) return;
     setStarting(true);
     setStartError(null);
     try {
       const sessionsCol = sessionsPath(user.uid);
       const payload: Partial<SessionDoc> = {
-        localDate: today.localDate,
-        name: today.scheduled.session.name,
-        programSessionId: today.scheduled.session.id,
+        localDate,
+        name: rotation.next.name,
+        programSessionId: rotation.next.id,
         status: "in_progress",
         sets: [],
-        // serverTimestamp() sentinels — converter passes through, Firestore
-        // resolves at write time. Cast to satisfy the strict SessionDoc shape.
         date: serverTimestamp() as unknown as SessionDoc["date"],
         startedAt: serverTimestamp() as unknown as SessionDoc["startedAt"],
         createdAt: serverTimestamp() as unknown as SessionDoc["createdAt"],
         updatedAt: serverTimestamp() as unknown as SessionDoc["updatedAt"],
       };
+      if (pendingOverride) {
+        payload.plannedExercises = pendingOverride;
+      }
       const ref = await addDoc(sessionsCol, payload as SessionDoc);
+      setPendingOverride(null);
       router.push(`/workout/${ref.id}`);
     } catch (err) {
       const message =
@@ -232,7 +364,54 @@ export default function WorkoutPage() {
       setStartError(message);
       setStarting(false);
     }
-  }, [user?.uid, today, router]);
+  }, [user?.uid, rotation, localDate, router, pendingOverride]);
+
+  // ---------------------------------------------------------------------------
+  // Pre-session edit handlers.
+  // ---------------------------------------------------------------------------
+  const handleEditSave = useCallback(
+    (next: PlannedExercise[], swaps: PlannedExerciseSwap[]) => {
+      setPendingOverride(next);
+      setEditOpen(false);
+      if (swaps.length > 0) setSwapQueue(swaps);
+    },
+    [],
+  );
+
+  const handleSwapYes = useCallback(async () => {
+    if (!user?.uid || !program || swapQueue.length === 0) return;
+    const [head, ...rest] = swapQueue;
+    setSavingSwap(true);
+    try {
+      await applyProgramSwap({
+        uid: user.uid,
+        program,
+        sessionName: head.sessionName,
+        fromId: head.fromId,
+        toId: head.toId,
+      });
+    } catch (err) {
+      // Non-fatal: we just drop this swap from the queue without persisting.
+      // eslint-disable-next-line no-console
+      console.warn("Save swap to program failed:", err);
+    } finally {
+      setSavingSwap(false);
+      setSwapQueue(rest);
+    }
+  }, [user?.uid, program, swapQueue]);
+
+  const handleSwapNo = useCallback(() => {
+    setSwapQueue((q) => q.slice(1));
+  }, []);
+
+  // Friendly display names for the active swap prompt.
+  const activeSwap = swapQueue[0] ?? null;
+  const swapFromName = activeSwap
+    ? getMasterExercise(activeSwap.fromId)?.name ?? activeSwap.fromId
+    : "";
+  const swapToName = activeSwap
+    ? getMasterExercise(activeSwap.toId)?.name ?? activeSwap.toId
+    : "";
 
   // ---------------------------------------------------------------------------
   // Render
@@ -245,7 +424,7 @@ export default function WorkoutPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">
             Workout
           </h1>
-          <p className="mt-1 text-xs text-muted">{today.localDate}</p>
+          <p className="mt-1 text-xs text-muted">{localDate}</p>
         </div>
         <Link
           href="/workout/program"
@@ -271,12 +450,12 @@ export default function WorkoutPage() {
         <ResumeBanner uid={user.uid} inProgress={inProgress} />
       ) : null}
 
-      {/* Today */}
+      {/* Next Up */}
       <div className="mt-6 rounded-xl border border-border bg-neutral-900/40 p-4">
         <h2 className="text-xs font-medium uppercase tracking-wide text-muted">
-          Today
+          Next Up
         </h2>
-        {!programLoaded ? (
+        {!programLoaded || rotation === null ? (
           <div className="mt-3 space-y-2">
             <Skeleton className="h-5 w-32" />
             <Skeleton className="h-3 w-40" />
@@ -297,23 +476,98 @@ export default function WorkoutPage() {
               Edit program
             </Link>
           </>
-        ) : today.scheduled.kind === "session" ? (
+        ) : rotation.next ? (
           <>
             <p className="mt-1 text-lg font-semibold text-neutral-100">
-              {today.scheduled.session.name}
+              {rotation.next.name}
             </p>
-            <p className="mt-1 text-xs text-muted">
-              {today.scheduled.session.exercises.length} planned exercise
-              {today.scheduled.session.exercises.length === 1 ? "" : "s"}
+            <p className="mt-0.5 text-xs text-muted">
+              {(pendingOverride ?? rotation.next.exercises).length} planned exercise
+              {(pendingOverride ?? rotation.next.exercises).length === 1 ? "" : "s"}
+              {pendingOverride ? (
+                <span className="ml-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-amber-300">
+                  edited
+                </span>
+              ) : null}
             </p>
-            <button
-              type="button"
-              onClick={handleStart}
-              disabled={starting}
-              className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-lg bg-accent px-4 text-sm font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {starting ? "Starting…" : "Start session"}
-            </button>
+            <p className="mt-0.5 text-[11px] text-muted/70">
+              {buildRotationCaption(rotation.slots)}
+            </p>
+
+            {/* Exercise preview list */}
+            {(() => {
+              const exercises = pendingOverride ?? rotation.next.exercises;
+              const unitSystem = profile?.unitSystem ?? "imperial";
+              const MAX_SHOWN = 5;
+              const shown = exercises.slice(0, MAX_SHOWN);
+              const overflow = exercises.length - MAX_SHOWN;
+
+              return (
+                <ul className="mt-3 space-y-1.5">
+                  {shown.map((ex) => {
+                    const setRep =
+                      ex.repRangeLow === ex.repRangeHigh
+                        ? `${ex.targetSets} × ${ex.repRangeLow}`
+                        : `${ex.targetSets} × ${ex.repRangeLow}-${ex.repRangeHigh}`;
+
+                    const entry = prefillMap?.get(ex.exerciseId);
+                    let lastLabel: string;
+                    if (!entry || !entry.reps) {
+                      lastLabel = "—";
+                    } else {
+                      const displayWeight =
+                        unitSystem === "imperial"
+                          ? Math.round(entry.weightKg * 2.20462)
+                          : entry.weightKg;
+                      const unit = unitSystem === "imperial" ? "lb" : "kg";
+                      lastLabel = `${displayWeight} ${unit} × ${entry.reps}`;
+                    }
+
+                    return (
+                      <li
+                        key={ex.exerciseId}
+                        className="flex items-baseline gap-2 text-xs"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-sm text-neutral-100">
+                          {ex.name}
+                        </span>
+                        <span className="shrink-0 text-muted">{setRep}</span>
+                        <span className="shrink-0 text-muted">
+                          last:{" "}
+                          <span className={prefillMap === null ? "opacity-50" : ""}>
+                            {prefillMap === null ? "—" : lastLabel}
+                          </span>
+                        </span>
+                      </li>
+                    );
+                  })}
+                  {overflow > 0 && (
+                    <li className="text-xs text-muted">+ {overflow} more</li>
+                  )}
+                </ul>
+              );
+            })()}
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={handleStart}
+                disabled={starting}
+                className="inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-accent px-4 text-sm font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {starting ? "Starting…" : "Start session"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                disabled={starting}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-border bg-neutral-900 px-3 text-xs font-medium text-neutral-100 transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Edit session"
+              >
+                <Pencil className="h-3.5 w-3.5 text-accent" />
+                Edit
+              </button>
+            </div>
             {startError ? (
               <div
                 role="alert"
@@ -325,13 +579,20 @@ export default function WorkoutPage() {
             ) : null}
           </>
         ) : (
+          // program exists but has no sessions
           <>
             <p className="mt-1 text-lg font-semibold text-neutral-100">
-              Rest day
+              No sessions yet
             </p>
             <p className="mt-1 text-xs text-muted">
-              No session scheduled for today. Recovery counts too.
+              Add sessions in the program editor to get started.
             </p>
+            <Link
+              href="/workout/program"
+              className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-accent px-3 text-xs font-semibold text-neutral-900 hover:brightness-110"
+            >
+              Edit program
+            </Link>
           </>
         )}
       </div>
@@ -363,6 +624,29 @@ export default function WorkoutPage() {
           </ul>
         )}
       </div>
+
+      {/* Pre-session edit dialog */}
+      {rotation?.next ? (
+        <EditPlannedExercisesDialog
+          open={editOpen}
+          title={`Edit ${rotation.next.name}`}
+          sessionName={rotation.next.name}
+          initial={pendingOverride ?? rotation.next.exercises}
+          onSave={handleEditSave}
+          onCancel={() => setEditOpen(false)}
+        />
+      ) : null}
+
+      {/* Save-swap-to-program prompt (drains queue one at a time) */}
+      <SaveSwapPrompt
+        open={!!activeSwap}
+        fromName={swapFromName}
+        toName={swapToName}
+        sessionName={activeSwap?.sessionName ?? ""}
+        busy={savingSwap}
+        onYes={handleSwapYes}
+        onNo={handleSwapNo}
+      />
     </section>
   );
 }

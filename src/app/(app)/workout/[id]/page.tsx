@@ -23,6 +23,10 @@ import type {
 
 import ExerciseCard from "@/components/workout/ExerciseCard";
 import QuickAddExercise from "@/components/workout/QuickAddExercise";
+import EditPlannedExercisesDialog, {
+  type PlannedExerciseSwap,
+} from "@/components/workout/EditPlannedExercisesDialog";
+import SaveSwapPrompt from "@/components/workout/SaveSwapPrompt";
 import {
   computeDurationMin,
   loadLastSessionPrefill,
@@ -31,6 +35,9 @@ import {
 } from "@/lib/workout/prefill";
 import { finishSession as runPRDetection } from "@/lib/workout/finishSession";
 import { isPastEditWindow } from "@/lib/workout/recovery";
+import { applyProgramSwap } from "@/lib/workout/applyProgramSwap";
+import { getMasterExercise } from "@/lib/workout/exerciseSubs";
+import { Pencil } from "lucide-react";
 
 /**
  * `/workout/[id]` — live session logger.
@@ -77,6 +84,13 @@ export default function WorkoutSessionPage() {
 
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
+
+  // Mid-session edit state.
+  const [editOpen, setEditOpen] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  /** Swap prompts queued by the most recent edit-save. Drained one at a time. */
+  const [swapQueue, setSwapQueue] = useState<PlannedExerciseSwap[]>([]);
+  const [savingSwap, setSavingSwap] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Realtime subscriptions
@@ -156,7 +170,17 @@ export default function WorkoutSessionPage() {
     const planned: PlannedExercise[] = [];
     const seen = new Set<string>();
 
-    if (session.programSessionId && program) {
+    // Prefer the per-session override when present (the user edited this
+    // session's plan). Otherwise fall back to the program template.
+    if (session.plannedExercises && session.plannedExercises.length > 0) {
+      const inOrder = [...session.plannedExercises].sort(
+        (a, b) => a.order - b.order,
+      );
+      inOrder.forEach((p) => {
+        planned.push(p);
+        seen.add(p.exerciseId);
+      });
+    } else if (session.programSessionId && program) {
       const slot = program.sessions.find(
         (s) => s.id === session.programSessionId,
       );
@@ -170,8 +194,9 @@ export default function WorkoutSessionPage() {
     }
 
     // Append any exerciseId in `sets[]` that's NOT in the planned list —
-    // these are quick-added (unplanned / freeform) exercises. They render
-    // as a no-target card so the user can keep logging sets to them.
+    // these are quick-added (unplanned / freeform) exercises OR previously
+    // logged exercises whose planned entry was removed mid-session. They
+    // render as a no-target card so the user can keep viewing/logging.
     const sets = session.sets ?? [];
     let nextOrder = planned.length;
     sets.forEach((s) => {
@@ -179,7 +204,7 @@ export default function WorkoutSessionPage() {
       seen.add(s.exerciseId);
       planned.push({
         exerciseId: s.exerciseId,
-        name: s.exerciseId, // best-effort; real Exercise.name not denormed here
+        name: getMasterExercise(s.exerciseId)?.name ?? s.exerciseId,
         targetSets: 0,
         repRangeLow: 0,
         repRangeHigh: 0,
@@ -249,14 +274,23 @@ export default function WorkoutSessionPage() {
     async (input: { exerciseId: string; exercise: Exercise }) => {
       if (!user?.uid || !sessionId || !session) return;
       const existing = session.sets ?? [];
-      // If the exercise is already represented (planned or previously added),
-      // don't append a second placeholder.
-      const alreadyPresent =
-        existing.some((s) => s.exerciseId === input.exerciseId) ||
+      // If the exercise is already represented (planned in the per-session
+      // override, planned in the program template, or previously logged in
+      // sets), don't append a second placeholder.
+      const inOverride =
+        session.plannedExercises?.some(
+          (p) => p.exerciseId === input.exerciseId,
+        ) ?? false;
+      const inProgram =
+        !session.plannedExercises &&
         (program?.sessions
           .find((s) => s.id === session.programSessionId)
           ?.exercises.some((e) => e.exerciseId === input.exerciseId) ??
           false);
+      const alreadyPresent =
+        existing.some((s) => s.exerciseId === input.exerciseId) ||
+        inOverride ||
+        inProgram;
       if (alreadyPresent) return;
 
       const nextOrder =
@@ -332,6 +366,87 @@ export default function WorkoutSessionPage() {
   }, [user?.uid, sessionId, session, finishing, router]);
 
   // ---------------------------------------------------------------------------
+  // Mid-session edit handlers.
+  // ---------------------------------------------------------------------------
+  const loggedExerciseIds = useMemo(() => {
+    const s = new Set<string>();
+    (session?.sets ?? []).forEach((set) => {
+      if (set.weightKg === 0 && set.reps === 0) return; // placeholder anchor
+      s.add(set.exerciseId);
+    });
+    return s;
+  }, [session?.sets]);
+
+  const handleEditSave = useCallback(
+    async (next: PlannedExercise[], swaps: PlannedExerciseSwap[]) => {
+      if (!user?.uid || !sessionId) return;
+      setEditError(null);
+      try {
+        const patch: { plannedExercises: PlannedExercise[]; updatedAt: FieldValue } =
+          {
+            plannedExercises: next,
+            updatedAt: serverTimestamp(),
+          };
+        await updateDoc(sessionPath(user.uid, sessionId), patch);
+        setEditOpen(false);
+        if (swaps.length > 0) setSwapQueue(swaps);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to save edits.";
+        setEditError(message);
+      }
+    },
+    [user?.uid, sessionId],
+  );
+
+  const handleSwapYes = useCallback(async () => {
+    if (!user?.uid || !program || swapQueue.length === 0) return;
+    const [head, ...rest] = swapQueue;
+    setSavingSwap(true);
+    try {
+      await applyProgramSwap({
+        uid: user.uid,
+        program,
+        sessionName: head.sessionName,
+        fromId: head.fromId,
+        toId: head.toId,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("Save swap to program failed:", err);
+    } finally {
+      setSavingSwap(false);
+      setSwapQueue(rest);
+    }
+  }, [user?.uid, program, swapQueue]);
+
+  const handleSwapNo = useCallback(() => {
+    setSwapQueue((q) => q.slice(1));
+  }, []);
+
+  const activeSwap = swapQueue[0] ?? null;
+  const swapFromName = activeSwap
+    ? getMasterExercise(activeSwap.fromId)?.name ?? activeSwap.fromId
+    : "";
+  const swapToName = activeSwap
+    ? getMasterExercise(activeSwap.toId)?.name ?? activeSwap.toId
+    : "";
+
+  // Initial planned list for the dialog: prefer override, else program template.
+  const editInitial: PlannedExercise[] = useMemo(() => {
+    if (session?.plannedExercises && session.plannedExercises.length > 0) {
+      return [...session.plannedExercises].sort((a, b) => a.order - b.order);
+    }
+    if (session?.programSessionId && program) {
+      const slot = program.sessions.find(
+        (s) => s.id === session.programSessionId,
+      );
+      if (slot) return [...slot.exercises].sort((a, b) => a.order - b.order);
+    }
+    return [];
+  }, [session?.plannedExercises, session?.programSessionId, program]);
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
   const unitSystem = profile?.unitSystem ?? "metric";
@@ -359,11 +474,24 @@ export default function WorkoutSessionPage() {
         <h1 className="text-2xl font-semibold text-neutral-100">
           {session?.name ?? "Session"}
         </h1>
-        {inProgress ? (
-          <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-300">
-            In progress
-          </span>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {inProgress && !isLocked ? (
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-neutral-900 px-2.5 text-[11px] font-medium text-neutral-100 transition hover:bg-neutral-800"
+              aria-label="Edit session"
+            >
+              <Pencil aria-hidden="true" className="h-3 w-3 text-accent" />
+              Edit
+            </button>
+          ) : null}
+          {inProgress ? (
+            <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-300">
+              In progress
+            </span>
+          ) : null}
+        </div>
       </div>
       <p className="mt-1 text-xs text-muted">
         {session?.localDate ?? "—"}
@@ -378,6 +506,16 @@ export default function WorkoutSessionPage() {
           className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
         >
           {error}
+        </div>
+      ) : null}
+
+      {editError ? (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+        >
+          {editError}
         </div>
       ) : null}
 
@@ -470,6 +608,28 @@ export default function WorkoutSessionPage() {
           ) : null}
         </div>
       )}
+
+      {/* Mid-session edit dialog */}
+      <EditPlannedExercisesDialog
+        open={editOpen}
+        title="Edit this session"
+        sessionName={session?.name ?? "Session"}
+        initial={editInitial}
+        loggedExerciseIds={loggedExerciseIds}
+        onSave={handleEditSave}
+        onCancel={() => setEditOpen(false)}
+      />
+
+      {/* Save-swap-to-program prompt */}
+      <SaveSwapPrompt
+        open={!!activeSwap}
+        fromName={swapFromName}
+        toName={swapToName}
+        sessionName={activeSwap?.sessionName ?? ""}
+        busy={savingSwap}
+        onYes={handleSwapYes}
+        onNo={handleSwapNo}
+      />
     </section>
   );
 }

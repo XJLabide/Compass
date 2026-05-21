@@ -16,9 +16,9 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
-  CalendarDays,
   Pencil,
   Plus,
+  Replace,
   Save,
   Trash2,
   X,
@@ -34,8 +34,7 @@ import type {
 } from "@/lib/db/types";
 import Skeleton from "@/components/ui/Skeleton";
 import ExercisePicker from "@/components/program/ExercisePicker";
-
-const DOW_FULL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+import SwitchProgramDialog from "@/components/workout/SwitchProgramDialog";
 
 /**
  * `/workout/program` — full editor for the user's single active program.
@@ -54,6 +53,7 @@ export default function ProgramEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [switchOpen, setSwitchOpen] = useState(false);
 
   // -------------------------------------------------------------------------
   // Load the program. Keep the "draft" in sync only when there are no local
@@ -119,24 +119,10 @@ export default function ProgramEditorPage() {
   const deleteSession = (sessionId: string) =>
     setDraft((d) => {
       if (!d) return d;
-      const schedule = { ...(d.schedule ?? {}) };
-      // Clear schedule entries that referenced this session.
-      for (const [dow, slot] of Object.entries(schedule)) {
-        if (slot === sessionId) schedule[dow] = null;
-      }
       return {
         ...d,
         sessions: d.sessions.filter((s) => s.id !== sessionId),
-        schedule,
       };
-    });
-
-  const setScheduleSlot = (dow: number, value: string | null) =>
-    setDraft((d) => {
-      if (!d) return d;
-      const schedule = { ...(d.schedule ?? {}) };
-      schedule[String(dow)] = value;
-      return { ...d, schedule };
     });
 
   // -------------------------------------------------------------------------
@@ -216,17 +202,27 @@ export default function ProgramEditorPage() {
           <ArrowLeft className="h-3 w-3" />
           Back to workout
         </Link>
-        <div className="flex items-baseline justify-between gap-3 border-b border-border pb-3">
+        <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
           <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">
             Program editor
           </h1>
-          <SaveBar
-            dirty={dirty}
-            saving={saving}
-            saved={saved}
-            onSave={save}
-            onCancel={cancel}
-          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSwitchOpen(true)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-neutral-900 px-3 text-xs font-medium text-neutral-100 hover:bg-neutral-800"
+            >
+              <Replace className="h-3.5 w-3.5 text-accent" />
+              Switch program
+            </button>
+            <SaveBar
+              dirty={dirty}
+              saving={saving}
+              saved={saved}
+              onSave={save}
+              onCancel={cancel}
+            />
+          </div>
         </div>
       </header>
 
@@ -256,13 +252,6 @@ export default function ProgramEditorPage() {
           className="h-11 w-full rounded-md border border-border bg-neutral-900 px-3 text-base text-neutral-100 focus:border-accent focus:outline-none"
         />
       </div>
-
-      {/* Schedule */}
-      <ScheduleEditor
-        sessions={draft.sessions}
-        schedule={draft.schedule}
-        onChange={setScheduleSlot}
-      />
 
       {/* Sessions */}
       <div className="space-y-3">
@@ -308,6 +297,20 @@ export default function ProgramEditorPage() {
             stretch
           />
         </div>
+      ) : null}
+
+      {/* Template picker */}
+      {switchOpen ? (
+        <SwitchProgramDialog
+          uid={uid}
+          onClose={() => setSwitchOpen(false)}
+          onApplied={() => {
+            // The onSnapshot listener will pick up the new program doc and
+            // reset `draft` on next load. Force-clear draft so the editor
+            // reflects the incoming snapshot immediately.
+            setDraft(null);
+          }}
+        />
       ) : null}
     </section>
   );
@@ -361,93 +364,6 @@ function SaveBar({
       </button>
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Schedule editor — 7 rows mapping DOW → session.id or rest.
-// ---------------------------------------------------------------------------
-function ScheduleEditor({
-  sessions,
-  schedule,
-  onChange,
-}: {
-  sessions: ProgramSession[];
-  schedule: ProgramDoc["schedule"];
-  onChange: (dow: number, value: string | null) => void;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-neutral-900/40 p-4">
-      <div className="flex items-center gap-2">
-        <CalendarDays className="h-4 w-4 text-accent" />
-        <h2 className="text-sm font-semibold text-neutral-100">Schedule</h2>
-      </div>
-      <p className="mt-1 text-[11px] text-muted">
-        Pick which session runs on each day. Leave a day on Rest to skip lifting.
-      </p>
-      <ul className="mt-3 space-y-1.5">
-        {[1, 2, 3, 4, 5, 6, 0].map((dow) => {
-          const value = schedule?.[String(dow)];
-          const slot =
-            value === null || value === undefined
-              ? "__rest__"
-              : value;
-          // If schedule isn't set at all, show the default mapping value as the
-          // "current" selection for that day so the UI starts from a sensible
-          // baseline instead of all Rest.
-          const fallback = !schedule
-            ? defaultDowSession(dow, sessions)
-            : undefined;
-          const effective = schedule ? slot : fallback ?? "__rest__";
-          return (
-            <li
-              key={dow}
-              className="flex items-center justify-between gap-3 rounded-md border border-border bg-neutral-900/60 px-3 py-2"
-            >
-              <span className="w-12 shrink-0 text-xs font-medium text-neutral-200">
-                {DOW_FULL[dow]}
-              </span>
-              <select
-                value={effective}
-                onChange={(e) =>
-                  onChange(
-                    dow,
-                    e.target.value === "__rest__" ? null : e.target.value,
-                  )
-                }
-                className="h-9 flex-1 rounded-md border border-border bg-neutral-900 px-2 text-xs text-neutral-100 focus:border-accent focus:outline-none"
-              >
-                <option value="__rest__">Rest</option>
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-function defaultDowSession(
-  dow: number,
-  sessions: ProgramSession[],
-): string | undefined {
-  // Mirror DEFAULT_DOW_MAP in scheduling.ts.
-  const map: Record<number, number | null> = {
-    1: 0,
-    2: 1,
-    3: null,
-    4: 2,
-    5: 3,
-    6: null,
-    0: null,
-  };
-  const slot = map[dow];
-  if (slot === null || slot === undefined) return undefined;
-  return sessions[slot % sessions.length]?.id;
 }
 
 // ---------------------------------------------------------------------------
