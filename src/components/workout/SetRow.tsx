@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, HelpCircle, Trophy } from "lucide-react";
+import { Check, HelpCircle, Trash2, Trophy } from "lucide-react";
 
 import type { LoggedSet, UnitSystem } from "@/lib/db/types";
 import {
@@ -51,6 +51,11 @@ import {
  *   Already-logged sets are rendered read-only with the same row shape so
  *   the eye doesn't have to re-parse the layout — the only difference is the
  *   "Log" button collapses into a checkmark and inputs are disabled.
+ *
+ *   Inline edit mode (logged rows only):
+ *   Tapping anywhere on a logged row enters edit mode — inputs become live,
+ *   pre-filled with the stored values. Blur that leaves the row saves; Escape
+ *   reverts. A trash icon appears in edit mode for deletion with inline confirm.
  */
 /** Maximum number of identical sets that can be bulk-logged in one tap. */
 export const MAX_BULK_SETS = 10;
@@ -102,6 +107,16 @@ export interface SetRowProps {
    * cut visual repetition on subsequent sets.
    */
   showLabels?: boolean;
+  /**
+   * Called when the user edits and saves a logged set. Receives the updated
+   * values in canonical kg. Only applies to rows with `logged` present.
+   */
+  onEdit?: (updates: { weightKg: number; reps: number; rpe?: number }) => Promise<void>;
+  /**
+   * Called when the user confirms deletion of a logged set. Only applies to
+   * rows with `logged` present.
+   */
+  onDelete?: () => Promise<void>;
 }
 
 export default function SetRow(props: SetRowProps) {
@@ -116,9 +131,24 @@ export default function SetRow(props: SetRowProps) {
     disabled,
     autoFocus,
     showLabels,
+    onEdit,
+    onDelete,
   } = props;
 
   const isLogged = Boolean(logged);
+
+  // -- Inline-edit mode for logged rows ---------------------------------------
+  // "readonly" = normal green-checkmark display
+  // "active"   = inputs live, pre-filled, save-on-blur
+  const [editMode, setEditMode] = useState<"readonly" | "active">("readonly");
+  // Show inline delete confirm beneath the edit row
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // "saving" or "deleting" spinner hint
+  const [editPending, setEditPending] = useState<"saving" | "deleting" | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Container ref for outside-click / blur detection
+  const rowContainerRef = useRef<HTMLDivElement>(null);
 
   // -- Local edit state ------------------------------------------------------
   // Stored in DISPLAY units for weight so the input string the user sees
@@ -138,6 +168,11 @@ export default function SetRow(props: SetRowProps) {
   );
   const [reps, setReps] = useState<number | null>(initialReps);
   const [rpe, setRpe] = useState<number | undefined>(initialRpe);
+
+  // Shadow copies — used to detect whether anything changed on blur.
+  const savedWeightDisplay = useRef<number | null>(initialWeightDisplay);
+  const savedReps = useRef<number | null>(initialReps);
+  const savedRpe = useRef<number | undefined>(initialRpe);
 
   // Bulk-log "SETS" stepper. Defaults to the parent-supplied remaining-target
   // count (clamped to [1, MAX_BULK_SETS]); a value of 1 keeps today's
@@ -188,6 +223,121 @@ export default function SetRow(props: SetRowProps) {
       weightInputRef.current?.select?.();
     }
   }, [autoFocus, isLogged]);
+
+  // When entering edit mode on a logged row, focus the weight input.
+  useEffect(() => {
+    if (editMode === "active" && isLogged) {
+      weightInputRef.current?.focus();
+      weightInputRef.current?.select?.();
+    }
+  }, [editMode, isLogged]);
+
+  // -- Inline edit helpers for logged rows ------------------------------------
+
+  function enterEditMode() {
+    if (!isLogged || disabled || editPending) return;
+    // Re-seed edit state from the logged values so we always start fresh.
+    const w = roundDisplayWeight(kgToDisplay(logged!.weightKg, unitSystem));
+    const r = logged!.reps;
+    const rpeVal = logged?.rpe;
+    setWeightDisplay(w);
+    setReps(r);
+    setRpe(rpeVal);
+    savedWeightDisplay.current = w;
+    savedReps.current = r;
+    savedRpe.current = rpeVal;
+    setShowDeleteConfirm(false);
+    setEditError(null);
+    setEditMode("active");
+  }
+
+  function cancelEditMode() {
+    // Revert to saved values, close confirm, go back to readonly.
+    setWeightDisplay(savedWeightDisplay.current);
+    setReps(savedReps.current);
+    setRpe(savedRpe.current);
+    setShowDeleteConfirm(false);
+    setEditError(null);
+    setEditMode("readonly");
+  }
+
+  async function commitEdit() {
+    if (!onEdit || editPending) return;
+    // Check if anything actually changed.
+    const wKg =
+      weightDisplay != null
+        ? Math.round(displayToKg(weightDisplay, unitSystem) * 1000) / 1000
+        : Math.round(logged!.weightKg * 1000) / 1000;
+    const effectiveReps = reps ?? logged!.reps;
+
+    const noChange =
+      wKg === Math.round(logged!.weightKg * 1000) / 1000 &&
+      effectiveReps === logged!.reps &&
+      rpe === logged?.rpe;
+
+    if (noChange) {
+      setEditMode("readonly");
+      return;
+    }
+
+    setEditPending("saving");
+    setEditError(null);
+    try {
+      await onEdit({
+        weightKg: wKg,
+        reps: effectiveReps,
+        rpe,
+      });
+      // Update shadows after successful save.
+      savedWeightDisplay.current = weightDisplay;
+      savedReps.current = effectiveReps;
+      savedRpe.current = rpe;
+      setEditMode("readonly");
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to save.");
+    } finally {
+      setEditPending(null);
+    }
+  }
+
+  async function commitDelete() {
+    if (!onDelete || editPending) return;
+    setEditPending("deleting");
+    setEditError(null);
+    try {
+      await onDelete();
+      // Row will unmount after parent removes it from the array.
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to delete.");
+      setEditPending(null);
+    }
+  }
+
+  /**
+   * Handle blur events on the row container. When focus moves outside the
+   * container entirely (relatedTarget is null or not a descendant), save.
+   */
+  function handleContainerBlur(e: React.FocusEvent<HTMLDivElement>) {
+    if (!isLogged || editMode !== "active") return;
+    const container = rowContainerRef.current;
+    const next = e.relatedTarget as Node | null;
+    // If focus is staying inside the row (moving to another input/button in
+    // the same container), do nothing.
+    if (container && next && container.contains(next)) return;
+    // Focus left the row — save.
+    void commitEdit();
+  }
+
+  /**
+   * Keydown handler for the row container in edit mode — Escape reverts.
+   */
+  function handleContainerKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (!isLogged || editMode !== "active") return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEditMode();
+    }
+  }
 
   // -- Step handlers ---------------------------------------------------------
   // Weight steps are defined in kg (so the canonical store stays clean) and
@@ -254,14 +404,23 @@ export default function SetRow(props: SetRowProps) {
   function handleWeightKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault();
-      repsInputRef.current?.focus();
-      repsInputRef.current?.select?.();
+      if (isLogged && editMode === "active") {
+        repsInputRef.current?.focus();
+        repsInputRef.current?.select?.();
+      } else {
+        repsInputRef.current?.focus();
+        repsInputRef.current?.select?.();
+      }
     }
   }
   function handleRepsKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault();
-      commit();
+      if (isLogged && editMode === "active") {
+        void commitEdit();
+      } else {
+        commit();
+      }
     }
   }
 
@@ -292,14 +451,53 @@ export default function SetRow(props: SetRowProps) {
   const eyebrowClass =
     "text-[10px] font-medium uppercase tracking-wider text-muted";
 
+  // Whether inputs are interactive. For logged rows: only in active edit mode.
+  const inputsDisabled = isLogged
+    ? editMode !== "active" || !!editPending || !!disabled
+    : !!disabled;
+
+  // Row container click — enter edit mode when tapping a logged row in readonly.
+  function handleRowClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!isLogged || editMode !== "readonly") return;
+    // Don't enter edit if the click is on an interactive element inside (future-proof).
+    const target = e.target as HTMLElement;
+    if (target.tagName === "BUTTON" || target.tagName === "A") return;
+    enterEditMode();
+  }
+
   return (
-    <div className="space-y-1">
+    <div
+      className="space-y-1"
+      ref={rowContainerRef}
+      onBlur={handleContainerBlur}
+      onKeyDown={handleContainerKeyDown}
+    >
       <div
         data-set-number={setNumber}
+        onClick={handleRowClick}
+        role={isLogged && editMode === "readonly" ? "button" : undefined}
+        tabIndex={isLogged && editMode === "readonly" ? 0 : undefined}
+        onKeyDown={
+          isLogged && editMode === "readonly"
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  enterEditMode();
+                }
+              }
+            : undefined
+        }
+        aria-label={
+          isLogged && editMode === "readonly"
+            ? `Set ${setNumber}: tap to edit`
+            : undefined
+        }
         className={`flex min-h-11 items-stretch gap-2 rounded-lg border px-2 py-2 text-sm ${
-          isLogged
-            ? "border-border/60 bg-neutral-900/30 text-neutral-300"
-            : "border-border bg-neutral-900/60 text-neutral-100"
+          isLogged && editMode === "readonly"
+            ? "border-border/60 bg-neutral-900/30 text-neutral-300 cursor-pointer hover:border-border hover:bg-neutral-900/50 transition-colors"
+            : isLogged && editMode === "active"
+              ? "border-accent/60 bg-neutral-900/60 text-neutral-100 ring-1 ring-accent/30"
+              : "border-border bg-neutral-900/60 text-neutral-100"
         }`}
       >
         {/* Set number badge — vertically centered in the row regardless of
@@ -327,7 +525,7 @@ export default function SetRow(props: SetRowProps) {
               direction="decrement"
               ariaLabel={`Decrease weight by ${weightStepDisplay} ${weightLabel}`}
               onPress={() => stepWeight(-1)}
-              disabled={isLogged || disabled}
+              disabled={inputsDisabled}
             />
             <input
               ref={weightInputRef}
@@ -352,7 +550,7 @@ export default function SetRow(props: SetRowProps) {
               }}
               onKeyDown={handleWeightKeyDown}
               onFocus={(e) => e.currentTarget.select()}
-              disabled={isLogged || disabled}
+              disabled={inputsDisabled}
               aria-label={`Set ${setNumber} weight in ${weightLabel}`}
               className="h-11 w-16 rounded-md border border-border bg-panel2 px-1 text-center font-mono text-base tabular-nums text-neutral-100 outline-none focus:border-accent disabled:opacity-70 placeholder:text-neutral-500 placeholder:font-mono"
             />
@@ -360,7 +558,7 @@ export default function SetRow(props: SetRowProps) {
               direction="increment"
               ariaLabel={`Increase weight by ${weightStepDisplay} ${weightLabel}`}
               onPress={() => stepWeight(1)}
-              disabled={isLogged || disabled}
+              disabled={inputsDisabled}
             />
           </div>
         </div>
@@ -377,7 +575,7 @@ export default function SetRow(props: SetRowProps) {
               direction="decrement"
               ariaLabel="Decrease reps"
               onPress={() => stepReps(-1)}
-              disabled={isLogged || disabled}
+              disabled={inputsDisabled}
             />
             <input
               ref={repsInputRef}
@@ -400,7 +598,7 @@ export default function SetRow(props: SetRowProps) {
               }}
               onKeyDown={handleRepsKeyDown}
               onFocus={(e) => e.currentTarget.select()}
-              disabled={isLogged || disabled}
+              disabled={inputsDisabled}
               aria-label={`Set ${setNumber} reps`}
               className="h-11 w-12 rounded-md border border-border bg-panel2 px-1 text-center font-mono text-base tabular-nums text-neutral-100 outline-none focus:border-accent disabled:opacity-70 placeholder:text-neutral-500 placeholder:font-mono"
             />
@@ -408,7 +606,7 @@ export default function SetRow(props: SetRowProps) {
               direction="increment"
               ariaLabel="Increase reps"
               onPress={() => stepReps(1)}
-              disabled={isLogged || disabled}
+              disabled={inputsDisabled}
             />
           </div>
         </div>
@@ -501,7 +699,7 @@ export default function SetRow(props: SetRowProps) {
               const v = e.target.value;
               setRpe(v === "" ? undefined : Number(v));
             }}
-            disabled={isLogged || disabled}
+            disabled={inputsDisabled}
             aria-label={`Set ${setNumber} RPE`}
             className="h-11 w-14 rounded-md border border-border bg-panel2 px-1 text-center font-mono text-sm text-neutral-100 outline-none focus:border-accent disabled:opacity-70"
           >
@@ -514,7 +712,7 @@ export default function SetRow(props: SetRowProps) {
           </select>
         </div>
 
-        {/* Commit button — collapses into a static check (or PR trophy) for already-logged rows */}
+        {/* Commit button / logged indicator / edit-mode trash */}
         <div className="flex flex-col gap-0.5">
           {showLabels ? (
             // Invisible spacer so the Log button stays vertically aligned
@@ -524,7 +722,21 @@ export default function SetRow(props: SetRowProps) {
             </span>
           ) : null}
           {isLogged ? (
-            logged?.isPR ? (
+            editMode === "active" ? (
+              /* Trash icon — only visible in edit mode */
+              <button
+                type="button"
+                aria-label="Delete this set"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteConfirm((v) => !v);
+                }}
+                disabled={!!editPending}
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : logged?.isPR ? (
               <span
                 aria-label="Personal record"
                 title="Personal record"
@@ -559,6 +771,50 @@ export default function SetRow(props: SetRowProps) {
           )}
         </div>
       </div>
+
+      {/* Saving indicator */}
+      {editPending === "saving" ? (
+        <p className="px-2 text-[11px] text-muted">Saving…</p>
+      ) : null}
+
+      {/* Edit error */}
+      {editError ? (
+        <p
+          role="alert"
+          className="px-2 text-[11px] text-red-400"
+        >
+          {editError}
+        </p>
+      ) : null}
+
+      {/* Inline delete confirm */}
+      {showDeleteConfirm ? (
+        <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
+          <p className="flex-1 text-[12px] text-red-300">Delete this set?</p>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void commitDelete();
+            }}
+            disabled={!!editPending}
+            className="rounded-md bg-red-500 px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {editPending === "deleting" ? "Deleting…" : "Delete"}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDeleteConfirm(false);
+            }}
+            disabled={!!editPending}
+            className="rounded-md border border-border bg-neutral-800 px-3 py-1 text-[11px] font-medium text-neutral-300 transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

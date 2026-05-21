@@ -399,6 +399,60 @@ export default function WorkoutSessionPage() {
   );
 
   // ---------------------------------------------------------------------------
+  // Edit an already-logged set: find by order, apply updates, write atomically.
+  // ---------------------------------------------------------------------------
+  const handleEditSet = useCallback(
+    async (
+      setOrder: number,
+      updates: { weightKg: number; reps: number; rpe?: number },
+    ) => {
+      if (!user?.uid || !sessionId || !session) {
+        throw new Error("Session not ready.");
+      }
+      const existing = session.sets ?? [];
+      const nextSets: LoggedSet[] = existing.map((s) =>
+        s.order === setOrder
+          ? {
+              ...s,
+              weightKg: updates.weightKg,
+              reps: updates.reps,
+              ...(typeof updates.rpe === "number"
+                ? { rpe: updates.rpe }
+                : { rpe: undefined }),
+            }
+          : s,
+      );
+      const patch: { sets: LoggedSet[]; updatedAt: FieldValue } = {
+        sets: nextSets,
+        updatedAt: serverTimestamp(),
+      };
+      await updateDoc(sessionPath(user.uid, sessionId), patch);
+    },
+    [user?.uid, sessionId, session],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Delete an already-logged set: filter out by order, write atomically.
+  // ---------------------------------------------------------------------------
+  const handleDeleteSet = useCallback(
+    async (setOrder: number) => {
+      if (!user?.uid || !sessionId || !session) {
+        throw new Error("Session not ready.");
+      }
+      const existing = session.sets ?? [];
+      const nextSets: LoggedSet[] = existing.filter(
+        (s) => s.order !== setOrder,
+      );
+      const patch: { sets: LoggedSet[]; updatedAt: FieldValue } = {
+        sets: nextSets,
+        updatedAt: serverTimestamp(),
+      };
+      await updateDoc(sessionPath(user.uid, sessionId), patch);
+    },
+    [user?.uid, sessionId, session],
+  );
+
+  // ---------------------------------------------------------------------------
   // Quick-add unplanned exercise: append a "placeholder" zero set so the
   // exercise surfaces as its own card immediately. The placeholder is hidden
   // from the per-exercise logged list (see `setsByExercise` above) and is
@@ -738,6 +792,8 @@ export default function WorkoutSessionPage() {
                       unitSystem={unitSystem}
                       lastSessionGhost={lastSessionPrefill.get(planned.exerciseId)}
                       onLogSet={handleLogSet}
+                      onEditSet={handleEditSet}
+                      onDeleteSet={handleDeleteSet}
                       gifUrl={exDef?.gifUrl}
                       instructions={exDef?.instructions}
                     />

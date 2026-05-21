@@ -58,6 +58,17 @@ export interface ExerciseCardProps {
     rpe?: number;
     setCount: number;
   }) => Promise<void>;
+  /**
+   * Edit an already-logged set in place. Receives the set's `order` (unique
+   * within the session) and updated (weightKg, reps, rpe) values. The parent
+   * writes atomically.
+   */
+  onEditSet?: (setOrder: number, updates: { weightKg: number; reps: number; rpe?: number }) => Promise<void>;
+  /**
+   * Delete an already-logged set by its `order`. The parent removes it from
+   * the sets array and writes atomically.
+   */
+  onDeleteSet?: (setOrder: number) => Promise<void>;
   /** Animated GIF URL from ExerciseDB. Rendered as an always-visible thumbnail. */
   gifUrl?: string;
   /** Step-by-step instructions from ExerciseDB. */
@@ -70,6 +81,8 @@ export default function ExerciseCard({
   unitSystem,
   lastSessionGhost,
   onLogSet,
+  onEditSet,
+  onDeleteSet,
   gifUrl,
   instructions,
 }: ExerciseCardProps) {
@@ -279,6 +292,16 @@ export default function ExerciseCard({
             logged={set}
             // Labels only on the very first row of the exercise.
             showLabels={i === 0}
+            onEdit={
+              onEditSet
+                ? (updates) => onEditSet(set.order, updates)
+                : undefined
+            }
+            onDelete={
+              onDeleteSet
+                ? () => onDeleteSet(set.order)
+                : undefined
+            }
           />
         ))}
 
