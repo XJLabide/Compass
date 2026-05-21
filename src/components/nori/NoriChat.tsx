@@ -322,22 +322,42 @@ export default function NoriChat({
   const handleConfirm = useCallback(
     async (msgId: string, call: UiToolCall, accept: boolean) => {
       if (!uid || !toolCtx) return;
-      const updatedCalls = (
-        messages?.find((m) => m.id === msgId)?.toolCalls ?? []
-      ).map((c) =>
-        c.id === call.id ? { ...c, confirmed: accept, executed: false } : c,
-      );
+      const msgRef = doc(noriMessagesPath(uid, threadId), msgId);
+      const baseCalls =
+        messages?.find((m) => m.id === msgId)?.toolCalls ?? [];
+
+      // Optimistic write: mark the confirm/decline decision before we run.
+      // This makes the UI flip immediately and prevents a double-tap from
+      // re-triggering the action.
       await setDoc(
-        doc(noriMessagesPath(uid, threadId), msgId),
-        { toolCalls: updatedCalls },
+        msgRef,
+        {
+          toolCalls: baseCalls.map((c) =>
+            c.id === call.id ? { ...c, confirmed: accept } : c,
+          ),
+        },
         { merge: true },
       );
+
       if (accept) {
         setStatus(statusForTool(call.name));
         await executeAndPersist(uid, threadId, toolCtx, {
           ...call,
           confirmed: true,
         });
+        // Flip executed:true on the assistant message's tool call so the
+        // state on disk reflects that the action actually ran.
+        await setDoc(
+          msgRef,
+          {
+            toolCalls: baseCalls.map((c) =>
+              c.id === call.id
+                ? { ...c, confirmed: true, executed: true }
+                : c,
+            ),
+          },
+          { merge: true },
+        );
         setStatus(null);
       } else {
         await addDoc(noriMessagesPath(uid, threadId), {
@@ -579,7 +599,11 @@ function ToolCallCard({
     );
   }
 
-  if (call.executed) {
+  // Terminal "Done" state. `confirmed === true` is enough — once the user
+  // confirms a write, the tool runs and we never want to re-show the card
+  // (even if `executed` wasn't flipped). `executed === true` is the legacy
+  // flag, kept for backwards compatibility.
+  if (call.executed || call.confirmed === true) {
     return (
       <div className="inline-flex items-center gap-1.5 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[10px] text-emerald-300">
         <CheckCircle2 className="h-3 w-3" />
