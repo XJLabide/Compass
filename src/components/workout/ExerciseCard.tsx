@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Play, Square, ChevronDown } from "lucide-react";
 
 import type { LoggedSet, PlannedExercise, UnitSystem } from "@/lib/db/types";
 
@@ -51,6 +52,10 @@ export interface ExerciseCardProps {
     reps: number;
     rpe?: number;
   }) => Promise<void>;
+  /** Animated GIF URL from ExerciseDB. Only set when the user taps Play. */
+  gifUrl?: string;
+  /** Step-by-step instructions from ExerciseDB. */
+  instructions?: string[];
 }
 
 export default function ExerciseCard({
@@ -59,9 +64,13 @@ export default function ExerciseCard({
   unitSystem,
   lastSessionGhost,
   onLogSet,
+  gifUrl,
+  instructions,
 }: ExerciseCardProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [howToOpen, setHowToOpen] = useState(false);
 
   // Sort defensively — `LoggedSet.order` is the source of truth.
   const logged = useMemo(
@@ -156,6 +165,87 @@ export default function ExerciseCard({
         <p className="border-b border-border bg-neutral-900/30 px-3 py-1.5 text-[11px] italic text-muted">
           {planned.notes}
         </p>
+      ) : null}
+
+      {/* GIF demo + How-to instructions */}
+      {(gifUrl || (instructions && instructions.length > 0)) ? (
+        <div className="border-b border-border px-3 py-2 flex flex-col gap-2">
+          {/* Tap-to-play GIF thumbnail */}
+          {gifUrl ? (
+            <div className="flex items-start gap-2">
+              <div className="relative shrink-0 h-20 w-20 rounded-lg border border-border bg-neutral-800 overflow-hidden">
+                {playing ? (
+                  /* Once playing, render the actual gif — standard <img> so it animates */
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={gifUrl}
+                    alt={`${planned.name} demo`}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  /* Placeholder: dark bg + centered play icon */
+                  <div className="flex h-full w-full items-center justify-center">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-700/80">
+                      <Play className="h-4 w-4 text-neutral-200" fill="currentColor" />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-1 pt-0.5">
+                {!playing ? (
+                  <button
+                    type="button"
+                    aria-label="Play demo"
+                    onClick={() => setPlaying(true)}
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-neutral-800 px-2 py-1 text-[11px] text-neutral-300 hover:bg-neutral-700 transition"
+                  >
+                    <Play className="h-3 w-3" fill="currentColor" />
+                    Play demo
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label="Stop demo"
+                    onClick={() => setPlaying(false)}
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-neutral-800 px-2 py-1 text-[11px] text-neutral-300 hover:bg-neutral-700 transition"
+                  >
+                    <Square className="h-3 w-3" fill="currentColor" />
+                    Stop
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Collapsible How-to instructions */}
+          {instructions && instructions.length > 0 ? (
+            <details
+              open={howToOpen}
+              onToggle={(e) => setHowToOpen((e.currentTarget as HTMLDetailsElement).open)}
+              className="group"
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] font-medium text-neutral-400 hover:text-neutral-200 transition select-none">
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform duration-200 ${howToOpen ? "rotate-180" : ""}`}
+                  aria-hidden="true"
+                />
+                How to
+              </summary>
+              <ol className="mt-2 space-y-1 pl-4">
+                {instructions.map((step, i) => {
+                  // Strip leading "Step:N " or "Step N: " prefix if present
+                  const cleaned = step.replace(/^step\s*:?\s*\d+\s*:?\s*/i, "").trim();
+                  return (
+                    <li key={i} className="text-[11px] text-neutral-400 leading-relaxed">
+                      {cleaned}
+                    </li>
+                  );
+                })}
+              </ol>
+            </details>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="space-y-1.5 p-2">

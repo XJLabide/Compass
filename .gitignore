@@ -9,6 +9,7 @@ next-env.d.ts
 .omc/
 .claude/
 .flow/
+.cache/
 
 # Playwright
 .playwright-tmp/

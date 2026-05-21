@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { X, Search, ArrowLeftRight, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { X, Search, ArrowLeftRight, Plus, Library } from "lucide-react";
 import clsx from "clsx";
 import { serverTimestamp, setDoc } from "firebase/firestore";
 
 import { EXERCISE_MASTER, type SeedExercise } from "@/lib/data/exerciseMaster";
+import { inferCategory, mapApiMuscle } from "@/lib/data/muscleMapping";
 import { exercisePath } from "@/lib/db/paths";
 import type {
   Exercise,
@@ -15,6 +16,7 @@ import type {
 import { suggestSubstitutes } from "@/lib/workout/exerciseSubs";
 import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import { getRecent, pushRecent } from "@/lib/workout/recentExercises";
+import Skeleton from "@/components/ui/Skeleton";
 
 /**
  * Modal that picks a replacement exercise for a swap, or any exercise for an
@@ -45,6 +47,10 @@ export interface ExerciseSwapPickerProps {
     name: string;
     primaryMuscle: string;
     category: string;
+    /** Alternative names — used for dedup against the library-search results. */
+    aliases?: string[];
+    /** ExerciseDB id — used for exact dedup against library-search results. */
+    apiId?: string;
   }>;
   /** Original exercise id being replaced. Omit for "add new" flow. */
   forExerciseId?: string;
@@ -119,6 +125,36 @@ function generateCustomId(name: string): string {
   return `${slug}-${suffix}`;
 }
 
+/**
+ * Canonical form of an exercise name for dedup comparison.
+ *
+ * Strips everything that isn't a letter or digit, so "Bench Press",
+ * "bench-press", and "BENCH  press" all collapse to "benchpress".
+ */
+function normalizedName(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/** Shape of a single result row returned by `/api/exercises/search`. */
+interface LibrarySearchResult {
+  apiId: string;
+  name: string;
+  gifUrl: string;
+  bodyParts: string[];
+  targetMuscles: string[];
+  secondaryMuscles: string[];
+  equipments: string[];
+  instructions: string[];
+}
+
+/** Resolved dedup outcome for one library-search row. */
+type DedupOutcome =
+  | { kind: "new" }
+  | { kind: "match"; existingId: string; existingName: string };
+
+const SEARCH_DEBOUNCE_MS = 400;
+const SEARCH_MIN_LEN = 2;
+
 export default function ExerciseSwapPicker({
   open,
   uid,
@@ -142,6 +178,17 @@ export default function ExerciseSwapPicker({
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
+  // Library-search state (Step 4: lazy ExerciseDB search).
+  const [libQuery, setLibQuery] = useState("");
+  const [libResults, setLibResults] = useState<LibrarySearchResult[]>([]);
+  const [libLoading, setLibLoading] = useState(false);
+  const [libError, setLibError] = useState<string | null>(null);
+  const [libSearched, setLibSearched] = useState(false);
+  /** Per-result row "adding to library" / inline error state. Keyed by apiId. */
+  const [libAddingId, setLibAddingId] = useState<string | null>(null);
+  const [libRowErrors, setLibRowErrors] = useState<Record<string, string>>({});
+  const libAbortRef = useRef<AbortController | null>(null);
+
   useBodyScrollLock(open);
 
   // Reset state whenever the picker is opened. Read "recent" from localStorage
@@ -158,8 +205,25 @@ export default function ExerciseSwapPicker({
       setCreateCategory("accessory");
       setCreateError(null);
       setCreating(false);
+      setLibQuery("");
+      setLibResults([]);
+      setLibLoading(false);
+      setLibError(null);
+      setLibSearched(false);
+      setLibAddingId(null);
+      setLibRowErrors({});
+      libAbortRef.current?.abort();
+      libAbortRef.current = null;
     }
   }, [open]);
+
+  // Cancel any in-flight search when the picker unmounts.
+  useEffect(() => {
+    return () => {
+      libAbortRef.current?.abort();
+      libAbortRef.current = null;
+    };
+  }, []);
 
   // Esc to close
   useEffect(() => {
@@ -244,6 +308,110 @@ export default function ExerciseSwapPicker({
     return groups;
   }, [filteredAll]);
 
+  // Build a dedup index over the merged pool. Recomputed when the pool
+  // changes. We index by:
+  //   - apiId  (exact match against API result.apiId)
+  //   - normalizedName(name) + each normalizedName(alias)
+  const dedupIndex = useMemo(() => {
+    const byApiId = new Map<string, { id: string; name: string }>();
+    const byName = new Map<string, { id: string; name: string }>();
+    for (const e of pool) {
+      if (e.apiId) byApiId.set(e.apiId, { id: e.id, name: e.name });
+      const nName = normalizedName(e.name);
+      if (nName) byName.set(nName, { id: e.id, name: e.name });
+      if (Array.isArray(e.aliases)) {
+        for (const a of e.aliases) {
+          const nAlias = normalizedName(a);
+          if (nAlias) byName.set(nAlias, { id: e.id, name: e.name });
+        }
+      }
+    }
+    return { byApiId, byName };
+  }, [pool]);
+
+  // Decide for each result whether it already lives in our pool.
+  const resolveDedup = useCallback(
+    (r: LibrarySearchResult): DedupOutcome => {
+      if (r.apiId) {
+        const apiHit = dedupIndex.byApiId.get(r.apiId);
+        if (apiHit) {
+          return {
+            kind: "match",
+            existingId: apiHit.id,
+            existingName: apiHit.name,
+          };
+        }
+      }
+      const nName = normalizedName(r.name);
+      if (nName) {
+        const nameHit = dedupIndex.byName.get(nName);
+        if (nameHit) {
+          return {
+            kind: "match",
+            existingId: nameHit.id,
+            existingName: nameHit.name,
+          };
+        }
+      }
+      return { kind: "new" };
+    },
+    [dedupIndex],
+  );
+
+  // Debounced library search. Fires when libQuery is at least SEARCH_MIN_LEN
+  // characters AND has not changed for SEARCH_DEBOUNCE_MS.
+  useEffect(() => {
+    if (!open) return;
+    const q = libQuery.trim();
+    if (q.length < SEARCH_MIN_LEN) {
+      setLibResults([]);
+      setLibError(null);
+      setLibLoading(false);
+      setLibSearched(false);
+      libAbortRef.current?.abort();
+      libAbortRef.current = null;
+      return;
+    }
+
+    const handle = window.setTimeout(() => {
+      // Cancel any previous in-flight request.
+      libAbortRef.current?.abort();
+      const ac = new AbortController();
+      libAbortRef.current = ac;
+      setLibLoading(true);
+      setLibError(null);
+      setLibRowErrors({});
+
+      fetch(`/api/exercises/search?q=${encodeURIComponent(q)}`, {
+        signal: ac.signal,
+      })
+        .then(async (res) => {
+          const json = (await res.json().catch(() => null)) as
+            | { results?: LibrarySearchResult[]; error?: string }
+            | null;
+          if (!res.ok) {
+            throw new Error(json?.error ?? `Search failed (${res.status})`);
+          }
+          if (ac.signal.aborted) return;
+          setLibResults(Array.isArray(json?.results) ? json!.results : []);
+          setLibSearched(true);
+          setLibLoading(false);
+        })
+        .catch((err: unknown) => {
+          if ((err as { name?: string })?.name === "AbortError") return;
+          const msg = err instanceof Error ? err.message : "Search failed";
+          setLibError(msg);
+          setLibResults([]);
+          setLibSearched(true);
+          setLibLoading(false);
+        });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(handle);
+    };
+  }, [libQuery, open]);
+
   if (!open) return null;
 
   const title = forExerciseId ? "Swap exercise" : "Add exercise";
@@ -297,6 +465,91 @@ export default function ExerciseSwapPicker({
         err instanceof Error ? err.message : "Failed to create exercise.";
       setCreateError(message);
       setCreating(false);
+    }
+  }
+
+  /**
+   * Persist a library-search result as a new `users/{uid}/exercises/*` doc
+   * and immediately select it. Mapped fields:
+   *   - `primaryMuscle`: first targetMuscle that mapApiMuscle accepts (or
+   *     scans secondaryMuscles as a last-ditch fallback). If nothing
+   *     resolves we surface an inline error rather than picking a wrong bucket.
+   *   - `secondaryMuscles`: deduped list of mapApiMuscle-recognised secondaries
+   *   - `category`: inferCategory() on name + equipments
+   *   - `aliases`: starts as `[result.name]`
+   *   - `source: "api"`, `apiId: result.apiId`
+   */
+  async function handleAddFromLibrary(result: LibrarySearchResult) {
+    setLibRowErrors((prev) => {
+      if (!(result.apiId in prev)) return prev;
+      const { [result.apiId]: _omit, ...rest } = prev;
+      return rest;
+    });
+
+    // Resolve a primary muscle. Walk targetMuscles first, then secondaries.
+    let primary: MuscleGroup | null = null;
+    for (const m of result.targetMuscles) {
+      const mapped = mapApiMuscle(m);
+      if (mapped) {
+        primary = mapped;
+        break;
+      }
+    }
+    if (!primary) {
+      for (const m of result.secondaryMuscles) {
+        const mapped = mapApiMuscle(m);
+        if (mapped) {
+          primary = mapped;
+          break;
+        }
+      }
+    }
+    if (!primary) {
+      setLibRowErrors((prev) => ({
+        ...prev,
+        [result.apiId]:
+          "Couldn't map this exercise's muscle group. Try Create custom.",
+      }));
+      return;
+    }
+
+    // Secondary muscles — keep only ones we recognise, deduped.
+    const secondarySet = new Set<MuscleGroup>();
+    for (const m of result.secondaryMuscles) {
+      const mapped = mapApiMuscle(m);
+      if (mapped && mapped !== primary) secondarySet.add(mapped);
+    }
+
+    const id = generateCustomId(result.name);
+    const payload: Omit<Exercise, "createdAt"> & { createdAt: unknown } = {
+      name: result.name,
+      primaryMuscle: primary,
+      category: inferCategory(result.name, result.equipments),
+      seeded: false,
+      source: "api",
+      apiId: result.apiId || undefined,
+      gifUrl: result.gifUrl || undefined,
+      instructions:
+        result.instructions.length > 0 ? result.instructions : undefined,
+      equipments: result.equipments.length > 0 ? result.equipments : undefined,
+      secondaryMuscles: secondarySet.size > 0 ? [...secondarySet] : undefined,
+      aliases: [result.name],
+      createdAt: serverTimestamp(),
+    };
+
+    setLibAddingId(result.apiId || id);
+    try {
+      await setDoc(exercisePath(uid, id), payload as Exercise);
+      pushRecent(id);
+      onPick(id);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to add to library.";
+      setLibRowErrors((prev) => ({
+        ...prev,
+        [result.apiId]: message,
+      }));
+      setLibAddingId(null);
     }
   }
 
@@ -503,6 +756,158 @@ export default function ExerciseSwapPicker({
             </div>
           ) : null}
 
+          {/* Library search — lazy ExerciseDB lookup with dedup. */}
+          <div className="mt-4 border-t border-border pt-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted">
+                <Library
+                  aria-hidden="true"
+                  className="mr-1 inline-block h-3 w-3 -translate-y-px"
+                />
+                Can&apos;t find it? Search the library
+              </p>
+              <span className="shrink-0 rounded-full border border-border bg-bg px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-muted">
+                External
+              </span>
+            </div>
+            <div className="relative">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+              />
+              <input
+                type="search"
+                value={libQuery}
+                onChange={(e) => setLibQuery(e.target.value)}
+                placeholder="Search 1500+ exercises…"
+                className="h-10 w-full rounded-md border border-border bg-bg pl-9 pr-3 text-sm text-neutral-100 outline-none focus:border-accent"
+              />
+            </div>
+
+            {libError ? (
+              <p
+                role="alert"
+                className="mt-2 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-300"
+              >
+                Couldn&apos;t reach the exercise library. Try again later.
+              </p>
+            ) : null}
+
+            {libLoading ? (
+              <ul className="mt-2 space-y-1.5">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <li
+                    key={`lib-skel-${i}`}
+                    className="flex items-center gap-3 rounded-md border border-border bg-neutral-900/40 p-2"
+                  >
+                    <Skeleton className="h-14 w-14 shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                    <Skeleton className="h-7 w-20 shrink-0" />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {!libLoading &&
+            !libError &&
+            libSearched &&
+            libResults.length === 0 &&
+            libQuery.trim().length >= SEARCH_MIN_LEN ? (
+              <p className="mt-3 px-1 text-center text-xs text-muted">
+                No matches in ExerciseDB. Try another search or use
+                &quot;Create custom exercise&quot; below.
+              </p>
+            ) : null}
+
+            {!libLoading && libResults.length > 0 ? (
+              <ul className="mt-2 space-y-1.5">
+                {libResults.map((r) => {
+                  const dedup = resolveDedup(r);
+                  const rowError = libRowErrors[r.apiId];
+                  const adding = libAddingId === r.apiId;
+                  const primaryDisplay =
+                    r.targetMuscles[0] || r.bodyParts[0] || "—";
+                  const equipDisplay = r.equipments[0];
+                  return (
+                    <li
+                      key={`lib-${r.apiId || r.name}`}
+                      className="rounded-md border border-border bg-neutral-900/40 p-2"
+                    >
+                      <div className="flex items-center gap-3">
+                        {r.gifUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- animated GIFs from external host; next/image cannot animate them
+                          <img
+                            src={r.gifUrl}
+                            alt=""
+                            loading="lazy"
+                            width={56}
+                            height={56}
+                            className="h-14 w-14 shrink-0 rounded-md border border-border bg-bg object-cover"
+                          />
+                        ) : (
+                          <div
+                            aria-hidden
+                            className="h-14 w-14 shrink-0 rounded-md border border-border bg-bg"
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-neutral-100">
+                            {r.name}
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            <span className="rounded-full border border-border bg-bg px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted">
+                              {primaryDisplay}
+                            </span>
+                            {equipDisplay ? (
+                              <span className="rounded-full border border-border bg-bg px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted">
+                                {equipDisplay}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        {dedup.kind === "match" ? (
+                          <button
+                            type="button"
+                            onClick={() => pick(dedup.existingId)}
+                            className="shrink-0 rounded-md border border-border bg-neutral-900 px-2 py-1.5 text-[11px] font-medium text-neutral-200 hover:bg-neutral-800"
+                          >
+                            Select
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void handleAddFromLibrary(r)}
+                            disabled={adding}
+                            className="inline-flex shrink-0 items-center gap-1 rounded-md bg-accent px-2 py-1.5 text-[11px] font-semibold text-neutral-900 hover:brightness-110 disabled:opacity-50"
+                          >
+                            <Plus aria-hidden="true" className="h-3 w-3" />
+                            {adding ? "Adding…" : "Add to library"}
+                          </button>
+                        )}
+                      </div>
+                      {dedup.kind === "match" ? (
+                        <p className="mt-1.5 text-[11px] text-muted">
+                          Already in library: {dedup.existingName}
+                        </p>
+                      ) : null}
+                      {rowError ? (
+                        <p
+                          role="alert"
+                          className="mt-1.5 rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-300"
+                        >
+                          {rowError}
+                        </p>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </div>
+
           {/* Create custom exercise */}
           <div className="mt-4 border-t border-border pt-3">
             {createOpen ? (
@@ -626,10 +1031,19 @@ export function buildPickerPool(
   name: string;
   primaryMuscle: string;
   category: string;
+  aliases?: string[];
+  apiId?: string;
 }> {
   const byId = new Map<
     string,
-    { id: string; name: string; primaryMuscle: string; category: string }
+    {
+      id: string;
+      name: string;
+      primaryMuscle: string;
+      category: string;
+      aliases?: string[];
+      apiId?: string;
+    }
   >();
   EXERCISE_MASTER.forEach((e: SeedExercise) => {
     byId.set(e.id, {
@@ -637,6 +1051,8 @@ export function buildPickerPool(
       name: e.name,
       primaryMuscle: e.primaryMuscle,
       category: e.category,
+      aliases: e.aliases,
+      apiId: e.apiId,
     });
   });
   userExercises.forEach(({ id, ex }) => {
@@ -645,6 +1061,8 @@ export function buildPickerPool(
       name: ex.name,
       primaryMuscle: ex.primaryMuscle,
       category: ex.category,
+      aliases: ex.aliases,
+      apiId: ex.apiId,
     });
   });
   return [...byId.values()];

@@ -135,6 +135,23 @@ export interface Exercise {
   category: ExerciseCategory;
   /** True for app-seeded exercises; false for user-added. */
   seeded?: boolean;
+  /** Animated GIF URL from ExerciseDB or similar source. */
+  gifUrl?: string;
+  /** Step-by-step instructions (numbered or unordered). */
+  instructions?: string[];
+  /** Equipment names ("barbell", "dumbbell", "cable", etc). */
+  equipments?: string[];
+  /** Secondary muscles worked. */
+  secondaryMuscles?: string[];
+  /** Alternative names for dedup ("Bench Press", "Flat Bench", "BB Bench"). */
+  aliases?: string[];
+  /** Soft-delete flag. Archived exercises hide from pickers but still
+   *  resolve for already-logged sets and PR history. */
+  archived?: boolean;
+  /** Where this exercise definition came from. */
+  source?: "master" | "api" | "custom";
+  /** ExerciseDB exerciseId when source === "api". */
+  apiId?: string;
   createdAt: Timestamp;
 }
 

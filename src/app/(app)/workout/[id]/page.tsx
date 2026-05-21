@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 
 import { useAuth } from "@/lib/auth/useAuth";
-import { profilePath, programPath, sessionPath } from "@/lib/db/paths";
+import { exercisesPath, profilePath, programPath, sessionPath } from "@/lib/db/paths";
 import type {
   Exercise,
   LoggedSet,
@@ -82,6 +82,12 @@ export default function WorkoutSessionPage() {
     () => new Map(),
   );
 
+  /** User's own exercise collection — keyed by exerciseId. Provides gifUrl /
+   * instructions for exercises imported from ExerciseDB or created custom. */
+  const [userExercises, setUserExercises] = useState<Map<string, Exercise>>(
+    () => new Map(),
+  );
+
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
 
@@ -127,6 +133,26 @@ export default function WorkoutSessionPage() {
       profilePath(user.uid),
       (snap) => setProfile(snap.data() ?? null),
       (err) => setError(err.message),
+    );
+    return () => unsub();
+  }, [user?.uid]);
+
+  // Subscribe to the user's own exercise library so gifUrl / instructions are
+  // available for ExerciseDB-imported and custom exercises (not just master).
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onSnapshot(
+      exercisesPath(user.uid),
+      (snap) => {
+        const map = new Map<string, Exercise>();
+        snap.forEach((doc) => map.set(doc.id, doc.data()));
+        setUserExercises(map);
+      },
+      (err) => {
+        // Non-fatal: master data still used as fallback.
+        // eslint-disable-next-line no-console
+        console.warn("User exercises subscription error:", err);
+      },
     );
     return () => unsub();
   }, [user?.uid]);
@@ -229,6 +255,22 @@ export default function WorkoutSessionPage() {
     });
     return map;
   }, [session?.sets]);
+
+  // ---------------------------------------------------------------------------
+  // Exercise definition lookup: user collection wins over master data so
+  // ExerciseDB-imported and custom exercises surface their gifUrl/instructions.
+  // ---------------------------------------------------------------------------
+  const getExerciseDef = useCallback(
+    (
+      exerciseId: string,
+    ): Pick<Exercise, "name" | "gifUrl" | "instructions"> | null => {
+      const userEx = userExercises.get(exerciseId);
+      if (userEx) return userEx;
+      const masterEx = getMasterExercise(exerciseId);
+      return masterEx ?? null;
+    },
+    [userExercises],
+  );
 
   // ---------------------------------------------------------------------------
   // Persistence: append a single new set via immutable replacement of sets[].
@@ -546,18 +588,23 @@ export default function WorkoutSessionPage() {
               </p>
             ) : (
               <div className="space-y-4">
-                {plannedExercises.map((planned) => (
-                  <ExerciseCard
-                    key={planned.exerciseId}
-                    planned={planned}
-                    loggedSetsForExercise={
-                      setsByExercise.get(planned.exerciseId) ?? []
-                    }
-                    unitSystem={unitSystem}
-                    lastSessionGhost={lastSessionPrefill.get(planned.exerciseId)}
-                    onLogSet={handleLogSet}
-                  />
-                ))}
+                {plannedExercises.map((planned) => {
+                  const exDef = getExerciseDef(planned.exerciseId);
+                  return (
+                    <ExerciseCard
+                      key={planned.exerciseId}
+                      planned={planned}
+                      loggedSetsForExercise={
+                        setsByExercise.get(planned.exerciseId) ?? []
+                      }
+                      unitSystem={unitSystem}
+                      lastSessionGhost={lastSessionPrefill.get(planned.exerciseId)}
+                      onLogSet={handleLogSet}
+                      gifUrl={exDef?.gifUrl}
+                      instructions={exDef?.instructions}
+                    />
+                  );
+                })}
               </div>
             )}
 

@@ -108,7 +108,15 @@ service cloud.firestore {
     function exerciseValid(data) {
       return data.name is string
         && data.primaryMuscle is string
-        && data.category is string;
+        && data.category is string
+        && (!('gifUrl' in data) || data.gifUrl is string)
+        && (!('instructions' in data) || data.instructions is list)
+        && (!('equipments' in data) || data.equipments is list)
+        && (!('secondaryMuscles' in data) || data.secondaryMuscles is list)
+        && (!('aliases' in data) || data.aliases is list)
+        && (!('archived' in data) || data.archived is bool)
+        && (!('source' in data) || data.source in ['master', 'api', 'custom'])
+        && (!('apiId' in data) || data.apiId is string);
     }
 
     function programValid(data) {
