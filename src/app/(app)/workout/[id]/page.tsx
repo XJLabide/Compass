@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   onSnapshot,
   serverTimestamp,
+  Timestamp,
   updateDoc,
   type FieldValue,
 } from "firebase/firestore";
@@ -38,7 +39,41 @@ import { isPastEditWindow } from "@/lib/workout/recovery";
 import { applyProgramSwap } from "@/lib/workout/applyProgramSwap";
 import { getMasterExercise } from "@/lib/workout/exerciseSubs";
 import { isPlaceholderSet } from "@/lib/workout/placeholderSet";
-import { Pencil } from "lucide-react";
+import { Calendar, Pencil } from "lucide-react";
+
+/** Format a YYYY-MM-DD string for display, e.g. "May 22, 2026". */
+function formatLocalDate(yyyyMmDd: string): string {
+  // Parse as local midnight to avoid UTC-shift display issues.
+  const [year, month, day] = yyyyMmDd.split("-").map(Number);
+  return new Date(year, (month ?? 1) - 1, day ?? 1).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+/** Return today's date as YYYY-MM-DD in local time. */
+function todayLocalDate(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Return the date 2 years ago as YYYY-MM-DD. */
+function twoYearsAgoDate(): string {
+  const now = new Date();
+  const y = now.getFullYear() - 2;
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Parse a YYYY-MM-DD string and return a Date at local midnight. */
+function parseLocalDateAtMidnight(yyyyMmDd: string): Date {
+  return new Date(`${yyyyMmDd}T00:00:00`);
+}
 
 /**
  * `/workout/[id]` — live session logger.
@@ -91,6 +126,53 @@ export default function WorkoutSessionPage() {
 
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
+
+  // Date edit popover state.
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+  const [datePicked, setDatePicked] = useState<string>("");
+  const [dateSaving, setDateSaving] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
+  const datePopoverRef = useRef<HTMLDivElement>(null);
+
+  // Close date popover on outside click.
+  useEffect(() => {
+    if (!datePopoverOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        datePopoverRef.current &&
+        !datePopoverRef.current.contains(e.target as Node)
+      ) {
+        setDatePopoverOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [datePopoverOpen]);
+
+  const handleDateEditOpen = useCallback(() => {
+    setDatePicked(session?.localDate ?? todayLocalDate());
+    setDateError(null);
+    setDatePopoverOpen(true);
+  }, [session?.localDate]);
+
+  const handleDateSave = useCallback(async () => {
+    if (!user?.uid || !sessionId || !session || !datePicked) return;
+    setDateSaving(true);
+    setDateError(null);
+    try {
+      const newStartedAt = Timestamp.fromDate(parseLocalDateAtMidnight(datePicked));
+      await updateDoc(sessionPath(user.uid, sessionId), {
+        localDate: datePicked,
+        startedAt: newStartedAt,
+        updatedAt: serverTimestamp(),
+      });
+      setDatePopoverOpen(false);
+    } catch (err) {
+      setDateError(err instanceof Error ? err.message : "Failed to update date.");
+    } finally {
+      setDateSaving(false);
+    }
+  }, [user?.uid, sessionId, session, datePicked]);
 
   // Mid-session edit state.
   const [editOpen, setEditOpen] = useState(false);
@@ -539,8 +621,52 @@ export default function WorkoutSessionPage() {
           ) : null}
         </div>
       </div>
-      <p className="mt-1 text-xs text-muted">
-        {session?.localDate ?? "—"}
+      <p className="mt-1 flex items-center gap-1 text-xs text-muted">
+        {/* Tappable date with popover */}
+        <span className="relative" ref={datePopoverRef}>
+          <button
+            type="button"
+            onClick={handleDateEditOpen}
+            className="inline-flex items-center gap-1 rounded hover:text-neutral-200 transition-colors"
+            aria-label="Edit session date"
+          >
+            <Calendar aria-hidden="true" className="h-3 w-3 shrink-0" />
+            {session?.localDate ? formatLocalDate(session.localDate) : "—"}
+          </button>
+          {datePopoverOpen ? (
+            <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border border-border bg-neutral-900 p-3 shadow-lg">
+              <p className="mb-2 text-[11px] font-medium text-neutral-300">Edit session date</p>
+              <input
+                type="date"
+                value={datePicked}
+                min={twoYearsAgoDate()}
+                max={todayLocalDate()}
+                onChange={(e) => setDatePicked(e.target.value)}
+                className="w-full rounded-md border border-border bg-neutral-800 px-2 py-1.5 text-xs text-neutral-100 focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+              {dateError ? (
+                <p className="mt-1.5 text-[11px] text-red-400">{dateError}</p>
+              ) : null}
+              <div className="mt-2.5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleDateSave}
+                  disabled={dateSaving || !datePicked}
+                  className="flex-1 rounded-md bg-accent2 px-2 py-1.5 text-[11px] font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {dateSaving ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDatePopoverOpen(false)}
+                  className="flex-1 rounded-md border border-border bg-neutral-800 px-2 py-1.5 text-[11px] font-medium text-neutral-300 transition hover:bg-neutral-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </span>
         <span aria-hidden="true"> · </span>
         {totalSets} {totalSets === 1 ? "set" : "sets"} logged
       </p>
