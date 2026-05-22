@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   addDoc,
-  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -308,8 +307,8 @@ export default function WorkoutPage() {
   }, [user?.uid]);
 
   // ---------------------------------------------------------------------------
-  // Fetch last-completed session per slot for rotation. One-shot getDocs that
-  // re-runs when uid or the set of session ids changes.
+  // Subscribe live to last-completed session per slot for rotation. Uses
+  // onSnapshot so the map refreshes the moment a session flips to "completed".
   // ---------------------------------------------------------------------------
   const sessionIds = useMemo(
     () => program?.sessions.map((s) => s.id) ?? [],
@@ -324,7 +323,6 @@ export default function WorkoutPage() {
       return;
     }
 
-    let cancelled = false;
     setLastCompletedMap(null);
 
     const q = query(
@@ -334,9 +332,9 @@ export default function WorkoutPage() {
       limit(ROTATION_QUERY_LIMIT),
     );
 
-    getDocs(q)
-      .then((snap) => {
-        if (cancelled) return;
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
         const map = new Map<string, Date>();
         const idSet = new Set(sessionIds);
         snap.docs.forEach((d) => {
@@ -351,14 +349,14 @@ export default function WorkoutPage() {
           if (date) map.set(pid, date);
         });
         setLastCompletedMap(map);
-      })
-      .catch(() => {
-        if (cancelled) return;
+      },
+      () => {
         setLastCompletedMap(new Map());
-      });
+      },
+    );
 
     return () => {
-      cancelled = true;
+      unsub();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, programLoaded, sessionIdsKey]);
@@ -382,7 +380,6 @@ export default function WorkoutPage() {
       setPrefillMap(null);
       return;
     }
-    let cancelled = false;
     setPrefillMap(null);
     const q = query(
       sessionsPath(user.uid),
@@ -391,22 +388,22 @@ export default function WorkoutPage() {
       orderBy("startedAt", "desc"),
       limit(1),
     );
-    getDocs(q)
-      .then((snap) => {
-        if (cancelled) return;
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
         if (snap.empty) {
           setPrefillMap(new Map());
           return;
         }
         const sessionData = snap.docs[0].data();
         setPrefillMap(heaviestSetByExercise(sessionData.sets ?? []));
-      })
-      .catch(() => {
-        if (cancelled) return;
+      },
+      () => {
         setPrefillMap(new Map());
-      });
+      },
+    );
     return () => {
-      cancelled = true;
+      unsub();
     };
   }, [user?.uid, nextSessionId]);
 
