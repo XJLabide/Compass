@@ -23,6 +23,7 @@ export default function GoogleSignInButton({
       await onSignIn();
       // On popup path, AuthProvider's onAuthStateChanged will route us out.
       // On redirect path, the browser navigates away; no further work here.
+      setBusy(false);
     } catch (err) {
       onError(mapGoogleError(err));
       setBusy(false);

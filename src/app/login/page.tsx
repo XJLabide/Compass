@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/lib/auth/useAuth";
+import { isAllowed } from "@/lib/auth/allowlist";
 import EmailPasswordForm from "@/components/auth/EmailPasswordForm";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import LoginBackground from "@/components/auth/LoginBackground";
@@ -17,14 +18,25 @@ import LoginHero from "@/components/auth/LoginHero";
  */
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, signInGoogle, signInEmail } = useAuth();
+  const { user, loading, signInGoogle, signInEmail, signOut } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && user) {
+    if (loading || !user) return;
+
+    if (isAllowed(user.email)) {
       router.replace("/");
+      return;
     }
-  }, [loading, user, router]);
+
+    const email = user.email ?? "that Google account";
+    setAuthNotice(null);
+    setError(
+      `${email} signed in successfully, but it is not on this app's allowlist. Use the allowlisted account or add this email to NEXT_PUBLIC_ALLOWED_EMAILS, then restart the dev server.`,
+    );
+    void signOut();
+  }, [loading, user, router, signOut]);
 
   const showForm = !loading && !user;
 
@@ -64,9 +76,13 @@ export default function LoginPage() {
                   <EmailPasswordForm
                     onSubmit={async (email, password) => {
                       setError(null);
+                      setAuthNotice("Checking your account…");
                       await signInEmail(email, password);
                     }}
-                    onError={(msg) => setError(msg)}
+                    onError={(msg) => {
+                      setAuthNotice(null);
+                      setError(msg);
+                    }}
                   />
 
                   <div className="flex items-center gap-3 text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
@@ -76,9 +92,27 @@ export default function LoginPage() {
                   </div>
 
                   <GoogleSignInButton
-                    onSignIn={signInGoogle}
-                    onError={(msg) => setError(msg)}
+                    onSignIn={async () => {
+                      setError(null);
+                      setAuthNotice("Waiting for Google…");
+                      await signInGoogle();
+                      setAuthNotice("Checking your account…");
+                    }}
+                    onError={(msg) => {
+                      setAuthNotice(null);
+                      setError(msg);
+                    }}
                   />
+
+                  {authNotice ? (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent"
+                    >
+                      {authNotice}
+                    </div>
+                  ) : null}
 
                   {error ? (
                     <div

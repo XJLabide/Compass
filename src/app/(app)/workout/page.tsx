@@ -63,13 +63,27 @@ import ExerciseDetailSheet from "@/components/workout/landing/ExerciseDetailShee
 
 type RecentRow = { id: string; session: SessionDoc };
 
-// Bumped from 5 because weekly stats (this-week + last-week volume) need a
-// rolling ~14-day window. The landing page only displays the most-recent one,
-// so the extra rows are stats fuel — not UI rows.
-const RECENT_LIMIT = 30;
-const ROTATION_QUERY_LIMIT = 50;
+// Bumped from 5 because weekly stats and rotation both use this feed. The
+// landing page only displays the most-recent row, so the extras are logic
+// fuel — not UI rows.
+const RECENT_LIMIT = 60;
 
 const DEFAULT_WEEKLY_TARGET = 4;
+
+function timestampToDate(ts: unknown): Date | null {
+  if (!ts) return null;
+  const t = ts as { toDate?: () => Date };
+  if (typeof t.toDate !== "function") return null;
+  try {
+    return t.toDate();
+  } catch {
+    return null;
+  }
+}
+
+function normalizeSessionName(name: string | undefined): string {
+  return (name ?? "").trim().toLowerCase();
+}
 
 /**
  * `/workout` index — the workout landing page.
@@ -126,10 +140,6 @@ export default function WorkoutPage() {
     planned: PlannedExercise;
   } | null>(null);
 
-  // Map of programSessionId → most recent completed Date, for rotation logic.
-  // null = not yet fetched.
-  const [lastCompletedMap, setLastCompletedMap] = useState<Map<string, Date> | null>(null);
-
   // Heaviest-set-per-exercise from the most recent completed session for the
   // rotation-picked slot. null = not yet fetched; empty Map = fetched, no prior session.
   const [prefillMap, setPrefillMap] = useState<PrefillMap | null>(null);
@@ -173,8 +183,8 @@ export default function WorkoutPage() {
   }, [user?.uid]);
 
   // ---------------------------------------------------------------------------
-  // Subscribe to the recent sessions. Realtime so finishing a session in
-  // another tab updates this list. Bumped to 30 for the weekly-stats roll-up.
+  // Subscribe to recent sessions. Realtime so finishing a session in another
+  // tab updates the last-session card, weekly stats, and rotation picker.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!user?.uid) return;
@@ -307,67 +317,45 @@ export default function WorkoutPage() {
   }, [user?.uid]);
 
   // ---------------------------------------------------------------------------
-  // Subscribe live to last-completed session per slot for rotation. Uses
-  // onSnapshot so the map refreshes the moment a session flips to "completed".
-  // ---------------------------------------------------------------------------
-  const sessionIds = useMemo(
-    () => program?.sessions.map((s) => s.id) ?? [],
-    [program?.sessions],
-  );
-  const sessionIdsKey = sessionIds.join(",");
-
-  useEffect(() => {
-    if (!user?.uid || !programLoaded) return;
-    if (sessionIds.length === 0) {
-      setLastCompletedMap(new Map());
-      return;
-    }
-
-    setLastCompletedMap(null);
-
-    const q = query(
-      sessionsPath(user.uid),
-      where("status", "==", "completed"),
-      orderBy("startedAt", "desc"),
-      limit(ROTATION_QUERY_LIMIT),
-    );
-
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const map = new Map<string, Date>();
-        const idSet = new Set(sessionIds);
-        snap.docs.forEach((d) => {
-          const data = d.data();
-          const pid = data.programSessionId;
-          if (!pid || !idSet.has(pid) || map.has(pid)) return;
-          const ts = data.startedAt as unknown as
-            | { toDate?: () => Date }
-            | undefined;
-          const date =
-            ts && typeof ts.toDate === "function" ? ts.toDate() : null;
-          if (date) map.set(pid, date);
-        });
-        setLastCompletedMap(map);
-      },
-      () => {
-        setLastCompletedMap(new Map());
-      },
-    );
-
-    return () => {
-      unsub();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, programLoaded, sessionIdsKey]);
-
-  // ---------------------------------------------------------------------------
   // Compute rotation view.
   // ---------------------------------------------------------------------------
   const rotation = useMemo(() => {
-    if (!programLoaded || lastCompletedMap === null) return null;
-    return getRotationView(program, lastCompletedMap);
-  }, [program, programLoaded, lastCompletedMap]);
+    if (!programLoaded || !recentLoaded) return null;
+
+    const map = new Map<string, Date>();
+    if (!program || program.sessions.length === 0) {
+      return getRotationView(program, map);
+    }
+
+    const idSet = new Set(program.sessions.map((s) => s.id));
+    const nameToId = new Map<string, string>();
+    for (const slot of program.sessions) {
+      const name = normalizeSessionName(slot.name);
+      if (name && !nameToId.has(name)) nameToId.set(name, slot.id);
+    }
+
+    for (const row of recent ?? []) {
+      const session = row.session;
+      if (session.status && session.status !== "completed") continue;
+
+      let slotId: string | undefined;
+      if (session.programSessionId && idSet.has(session.programSessionId)) {
+        slotId = session.programSessionId;
+      } else {
+        slotId = nameToId.get(normalizeSessionName(session.name));
+      }
+      if (!slotId || map.has(slotId)) continue;
+
+      const completedAt =
+        timestampToDate(session.startedAt) ??
+        timestampToDate(session.finishedAt) ??
+        timestampToDate(session.date) ??
+        timestampToDate(session.createdAt);
+      if (completedAt) map.set(slotId, completedAt);
+    }
+
+    return getRotationView(program, map);
+  }, [program, programLoaded, recent, recentLoaded]);
 
   // ---------------------------------------------------------------------------
   // When the rotation slot is determined, fetch the most recent completed

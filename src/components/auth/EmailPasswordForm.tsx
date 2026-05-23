@@ -40,6 +40,7 @@ export default function EmailPasswordForm({
     setBusy(true);
     try {
       await onSubmit(trimmedEmail, password);
+      setBusy(false);
     } catch (err) {
       onError(mapAuthError(err));
       setBusy(false);
