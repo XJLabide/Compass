@@ -6,6 +6,18 @@ import clsx from "clsx";
 
 import type { FavoriteFood, LoggedMealItem, Profile } from "@/lib/db/types";
 import FoodLibraryModal from "./FoodLibraryModal";
+import MacroRatioChart from "./MacroRatioChart";
+
+const PRESETS = [
+  { name: "Eggs (2 large)", emoji: "🥚", calories: 140, protein: 12, carbs: 0, fat: 10 },
+  { name: "Chicken & Rice", emoji: "🍗", calories: 450, protein: 35, carbs: 50, fat: 8 },
+  { name: "Oats with Honey", emoji: "🥣", calories: 280, protein: 8, carbs: 55, fat: 4 },
+  { name: "Protein Shake", emoji: "🥤", calories: 160, protein: 25, carbs: 3, fat: 2 },
+  { name: "Banana", emoji: "🍌", calories: 105, protein: 1, carbs: 27, fat: 0 },
+  { name: "Avocado Toast", emoji: "🥑", calories: 320, protein: 8, carbs: 30, fat: 18 },
+  { name: "Whole Milk (glass)", emoji: "🥛", calories: 150, protein: 8, carbs: 12, fat: 8 },
+  { name: "Mixed Nuts (handful)", emoji: "🥜", calories: 180, protein: 5, carbs: 6, fat: 16 },
+];
 
 export interface MealLoggerProps {
   loggedMeals: LoggedMealItem[];
@@ -203,6 +215,12 @@ export default function MealLogger({
         </div>
       </div>
 
+      <MacroRatioChart
+        proteinG={totals.protein}
+        carbsG={totals.carbs}
+        fatG={totals.fat}
+      />
+
       {/* Action Buttons */}
       {!readOnly && (
         <div className="flex gap-2">
@@ -240,7 +258,7 @@ export default function MealLogger({
       {showAddForm && (
         <form
           onSubmit={handleQuickAdd}
-          className="rounded-xl border border-dashed border-accent/40 bg-accent/5 p-4 space-y-3"
+          className="rounded-xl border border-dashed border-accent/40 bg-accent/5 p-4 space-y-4"
         >
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold uppercase tracking-wider text-accent">Quick Log Food</h4>
@@ -253,71 +271,170 @@ export default function MealLogger({
             </button>
           </div>
 
-          <div className="space-y-3">
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Food name (e.g. Oatmeal)"
-              className="h-9 w-full rounded-lg border border-border bg-neutral-900 px-3 text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
-            />
-
-            <div className="grid grid-cols-4 gap-2">
-              <input
-                type="number"
-                value={calories}
-                onChange={(e) => setCalories(e.target.value)}
-                placeholder="kcal"
-                className="h-9 w-full rounded-lg border border-border bg-neutral-900 px-2 text-center text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
-              />
-              <input
-                type="number"
-                value={protein}
-                onChange={(e) => setProtein(e.target.value)}
-                placeholder="prot (g)"
-                className="h-9 w-full rounded-lg border border-border bg-neutral-900 px-2 text-center text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
-              />
-              <input
-                type="number"
-                value={carbs}
-                onChange={(e) => setCarbs(e.target.value)}
-                placeholder="carb (g)"
-                className="h-9 w-full rounded-lg border border-border bg-neutral-900 px-2 text-center text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
-              />
-              <input
-                type="number"
-                value={fat}
-                onChange={(e) => setFat(e.target.value)}
-                placeholder="fat (g)"
-                className="h-9 w-full rounded-lg border border-border bg-neutral-900 px-2 text-center text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
-              />
-            </div>
-
+          {/* Presets Grid */}
+          <div className="space-y-2">
+            <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted">Quick Presets</h5>
             <div className="grid grid-cols-4 gap-1.5">
-              {(["breakfast", "lunch", "dinner", "snack"] as const).map((cat) => (
+              {PRESETS.map((p) => (
                 <button
-                  key={cat}
+                  key={p.name}
                   type="button"
-                  onClick={() => setCategory(cat)}
-                  className={clsx(
-                    "rounded-md border py-1 text-[10px] font-medium uppercase tracking-wider text-center transition-colors",
-                    category === cat
-                      ? "border-accent/40 bg-accent/10 text-accent"
-                      : "border-border bg-neutral-900 text-muted hover:text-neutral-200"
-                  )}
+                  onClick={() => {
+                    setName(p.name);
+                    setCalories(String(p.calories));
+                    setProtein(String(p.protein));
+                    setCarbs(String(p.carbs));
+                    setFat(String(p.fat));
+                  }}
+                  className="flex flex-col items-center justify-center rounded-lg border border-border bg-neutral-900/60 p-2 text-center transition hover:bg-neutral-800"
                 >
-                  {cat === "breakfast" ? "Bfast" : cat}
+                  <span className="text-lg">{p.emoji}</span>
+                  <span className="mt-1 text-[8px] font-bold text-neutral-300 truncate w-full px-0.5">
+                    {p.name.split(" ")[0]}
+                  </span>
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-1.5">
+          <div className="space-y-4 border-t border-border/40 pt-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted">Food Name</label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Oatmeal"
+                className="h-9 w-full rounded-lg border border-border bg-neutral-900 px-3 text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-3">
+              {/* Calories Input */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-16 shrink-0 text-xs font-semibold text-neutral-300">Calories</div>
+                <input
+                  type="number"
+                  value={calories}
+                  onChange={(e) => setCalories(e.target.value)}
+                  placeholder="kcal"
+                  className="h-8 w-24 rounded-lg border border-border bg-neutral-900 px-2.5 text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
+                />
+                <div className="flex gap-1">
+                  {["+50", "+100", "+250"].map((inc) => (
+                    <button
+                      key={inc}
+                      type="button"
+                      onClick={() => setCalories((c) => String((parseInt(c) || 0) + parseInt(inc)))}
+                      className="rounded bg-neutral-800 px-2 py-0.5 text-[10px] font-bold text-neutral-300 hover:bg-neutral-700 transition"
+                    >
+                      {inc}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Protein Input */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-16 shrink-0 text-xs font-semibold text-neutral-300">Protein</div>
+                <input
+                  type="number"
+                  value={protein}
+                  onChange={(e) => setProtein(e.target.value)}
+                  placeholder="grams"
+                  className="h-8 w-24 rounded-lg border border-border bg-neutral-900 px-2.5 text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
+                />
+                <div className="flex gap-1">
+                  {["+5", "+10", "+25"].map((inc) => (
+                    <button
+                      key={inc}
+                      type="button"
+                      onClick={() => setProtein((p) => String((parseInt(p) || 0) + parseInt(inc)))}
+                      className="rounded bg-cyan-950/40 border border-cyan-800/30 px-2 py-0.5 text-[10px] font-bold text-cyan-300 hover:bg-cyan-900/40 transition"
+                    >
+                      {inc}g
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Carbs Input */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-16 shrink-0 text-xs font-semibold text-neutral-300">Carbs</div>
+                <input
+                  type="number"
+                  value={carbs}
+                  onChange={(e) => setCarbs(e.target.value)}
+                  placeholder="grams"
+                  className="h-8 w-24 rounded-lg border border-border bg-neutral-900 px-2.5 text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
+                />
+                <div className="flex gap-1">
+                  {["+10", "+25", "+50"].map((inc) => (
+                    <button
+                      key={inc}
+                      type="button"
+                      onClick={() => setCarbs((c) => String((parseInt(c) || 0) + parseInt(inc)))}
+                      className="rounded bg-amber-950/40 border border-amber-800/30 px-2 py-0.5 text-[10px] font-bold text-amber-300 hover:bg-amber-900/40 transition"
+                    >
+                      {inc}g
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Fat Input */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-16 shrink-0 text-xs font-semibold text-neutral-300">Fat</div>
+                <input
+                  type="number"
+                  value={fat}
+                  onChange={(e) => setFat(e.target.value)}
+                  placeholder="grams"
+                  className="h-8 w-24 rounded-lg border border-border bg-neutral-900 px-2.5 text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
+                />
+                <div className="flex gap-1">
+                  {["+5", "+10", "+15"].map((inc) => (
+                    <button
+                      key={inc}
+                      type="button"
+                      onClick={() => setFat((f) => String((parseInt(f) || 0) + parseInt(inc)))}
+                      className="rounded bg-rose-950/40 border border-rose-800/30 px-2 py-0.5 text-[10px] font-bold text-rose-300 hover:bg-rose-900/40 transition"
+                    >
+                      {inc}g
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 border-t border-border/40 pt-3">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted">Meal Category</label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(["breakfast", "lunch", "dinner", "snack"] as const).map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategory(cat)}
+                    className={clsx(
+                      "rounded-md border py-1.5 text-[10px] font-semibold uppercase tracking-wider text-center transition-colors",
+                      category === cat
+                        ? "border-accent/40 bg-accent/10 text-accent"
+                        : "border-border bg-neutral-900 text-muted hover:text-neutral-200"
+                    )}
+                  >
+                    {cat === "breakfast" ? "Bfast" : cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
             <button
               type="submit"
               disabled={!name.trim()}
-              className="h-8 rounded-md bg-accent px-4 text-xs font-semibold text-neutral-950 hover:brightness-110 disabled:opacity-50"
+              className="h-9 rounded-lg bg-accent px-5 text-xs font-bold text-neutral-950 hover:brightness-110 disabled:opacity-50 transition"
             >
               Add Entry
             </button>

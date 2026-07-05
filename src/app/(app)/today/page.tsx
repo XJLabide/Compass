@@ -31,7 +31,7 @@ import {
   Wallet,
   ChevronRight,
 } from "lucide-react";
-
+import MacroRatioChart from "@/components/checkin/MacroRatioChart";
 import { useUserData } from "@/lib/data/UserDataProvider";
 import {
   dailyPath,
@@ -693,6 +693,12 @@ function NutritionSection({
             />
           </div>
         </div>
+
+        <MacroRatioChart
+          proteinG={current.protein}
+          carbsG={current.carbs}
+          fatG={current.fat}
+        />
 
         {/* Macro Progress Bars */}
         <div className="grid grid-cols-3 gap-3">
