@@ -14,6 +14,7 @@ import type {
   PRDoc,
   Profile,
   ProgramDoc,
+  RecurringFeeDoc,
   RoutineDoc,
   SessionDoc,
   TodoDoc,
@@ -70,6 +71,9 @@ export const todoConverter: FirestoreDataConverter<TodoDoc> =
 
 export const expenseConverter: FirestoreDataConverter<ExpenseDoc> =
   makePassthroughConverter<ExpenseDoc>();
+
+export const recurringFeeConverter: FirestoreDataConverter<RecurringFeeDoc> =
+  makePassthroughConverter<RecurringFeeDoc>();
 
 export const routineConverter: FirestoreDataConverter<RoutineDoc> =
   makePassthroughConverter<RoutineDoc>();

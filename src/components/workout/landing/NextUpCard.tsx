@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Dumbbell, MoreHorizontal, PlayCircle } from "lucide-react";
+import { Clock, Dumbbell, MoreHorizontal, Pencil, PlayCircle } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -193,24 +193,25 @@ export default function NextUpCard({
         ) : null}
       </ul>
 
-      {/* Mobile chip row (since sm:hidden chips were folded into the row only at sm+) */}
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="mt-4 flex items-center gap-2">
         <button
           type="button"
           onClick={onStart}
           disabled={starting}
-          className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-accent text-sm font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <PlayCircle aria-hidden="true" className="h-5 w-5" />
+          <PlayCircle aria-hidden="true" className="h-[18px] w-[18px]" />
           {starting ? "Starting…" : "Start session"}
         </button>
         <button
           type="button"
           onClick={onEdit}
           disabled={starting}
-          className="inline-flex h-12 items-center justify-center rounded-xl border border-border bg-neutral-900 px-4 text-sm font-medium text-neutral-100 transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label="Edit next session"
+          title="Edit"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-neutral-900 text-muted transition hover:bg-neutral-800 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Edit
+          <Pencil aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
       {startError ? (

@@ -1,4 +1,91 @@
-import type { RoutineDoc } from "@/lib/db/types";
+import type { RoutineDoc, RoutineTimeBlock } from "@/lib/db/types";
+
+// ---------------------------------------------------------------------------
+// Time-block definitions
+// ---------------------------------------------------------------------------
+
+/** Seeded time blocks for first-time users and fallback for existing users. */
+export const DEFAULT_TIME_BLOCKS: RoutineTimeBlock[] = [
+  { id: "morning", label: "Morning", icon: "Sunrise", order: 0 },
+  { id: "midday", label: "Midday", icon: "Sun", order: 1 },
+  { id: "after-workout", label: "After Workout", icon: "Dumbbell", order: 2 },
+  { id: "evening", label: "Evening", icon: "Sunset", order: 3 },
+  { id: "before-bed", label: "Before Bed", icon: "Moon", order: 4 },
+  { id: "anytime", label: "Anytime", icon: "List", order: 5 },
+];
+
+/** The fallback block id for routines without a timeBlock assignment. */
+export const FALLBACK_BLOCK_ID = "anytime";
+
+/**
+ * Resolve time blocks — use the profile's custom list if present, otherwise
+ * fall back to the built-in defaults. Always returns a sorted copy.
+ */
+export function resolveTimeBlocks(
+  profile?: { routineTimeBlocks?: RoutineTimeBlock[] },
+): RoutineTimeBlock[] {
+  const blocks = profile?.routineTimeBlocks?.length
+    ? profile.routineTimeBlocks
+    : DEFAULT_TIME_BLOCKS;
+  return [...blocks].sort((a, b) => a.order - b.order);
+}
+
+export interface GroupedBlock {
+  block: RoutineTimeBlock;
+  routines: { id: string; data: RoutineDoc }[];
+}
+
+/**
+ * Group routines by their time block. Routines without a `timeBlock` (legacy)
+ * are placed into the "anytime" (last) group. Returns groups in block-order,
+ * and routines within each group sorted by their `order` field.
+ */
+export function groupRoutinesByBlock(
+  routines: { id: string; data: RoutineDoc }[],
+  blocks: RoutineTimeBlock[],
+): GroupedBlock[] {
+  const blockMap = new Map<string, GroupedBlock>();
+  for (const block of blocks) {
+    blockMap.set(block.id, { block, routines: [] });
+  }
+
+  for (const r of routines) {
+    const blockId = r.data.timeBlock ?? FALLBACK_BLOCK_ID;
+    const group = blockMap.get(blockId);
+    if (group) {
+      group.routines.push(r);
+    } else {
+      // Block was deleted — fall back to "anytime" or the last block.
+      const fallback =
+        blockMap.get(FALLBACK_BLOCK_ID) ??
+        blockMap.get(blocks[blocks.length - 1]?.id ?? "");
+      if (fallback) fallback.routines.push(r);
+    }
+  }
+
+  // Sort routines within each group by order (then by name as tiebreaker).
+  for (const group of blockMap.values()) {
+    group.routines.sort((a, b) => {
+      const oa = a.data.order ?? 999;
+      const ob = b.data.order ?? 999;
+      return oa !== ob ? oa - ob : a.data.name.localeCompare(b.data.name);
+    });
+  }
+
+  return [...blockMap.values()];
+}
+
+/** Generate a unique slug for a new custom block. */
+export function generateBlockId(existing: RoutineTimeBlock[]): string {
+  const ids = new Set(existing.map((b) => b.id));
+  let i = 1;
+  while (ids.has(`custom-${i}`)) i++;
+  return `custom-${i}`;
+}
+
+// ---------------------------------------------------------------------------
+// Day-of-week helpers
+// ---------------------------------------------------------------------------
 
 /** ISO weekday labels, Sunday-first (matches JS Date.getDay() values 0..6). */
 export const DOW_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;

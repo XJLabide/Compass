@@ -32,11 +32,13 @@ import type {
   RoutineDoc,
   SessionDoc,
   TodoDoc,
+  LoggedMealItem,
 } from "@/lib/db/types";
 import {
   computeStreak,
   computeBestStreak,
   dowOfIso,
+  FALLBACK_BLOCK_ID,
 } from "@/lib/routines/helpers";
 import { computeLocalDate } from "@/lib/workout/scheduling";
 import { lbToKg } from "@/lib/workout/units";
@@ -142,6 +144,8 @@ export async function executeTool(
         return await checkRoutine(ctx, args);
       case "log_check_in":
         return await logCheckIn(ctx, args);
+      case "log_food":
+        return await logFood(ctx, args);
 
       default:
         return JSON.stringify({
@@ -201,6 +205,7 @@ async function listRoutines(
     return {
       id: d.id,
       name: data.name,
+      timeBlock: data.timeBlock ?? FALLBACK_BLOCK_ID,
       weekdays: data.weekdays,
       active: data.active,
       scheduledToday: data.weekdays?.includes(dow) ?? false,
@@ -495,15 +500,19 @@ async function addRoutine(
       error: "name and at least one weekday are required",
     });
   }
+  const timeBlock = typeof args.timeBlock === "string" && args.timeBlock.trim()
+    ? args.timeBlock.trim()
+    : FALLBACK_BLOCK_ID;
   const ref = await addDoc(routinesPath(ctx.uid), {
     name,
     weekdays: [...new Set(weekdays)].sort(),
     active: true,
     done: {},
+    timeBlock,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   } as unknown as RoutineDoc);
-  return JSON.stringify({ ok: true, id: ref.id, name, weekdays });
+  return JSON.stringify({ ok: true, id: ref.id, name, weekdays, timeBlock });
 }
 
 async function checkRoutine(
@@ -574,6 +583,75 @@ async function logCheckIn(
     merge: true,
   });
   return JSON.stringify({ ok: true, date });
+}
+
+async function logFood(ctx: ToolContext, args: ParsedArgs): Promise<string> {
+  const name = String(args.name ?? "").trim();
+  const calories = Number(args.calories || 0);
+  const proteinG = Number(args.proteinG || 0);
+  const carbsG = Number(args.carbsG || 0);
+  const fatG = Number(args.fatG || 0);
+  const category = (args.category as "breakfast" | "lunch" | "dinner" | "snack") || "breakfast";
+  const date = (args.date as string) ?? today(ctx);
+
+  if (!name) {
+    return JSON.stringify({ ok: false, error: "name is required" });
+  }
+
+  const docRef = dailyPath(ctx.uid, date);
+  const docSnap = await getDoc(docRef);
+  let loggedMeals: LoggedMealItem[] = [];
+  let currentCalories = 0;
+  let currentProtein = 0;
+  let currentCarbs = 0;
+  let currentFat = 0;
+
+  if (docSnap.exists()) {
+    const data = docSnap.data() as DailyDoc;
+    loggedMeals = data.loggedMeals || [];
+    currentCalories = data.calories || 0;
+    currentProtein = data.proteinG || 0;
+    currentCarbs = data.carbsG || 0;
+    currentFat = data.fatG || 0;
+  }
+
+  const newMeal: LoggedMealItem = {
+    id: `meal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    name,
+    calories,
+    proteinG,
+    carbsG,
+    fatG,
+    category,
+    createdAt: serverTimestamp() as any,
+  };
+
+  loggedMeals.push(newMeal);
+
+  const patch: Record<string, unknown> = {
+    localDate: date,
+    loggedMeals,
+    calories: currentCalories + calories,
+    proteinG: currentProtein + proteinG,
+    carbsG: currentCarbs + carbsG,
+    fatG: currentFat + fatG,
+    updatedAt: serverTimestamp(),
+  };
+
+  await setDoc(docRef, patch, { merge: true });
+
+  return JSON.stringify({
+    ok: true,
+    date,
+    meal: {
+      name,
+      calories,
+      proteinG,
+      carbsG,
+      fatG,
+      category,
+    },
+  });
 }
 
 // Re-exports the executor uses elsewhere

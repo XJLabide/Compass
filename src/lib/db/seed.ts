@@ -21,6 +21,7 @@ import {
   programPath,
 } from "./paths";
 import type { Exercise, Profile, ProgramDoc } from "./types";
+import { DEFAULT_TIME_BLOCKS } from "@/lib/routines/helpers";
 
 /**
  * First-run seeder.
@@ -216,6 +217,7 @@ export async function ensureSeeded(
     displayName: deriveDisplayName(user),
     ...DEFAULT_PROFILE,
     timezone: resolveTimezone(),
+    routineTimeBlocks: DEFAULT_TIME_BLOCKS,
     // serverTimestamp() at write time; cast through unknown because the field
     // type is `Timestamp` post-read but a sentinel pre-write.
     createdAt: now as unknown as Profile["createdAt"],

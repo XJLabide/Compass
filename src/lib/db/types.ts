@@ -47,6 +47,27 @@ export type MuscleGroup =
   | "other";
 
 // ---------------------------------------------------------------------------
+export interface FavoriteFood {
+  id: string;
+  name: string;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}
+
+export interface LoggedMealItem {
+  id: string;
+  name: string;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  category: "breakfast" | "lunch" | "dinner" | "snack";
+  createdAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
 // users/{uid}/profile  (single doc, id = "profile")
 // ---------------------------------------------------------------------------
 
@@ -64,6 +85,8 @@ export interface Profile {
   currency?: string;
   /** Monthly budget caps per category (key is the category string), in minor units of `currency`. */
   budgets?: Record<string, number>;
+  /** User-customizable time-block definitions for grouping routines. Seeded with defaults. */
+  routineTimeBlocks?: RoutineTimeBlock[];
   /** User-defined expense categories that extend the seeded list. Lowercase, ≤ 32 chars each. */
   customCategories?: string[];
   /** True once the user has completed the onboarding wizard. */
@@ -76,6 +99,10 @@ export interface Profile {
   wakeTime?: string;
   /** "HH:MM" 24-hour local bedtime. Drives Today's awake-progress bar. Default "23:00". */
   bedTime?: string;
+  calorieTargetKcal?: number;
+  carbTargetG?: number;
+  fatTargetG?: number;
+  favoriteFoods?: FavoriteFood[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -241,6 +268,9 @@ export interface DailyDoc {
   wins?: string;
   /** Free-form plan for tomorrow. */
   planTomorrow?: string;
+  carbsG?: number;
+  fatG?: number;
+  loggedMeals?: LoggedMealItem[];
   updatedAt: Timestamp;
 }
 
@@ -327,6 +357,27 @@ export interface NoriMessage {
 }
 
 // ---------------------------------------------------------------------------
+// Routine time blocks
+// ---------------------------------------------------------------------------
+
+/**
+ * A user-defined time-of-day category for grouping routines.
+ * Stored inline on the user's profile doc (`Profile.routineTimeBlocks`).
+ *
+ * Examples: "Morning", "After Workout", "Before Bed".
+ */
+export interface RoutineTimeBlock {
+  /** Stable slug-style id, e.g. "morning", "before-bed", "custom-1". */
+  id: string;
+  /** Display name, e.g. "After Waking Up". */
+  label: string;
+  /** Lucide icon name for display, e.g. "Sunrise", "Moon". */
+  icon: string;
+  /** 0-based sort order across all blocks. */
+  order: number;
+}
+
+// ---------------------------------------------------------------------------
 // users/{uid}/routines/{routineId}
 // ---------------------------------------------------------------------------
 
@@ -351,6 +402,10 @@ export interface RoutineDoc {
   active: boolean;
   /** Map of `YYYY-MM-DD` → true for days the user checked it off. */
   done: Record<string, boolean>;
+  /** Which time block this routine belongs to. Matches a `RoutineTimeBlock.id`. */
+  timeBlock?: string;
+  /** Sort order within the time block (0-based). */
+  order?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -368,6 +423,7 @@ export type ExpenseCategory =
   | "transport"
   | "rent"
   | "utilities"
+  | "subscriptions"
   | "entertainment"
   | "health"
   | "shopping"
@@ -389,6 +445,33 @@ export interface ExpenseDoc {
   /** Client-computed `YYYY-MM-DD` in user tz. */
   localDate: LocalDate;
   date: Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// users/{uid}/recurringFees/{feeId}
+// ---------------------------------------------------------------------------
+
+export type RecurringFeeCadence = "weekly" | "monthly" | "yearly";
+
+export interface RecurringFeeDoc {
+  name: string;
+  /** Amount in minor units of the currency (e.g. cents). Always positive. */
+  amountMinor: number;
+  /** ISO 4217 currency code, e.g. "USD", "PHP". */
+  currency: string;
+  /** Category — built-in (`ExpenseCategory`) OR a user-defined custom string. */
+  category: string;
+  cadence: RecurringFeeCadence;
+  /** Day of month for monthly/yearly fees, clamped 1..31. */
+  billingDay?: number;
+  /** ISO MM-DD for yearly fees when known. */
+  billingMonthDay?: string;
+  /** ISO YYYY-MM-DD override for the next known charge date. */
+  nextDueDate?: LocalDate;
+  active: boolean;
+  note?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

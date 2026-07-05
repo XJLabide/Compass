@@ -19,8 +19,9 @@ import clsx from "clsx";
 
 import { useAuth } from "@/lib/auth/useAuth";
 import { useSidebar } from "@/lib/ui/sidebar-state";
-import { dailyPath } from "@/lib/db/paths";
-import type { DailyDoc, Profile } from "@/lib/db/types";
+import { dailyPath, profilePath } from "@/lib/db/paths";
+import type { DailyDoc, Profile, LoggedMealItem, FavoriteFood } from "@/lib/db/types";
+import MealLogger from "./MealLogger";
 import {
   displayToKg,
   kgToDisplay,
@@ -79,6 +80,7 @@ type FormState = {
   steps: string;
   mood: number | undefined;
   note: string;
+  loggedMeals: LoggedMealItem[];
 };
 
 const EMPTY_STATE: FormState = {
@@ -91,6 +93,7 @@ const EMPTY_STATE: FormState = {
   steps: "",
   mood: undefined,
   note: "",
+  loggedMeals: [],
 };
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -221,6 +224,7 @@ export default function CheckInForm({
               steps: formatNumber(data.steps, 0),
               mood: data.mood,
               note: data.note ?? "",
+              loggedMeals: data.loggedMeals ?? [],
             });
           }
         }
@@ -259,6 +263,32 @@ export default function CheckInForm({
     [setField],
   );
 
+  const handleUpdateMeals = useCallback(
+    (newMeals: LoggedMealItem[]) => {
+      setField("loggedMeals", newMeals);
+    },
+    [setField],
+  );
+
+  const handleUpdateProfileFavorites = useCallback(
+    async (newFavorites: FavoriteFood[]) => {
+      if (!user?.uid) return;
+      try {
+        await setDoc(
+          profilePath(user.uid),
+          {
+            favoriteFoods: newFavorites,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      } catch (err) {
+        console.error("Failed to update favorites:", err);
+      }
+    },
+    [user?.uid],
+  );
+
   const handleSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -283,10 +313,22 @@ export default function CheckInForm({
       if (state.sleepQuality !== undefined) {
         payload.sleepQuality = state.sleepQuality;
       }
-      const calories = parseInt10(state.calories);
-      if (calories !== undefined) payload.calories = calories;
-      const protein = parseNumber(state.protein);
-      if (protein !== undefined) payload.proteinG = protein;
+      let totalCalories = 0;
+      let totalProtein = 0;
+      let totalCarbs = 0;
+      let totalFat = 0;
+      state.loggedMeals.forEach((m) => {
+        totalCalories += m.calories;
+        totalProtein += m.proteinG;
+        totalCarbs += m.carbsG;
+        totalFat += m.fatG;
+      });
+
+      payload.calories = totalCalories;
+      payload.proteinG = totalProtein;
+      payload.carbsG = totalCarbs;
+      payload.fatG = totalFat;
+      payload.loggedMeals = state.loggedMeals;
       // Water input is in display units (oz for imperial, ml for metric).
       const water = parseNumber(state.water);
       if (water !== undefined) {
@@ -320,12 +362,11 @@ export default function CheckInForm({
       state.bodyweight,
       state.sleepHours,
       state.sleepQuality,
-      state.calories,
-      state.protein,
       state.water,
       state.steps,
       state.mood,
       state.note,
+      state.loggedMeals,
     ],
   );
 
@@ -399,17 +440,6 @@ export default function CheckInForm({
             placeholder={weightLabel}
           />
 
-          {/* Calories */}
-          <NumericField
-            id="checkin-calories"
-            label="Calories"
-            unit="kcal"
-            value={state.calories}
-            onChange={handleText("calories")}
-            step="1"
-            placeholder={caloriesPlaceholder}
-          />
-
           {/* Sleep hours (left on md+) */}
           <div className="grid grid-cols-2 gap-3 md:col-span-1 md:grid-cols-1 md:gap-0">
             <NumericField
@@ -431,21 +461,21 @@ export default function CheckInForm({
               />
             </div>
           </div>
-
-          {/* Protein (right on md+) */}
-          <NumericField
-            id="checkin-protein"
-            label="Protein"
-            unit="g"
-            value={state.protein}
-            onChange={handleText("protein")}
-            step="1"
-            placeholder={proteinPlaceholder}
-          />
         </div>
 
-        {/* Full-width fields below the 2-col section */}
-        <div className="mt-5 space-y-5">
+      {/* Nutrition (Calorie & Macro Tracker) */}
+      <div className="mt-4 rounded-xl border border-border bg-neutral-900/40 p-4">
+        <h3 className="text-sm font-semibold text-neutral-100 mb-3">Nutrition & Meals</h3>
+        <MealLogger
+          loggedMeals={state.loggedMeals}
+          profile={profile}
+          onUpdateMeals={handleUpdateMeals}
+          onUpdateProfileFavorites={handleUpdateProfileFavorites}
+        />
+      </div>
+
+      {/* Full-width fields below the 2-col section */}
+      <div className="mt-4 rounded-xl border border-border bg-neutral-900/40 p-4">
           {/* Water + Steps side by side on all sizes */}
           <div className="grid grid-cols-2 gap-3">
             <NumericField

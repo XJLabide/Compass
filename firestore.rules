@@ -58,12 +58,15 @@ service cloud.firestore {
         && isIntOpt(data, 'calories', 0, 100000)
         && isNumOpt(data, 'proteinG', 0, 100000)
         && isNumOpt(data, 'waterMl', 0, 100000)
+        && isNumOpt(data, 'carbsG', 0, 100000)
+        && isNumOpt(data, 'fatG', 0, 100000)
         && isIntOpt(data, 'steps', 0, 1000000)
         && isIntOpt(data, 'mood', 1, 5)
         && (!('note' in data) || data.note is string)
         && (!('struggles' in data) || (data.struggles is string && data.struggles.size() <= 5000))
         && (!('wins' in data) || (data.wins is string && data.wins.size() <= 5000))
         && (!('planTomorrow' in data) || (data.planTomorrow is string && data.planTomorrow.size() <= 5000))
+        && (!('loggedMeals' in data) || data.loggedMeals is list)
         && data.localDate is string;
     }
 
@@ -102,7 +105,12 @@ service cloud.firestore {
         && (!('notificationsEnabled' in data) || data.notificationsEnabled is bool)
         && (!('reminderTime' in data) || data.reminderTime is string)
         && (!('wakeTime' in data) || data.wakeTime is string)
-        && (!('bedTime' in data) || data.bedTime is string);
+        && (!('bedTime' in data) || data.bedTime is string)
+        && (!('routineTimeBlocks' in data) || (data.routineTimeBlocks is list && data.routineTimeBlocks.size() <= 20))
+        && isIntOpt(data, 'calorieTargetKcal', 0, 100000)
+        && isIntOpt(data, 'carbTargetG', 0, 100000)
+        && isIntOpt(data, 'fatTargetG', 0, 100000)
+        && (!('favoriteFoods' in data) || data.favoriteFoods is list);
     }
 
     function exerciseValid(data) {
@@ -143,11 +151,26 @@ service cloud.firestore {
         && (!('note' in data) || (data.note is string && data.note.size() <= 1000));
     }
 
+    function recurringFeeValid(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.amountMinor is int && data.amountMinor > 0 && data.amountMinor <= 100000000
+        && data.currency is string && data.currency.size() == 3
+        && data.category is string
+        && data.cadence in ['weekly', 'monthly', 'yearly']
+        && data.active is bool
+        && (!('billingDay' in data) || (data.billingDay is int && data.billingDay >= 1 && data.billingDay <= 31))
+        && (!('billingMonthDay' in data) || data.billingMonthDay is string)
+        && (!('nextDueDate' in data) || data.nextDueDate is string)
+        && (!('note' in data) || (data.note is string && data.note.size() <= 1000));
+    }
+
     function routineValid(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 200
         && data.weekdays is list && data.weekdays.size() >= 1 && data.weekdays.size() <= 7
         && data.active is bool
-        && (!('done' in data) || data.done is map);
+        && (!('done' in data) || data.done is map)
+        && (!('timeBlock' in data) || (data.timeBlock is string && data.timeBlock.size() <= 50))
+        && (!('order' in data) || (data.order is int && data.order >= 0 && data.order <= 100));
     }
 
     // -------------------------------------------------------------------
@@ -202,6 +225,12 @@ service cloud.firestore {
       match /expenses/{expenseId} {
         allow read: if isOwner(uid);
         allow create, update: if isOwner(uid) && expenseValid(request.resource.data);
+        allow delete: if isOwner(uid);
+      }
+
+      match /recurringFees/{feeId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && recurringFeeValid(request.resource.data);
         allow delete: if isOwner(uid);
       }
 

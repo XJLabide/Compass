@@ -17,6 +17,7 @@ import {
   LineChart,
   Settings,
   X,
+  Flame,
   type LucideIcon,
 } from "lucide-react";
 
@@ -41,6 +42,7 @@ const PRIMARY_TABS: Tab[] = [
 
 const SECONDARY_LINKS: Tab[] = [
   { href: "/workout", label: "Workout", Icon: Dumbbell },
+  { href: "/nutrition", label: "Nutrition", Icon: Flame },
   { href: "/check-in", label: "Check-in", Icon: ClipboardCheck },
   { href: "/history", label: "History", Icon: LineChart },
   { href: "/settings", label: "Settings", Icon: Settings },

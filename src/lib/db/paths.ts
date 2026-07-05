@@ -17,6 +17,7 @@ import {
   prConverter,
   profileConverter,
   programConverter,
+  recurringFeeConverter,
   routineConverter,
   sessionConverter,
   todoConverter,
@@ -31,6 +32,7 @@ import type {
   PRDoc,
   Profile,
   ProgramDoc,
+  RecurringFeeDoc,
   RoutineDoc,
   SessionDoc,
   TodoDoc,
@@ -213,6 +215,29 @@ export function expensePath(
 ): DocumentReference<ExpenseDoc> {
   return doc(userDoc(uid, db), "expenses", expenseId).withConverter(
     expenseConverter,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// recurringFees — users/{uid}/recurringFees/{feeId}
+// ---------------------------------------------------------------------------
+
+export function recurringFeesPath(
+  uid: string,
+  db?: Firestore,
+): CollectionReference<RecurringFeeDoc> {
+  return collection(userDoc(uid, db), "recurringFees").withConverter(
+    recurringFeeConverter,
+  );
+}
+
+export function recurringFeePath(
+  uid: string,
+  feeId: string,
+  db?: Firestore,
+): DocumentReference<RecurringFeeDoc> {
+  return doc(userDoc(uid, db), "recurringFees", feeId).withConverter(
+    recurringFeeConverter,
   );
 }
 

@@ -16,6 +16,7 @@ import {
   CheckSquare,
   Sparkles,
   Wallet,
+  Flame,
   type LucideIcon,
 } from "lucide-react";
 import { useSidebar } from "@/lib/ui/sidebar-state";
@@ -33,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/todos", label: "Todos", Icon: CheckSquare },
   { href: "/money", label: "Money", Icon: Wallet },
   { href: "/workout", label: "Workout", Icon: Dumbbell },
+  { href: "/nutrition", label: "Nutrition", Icon: Flame },
   { href: "/check-in", label: "Check-in", Icon: ClipboardCheck },
   { href: "/history", label: "History", Icon: LineChart },
   { href: "/settings", label: "Settings", Icon: Settings },

@@ -7,7 +7,13 @@ import { ArrowRight, Repeat } from "lucide-react";
 
 import { routinesPath } from "@/lib/db/paths";
 import type { RoutineDoc } from "@/lib/db/types";
-import { dowOfIso } from "@/lib/routines/helpers";
+import { useUserData } from "@/lib/data/UserDataProvider";
+import {
+  dowOfIso,
+  groupRoutinesByBlock,
+  resolveTimeBlocks,
+} from "@/lib/routines/helpers";
+import { BlockIcon } from "@/components/todos/TimeBlockManager";
 import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
 
@@ -32,6 +38,7 @@ export default function RoutinesSummary({
   );
   const todayDow = useMemo(() => dowOfIso(today), [today]);
 
+  const { effectiveProfile } = useUserData();
   const [rows, setRows] = useState<Row[] | null>(null);
 
   useEffect(() => {
@@ -45,18 +52,35 @@ export default function RoutinesSummary({
     return () => unsub();
   }, [uid]);
 
+  const blocksSummary = useMemo(() => {
+    if (!rows || rows.length === 0) return [];
+    const timeBlocks = resolveTimeBlocks(effectiveProfile ?? undefined);
+    const groups = groupRoutinesByBlock(rows, timeBlocks);
+
+    return groups
+      .map(({ block, routines }) => {
+        const scheduledToday = routines.filter(
+          (r) => r.data.active && r.data.weekdays?.includes(todayDow),
+        );
+        const doneToday = scheduledToday.filter((r) => r.data.done?.[today]);
+        return {
+          block,
+          scheduled: scheduledToday.length,
+          done: doneToday.length,
+        };
+      })
+      .filter((g) => g.scheduled > 0);
+  }, [rows, effectiveProfile, todayDow, today]);
+
   const { scheduled, done } = useMemo(() => {
-    if (!rows) return { scheduled: 0, done: 0 };
     let s = 0;
     let d = 0;
-    for (const r of rows) {
-      if (!r.data.active) continue;
-      if (!r.data.weekdays?.includes(todayDow)) continue;
-      s += 1;
-      if (r.data.done?.[today]) d += 1;
+    for (const b of blocksSummary) {
+      s += b.scheduled;
+      d += b.done;
     }
     return { scheduled: s, done: d };
-  }, [rows, todayDow, today]);
+  }, [blocksSummary]);
 
   if (rows === null) {
     return (
@@ -124,6 +148,18 @@ export default function RoutinesSummary({
               style={{ width: `${pct}%` }}
             />
           </div>
+          {blocksSummary.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-x-2.5 gap-y-1.5 text-[10px] text-muted border-t border-border/20 pt-2.5">
+              {blocksSummary.map(({ block, scheduled: bSched, done: bDone }) => (
+                <div key={block.id} className="flex items-center gap-1">
+                  <BlockIcon name={block.icon} className="h-3 w-3 text-accent" />
+                  <span>
+                    {block.label} <span className="text-neutral-300 font-medium">{bDone}/{bSched}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </section>

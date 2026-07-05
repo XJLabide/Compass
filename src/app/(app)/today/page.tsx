@@ -44,7 +44,9 @@ import {
 import type {
   DailyDoc,
   ExpenseDoc,
+  Profile,
   RoutineDoc,
+  RoutineTimeBlock,
   TodoDoc,
 } from "@/lib/db/types";
 import { getFirebaseDb } from "@/lib/firebase";
@@ -53,7 +55,12 @@ import {
   getLocalDayOfWeek,
   getTodayScheduled,
 } from "@/lib/workout/scheduling";
-import { dowOfIso } from "@/lib/routines/helpers";
+import {
+  dowOfIso,
+  groupRoutinesByBlock,
+  resolveTimeBlocks,
+} from "@/lib/routines/helpers";
+import { BlockIcon } from "@/components/todos/TimeBlockManager";
 import {
   dayBlockLabel,
   dayBlockSubtitle,
@@ -82,6 +89,11 @@ export default function TodayPage() {
   const tz = effectiveProfile?.timezone ?? "UTC";
   const unitSystem = effectiveProfile?.unitSystem ?? "imperial";
   const currency = effectiveProfile?.currency ?? DEFAULT_CURRENCY;
+
+  const timeBlocks = useMemo(
+    () => resolveTimeBlocks(effectiveProfile ?? undefined),
+    [effectiveProfile],
+  );
 
   // Live clock so the time-of-day banner ticks forward without a reload.
   const [now, setNow] = useState<Date>(() => new Date());
@@ -275,8 +287,16 @@ export default function TodayPage() {
       <RoutinesSection
         uid={uid}
         items={scheduledRoutines.list}
+        timeBlocks={timeBlocks}
         today={today}
         loaded={routines !== null}
+      />
+
+      {/* Nutrition */}
+      <NutritionSection
+        profile={effectiveProfile}
+        daily={todayDaily}
+        loaded={dailyLoaded}
       />
 
       {/* Todos */}
@@ -485,11 +505,13 @@ function WorkoutSection({
 function RoutinesSection({
   uid,
   items,
+  timeBlocks,
   today,
   loaded,
 }: {
   uid: string;
   items: RoutineRow[];
+  timeBlocks: RoutineTimeBlock[];
   today: string;
   loaded: boolean;
 }) {
@@ -512,6 +534,13 @@ function RoutinesSection({
     },
     [uid, today],
   );
+
+  const activeGroups = useMemo(() => {
+    if (!loaded || items.length === 0) return [];
+    return groupRoutinesByBlock(items, timeBlocks).filter(
+      (g) => g.routines.length > 0,
+    );
+  }, [items, timeBlocks, loaded]);
 
   if (!loaded) {
     return <SectionSkeleton title="Routines" />;
@@ -551,34 +580,156 @@ function RoutinesSection({
           </Link>
         }
       />
-      <ul className="mt-2 space-y-1.5">
-        {items.map((row) => {
-          const done = Boolean(row.data.done?.[today]);
-          return (
-            <li key={row.id}>
-              <button
-                type="button"
-                onClick={() => toggle(row)}
-                aria-pressed={done}
-                className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-colors ${
-                  done
-                    ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-200"
-                    : "border-border bg-neutral-900/60 text-neutral-100 hover:bg-neutral-800/60"
-                }`}
-              >
-                {done ? (
-                  <CheckCircle2 className="h-4 w-4 text-cyan-400" />
-                ) : (
-                  <Circle className="h-4 w-4 text-muted" />
-                )}
-                <span className="flex-1 truncate text-sm">
-                  {row.data.name}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="mt-3 space-y-4">
+        {activeGroups.map(({ block, routines: blockRoutines }) => (
+          <div key={block.id} className="space-y-1.5">
+            <div className="flex items-center gap-1.5 px-1">
+              <BlockIcon name={block.icon} className="h-3.5 w-3.5 text-accent animate-pulse-subtle" />
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                {block.label}
+              </h4>
+            </div>
+            <ul className="space-y-1.5">
+              {blockRoutines.map((row) => {
+                const done = Boolean(row.data.done?.[today]);
+                return (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      onClick={() => toggle(row)}
+                      aria-pressed={done}
+                      className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-colors ${
+                        done
+                          ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-200"
+                          : "border-border bg-neutral-900/60 text-neutral-100 hover:bg-neutral-800/60"
+                      }`}
+                    >
+                      {done ? (
+                        <CheckCircle2 className="h-4 w-4 text-cyan-400" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-muted" />
+                      )}
+                      <span className="flex-1 truncate text-sm">
+                        {row.data.name}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Nutrition Section
+// ---------------------------------------------------------------------------
+function NutritionSection({
+  profile,
+  daily,
+  loaded,
+}: {
+  profile: Profile | null;
+  daily: DailyDoc | null;
+  loaded: boolean;
+}) {
+  const targets = useMemo(() => {
+    return {
+      calories: profile?.calorieTargetKcal || 2000,
+      protein: profile?.proteinTargetG || 150,
+      carbs: profile?.carbTargetG || 250,
+      fat: profile?.fatTargetG || 70,
+    };
+  }, [profile]);
+
+  const current = useMemo(() => {
+    return {
+      calories: daily?.calories || 0,
+      protein: daily?.proteinG || 0,
+      carbs: daily?.carbsG || 0,
+      fat: daily?.fatG || 0,
+    };
+  }, [daily]);
+
+  const calPct = targets.calories > 0 ? Math.min(100, Math.round((current.calories / targets.calories) * 100)) : 0;
+  const protPct = targets.protein > 0 ? Math.min(100, Math.round((current.protein / targets.protein) * 100)) : 0;
+  const carbPct = targets.carbs > 0 ? Math.min(100, Math.round((current.carbs / targets.carbs) * 100)) : 0;
+  const fatPct = targets.fat > 0 ? Math.min(100, Math.round((current.fat / targets.fat) * 100)) : 0;
+
+  if (!loaded) {
+    return <SectionSkeleton title="Nutrition" />;
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
+      <SectionHeader
+        icon={Flame}
+        title="Nutrition"
+        right={
+          <Link
+            href="/nutrition"
+            className="inline-flex items-center gap-1 text-[10px] font-medium text-accent hover:underline"
+          >
+            Open <ChevronRight className="h-3 w-3" />
+          </Link>
+        }
+      />
+      <div className="mt-3 space-y-3">
+        {/* Calories progress */}
+        <div>
+          <div className="flex items-baseline justify-between text-xs text-muted">
+            <span className="font-semibold text-neutral-200">Calories</span>
+            <span className="tabular-nums font-medium text-neutral-100">
+              {current.calories} / {targets.calories} kcal
+            </span>
+          </div>
+          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-neutral-800">
+            <div
+              className="h-full bg-gradient-to-r from-orange-500 to-amber-400 transition-[width]"
+              style={{ width: `${calPct}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Macro Progress Bars */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* Protein */}
+          <div className="rounded-lg bg-neutral-900/40 p-2 border border-border/30">
+            <div className="flex items-baseline justify-between text-[10px] text-muted">
+              <span>Protein</span>
+              <span className="font-semibold text-neutral-100 tabular-nums">{current.protein}/{targets.protein}g</span>
+            </div>
+            <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-neutral-800">
+              <div className="h-full bg-cyan-400 transition-[width]" style={{ width: `${protPct}%` }} />
+            </div>
+          </div>
+
+          {/* Carbs */}
+          <div className="rounded-lg bg-neutral-900/40 p-2 border border-border/30">
+            <div className="flex items-baseline justify-between text-[10px] text-muted">
+              <span>Carbs</span>
+              <span className="font-semibold text-neutral-100 tabular-nums">{current.carbs}/{targets.carbs}g</span>
+            </div>
+            <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-neutral-800">
+              <div className="h-full bg-amber-300 transition-[width]" style={{ width: `${carbPct}%` }} />
+            </div>
+          </div>
+
+          {/* Fat */}
+          <div className="rounded-lg bg-neutral-900/40 p-2 border border-border/30">
+            <div className="flex items-baseline justify-between text-[10px] text-muted">
+              <span>Fat</span>
+              <span className="font-semibold text-neutral-100 tabular-nums">{current.fat}/{targets.fat}g</span>
+            </div>
+            <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-neutral-800">
+              <div className="h-full bg-rose-400 transition-[width]" style={{ width: `${fatPct}%` }} />
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

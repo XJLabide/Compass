@@ -51,7 +51,7 @@ export const NORI_TOOLS: ToolDef[] = [
   {
     name: "list_routines",
     description:
-      "List the user's tracked habits (routines). Returns name, weekdays (0=Sun..6=Sat), active flag, current streak, best streak, and whether done today.",
+      "List the user's tracked habits (routines). Returns name, timeBlock (e.g. 'morning', 'before-bed'), weekdays (0=Sun..6=Sat), active flag, current streak, best streak, and whether done today.",
     parameters: { type: "object", properties: {} },
     isWrite: false,
   },
@@ -183,7 +183,7 @@ export const NORI_TOOLS: ToolDef[] = [
   },
   {
     name: "add_routine",
-    description: "Create a new tracked habit with a custom weekly schedule.",
+    description: "Create a new tracked habit with a custom weekly schedule, assigned to a time block.",
     parameters: {
       type: "object",
       properties: {
@@ -193,6 +193,11 @@ export const NORI_TOOLS: ToolDef[] = [
           items: { type: "number", minimum: 0, maximum: 6 },
           description:
             "Days of week the habit runs: 0=Sun, 1=Mon, ..., 6=Sat. Required, at least one.",
+        },
+        timeBlock: {
+          type: "string",
+          description:
+            "Time block id (e.g. 'morning', 'midday', 'after-workout', 'evening', 'before-bed', 'anytime'). Default 'anytime'.",
         },
       },
       required: ["name", "weekdays"],
@@ -246,6 +251,30 @@ export const NORI_TOOLS: ToolDef[] = [
     },
     isWrite: true,
     confirmLabel: "Save check-in",
+  },
+  {
+    name: "log_food",
+    description:
+      "Log a food item/meal to the user's daily journal. Specify name, calories, protein, carbs, fat, category, and date.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Food name (e.g. 'Oatmeal', 'Protein Shake'). Required." },
+        calories: { type: "number", description: "Calories in kcal. Required." },
+        proteinG: { type: "number", description: "Protein in grams. Required." },
+        carbsG: { type: "number", description: "Carbohydrates in grams. Required." },
+        fatG: { type: "number", description: "Fats in grams. Required." },
+        category: {
+          type: "string",
+          enum: ["breakfast", "lunch", "dinner", "snack"],
+          description: "Meal category. Default 'breakfast'.",
+        },
+        date: { ...isoDate, description: "Default: today in user's tz." },
+      },
+      required: ["name", "calories", "proteinG", "carbsG", "fatG"],
+    },
+    isWrite: true,
+    confirmLabel: "Log food",
   },
 ];
 

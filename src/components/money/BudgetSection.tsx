@@ -25,6 +25,8 @@ export interface BudgetSectionProps {
   /** Minor-unit spend per category for the current month. */
   spendByCategory: Map<string, number>;
   currency: string;
+  recurringCommitted: number;
+  totalSpent: number;
 }
 
 interface BudgetRow {
@@ -51,8 +53,11 @@ export default function BudgetSection({
   profile,
   spendByCategory,
   currency,
+  recurringCommitted,
+  totalSpent,
 }: BudgetSectionProps) {
   const budgets = useMemo(() => profile?.budgets ?? {}, [profile?.budgets]);
+  const monthlyCap = budgets.__monthly_total ?? 0;
 
   const allCategories = useMemo(
     () => listExpenseCategories(profile),
@@ -136,6 +141,38 @@ export default function BudgetSection({
     [uid, draft, budgets],
   );
 
+  const saveMonthlyCap = useCallback(async () => {
+    if (!uid) return;
+    const value = parseFloat(draft);
+    const minor = Number.isFinite(value) && value > 0 ? Math.round(value * 100) : 0;
+    setSaving(true);
+    setError(null);
+    try {
+      const next = { ...budgets };
+      if (minor === 0) {
+        delete next.__monthly_total;
+      } else {
+        next.__monthly_total = minor;
+      }
+      await setDoc(
+        profilePath(uid),
+        { budgets: next, updatedAt: serverTimestamp() },
+        { merge: true },
+      );
+      setEditing(null);
+      setDraft("");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to save monthly cap",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [uid, draft, budgets]);
+
+  const remainingAfterFixed =
+    monthlyCap > 0 ? monthlyCap - totalSpent - recurringCommitted : null;
+
   return (
     <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
       <div className="flex items-baseline justify-between">
@@ -143,6 +180,78 @@ export default function BudgetSection({
           Budgets
         </h2>
         <span className="text-[10px] text-muted">this month</span>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-border bg-neutral-950/30 p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-neutral-100">
+              Monthly spending cap
+            </div>
+            <div className="mt-0.5 text-[11px] text-muted">
+              Includes this month&apos;s spending and active recurring fees.
+            </div>
+          </div>
+          {editing === "__monthly_total" ? (
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                inputMode="decimal"
+                step="1"
+                min="0"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="0"
+                autoFocus
+                className="h-8 w-24 rounded-md border border-border bg-neutral-900 px-2 text-right text-xs text-neutral-100 tabular-nums focus:border-accent focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={saveMonthlyCap}
+                disabled={saving}
+                aria-label="Save monthly cap"
+                className="rounded-md bg-accent p-1.5 text-neutral-900 hover:brightness-110 disabled:opacity-50"
+              >
+                <Save className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                aria-label="Cancel monthly cap"
+                className="rounded-md border border-border bg-neutral-900 p-1.5 text-muted hover:text-neutral-200"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => startEdit("__monthly_total", monthlyCap)}
+              className="shrink-0 rounded-md border border-border bg-neutral-900 px-2 py-1 text-[10px] font-medium text-muted hover:text-neutral-200"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+          <BudgetStat
+            label="Cap"
+            value={monthlyCap > 0 ? formatMoney(monthlyCap, currency) : "Not set"}
+          />
+          <BudgetStat
+            label="Committed"
+            value={formatMoney(totalSpent + recurringCommitted, currency)}
+          />
+          <BudgetStat
+            label="Left"
+            value={
+              remainingAfterFixed === null
+                ? "Set cap"
+                : formatMoney(remainingAfterFixed, currency)
+            }
+            danger={remainingAfterFixed !== null && remainingAfterFixed < 0}
+          />
+        </div>
       </div>
 
       {error ? (
@@ -253,5 +362,32 @@ export default function BudgetSection({
         })}
       </ul>
     </section>
+  );
+}
+
+function BudgetStat({
+  label,
+  value,
+  danger,
+}: {
+  label: string;
+  value: string;
+  danger?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wide text-muted">
+        {label}
+      </div>
+      <div
+        className={
+          danger
+            ? "mt-0.5 font-semibold tabular-nums text-red-300"
+            : "mt-0.5 font-semibold tabular-nums text-neutral-100"
+        }
+      >
+        {value}
+      </div>
+    </div>
   );
 }

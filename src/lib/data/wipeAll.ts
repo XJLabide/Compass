@@ -29,6 +29,7 @@ import { getFirebaseDb } from "@/lib/firebase";
 const TOP_LEVEL_COLLECTIONS = [
   "todos",
   "expenses",
+  "recurringFees",
   "routines",
   "sessions",
   "daily",

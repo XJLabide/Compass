@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Bell,
   Clock,
+  CreditCard,
   Globe,
   LogOut,
   Ruler,
@@ -31,11 +32,13 @@ import CustomCategoriesSection from "@/components/settings/CustomCategoriesSecti
 import DangerZoneSection from "@/components/settings/DangerZoneSection";
 import DayWindowSection from "@/components/settings/DayWindowSection";
 import NotificationsSection from "@/components/settings/NotificationsSection";
+import RecurringFeesSection from "@/components/money/RecurringFeesSection";
 import TargetInput from "@/components/settings/TargetInput";
 import TimezoneSelect, {
   detectTimezone,
 } from "@/components/settings/TimezoneSelect";
 import UnitToggle from "@/components/settings/UnitToggle";
+import { computeLocalDate } from "@/lib/workout/scheduling";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -158,6 +161,30 @@ export default function SettingsPage() {
     [profile, persist],
   );
 
+  const handleCalorieCommit = useCallback(
+    (next: number) => {
+      if (profile?.calorieTargetKcal === next) return;
+      void persist({ calorieTargetKcal: next });
+    },
+    [profile, persist],
+  );
+
+  const handleCarbCommit = useCallback(
+    (next: number) => {
+      if (profile?.carbTargetG === next) return;
+      void persist({ carbTargetG: next });
+    },
+    [profile, persist],
+  );
+
+  const handleFatCommit = useCallback(
+    (next: number) => {
+      if (profile?.fatTargetG === next) return;
+      void persist({ fatTargetG: next });
+    },
+    [profile, persist],
+  );
+
   // ---------------------------------------------------------------------------
   // Sign-out (preserved from fn-2-6wx.3).
   // ---------------------------------------------------------------------------
@@ -176,6 +203,9 @@ export default function SettingsPage() {
   };
 
   const detectedTz = profile ? null : detectTimezone();
+  const settingsTz = profile?.timezone ?? detectedTz ?? "UTC";
+  const today = computeLocalDate(new Date(), settingsTz);
+  const currency = profile?.currency ?? "USD";
   // Disable inputs only while we haven't yet heard back from the snapshot.
   // After loading, even a missing profile doc renders the form with sensible
   // defaults so the user can configure their preferences.
@@ -234,10 +264,46 @@ export default function SettingsPage() {
       >
         <div className="space-y-4">
           <TargetInput
+            id="settings-calories-target"
+            label="Daily calories"
+            value={profile?.calorieTargetKcal ?? 0}
+            onCommit={handleCalorieCommit}
+            unit="kcal / day"
+            min={0}
+            max={20000}
+            step={10}
+            disabled={disabled}
+          />
+
+          <TargetInput
             id="settings-protein-target"
             label="Daily protein"
             value={profile?.proteinTargetG ?? 0}
             onCommit={handleProteinCommit}
+            unit="g / day"
+            min={0}
+            max={500}
+            step={1}
+            disabled={disabled}
+          />
+
+          <TargetInput
+            id="settings-carbs-target"
+            label="Daily carbohydrates"
+            value={profile?.carbTargetG ?? 0}
+            onCommit={handleCarbCommit}
+            unit="g / day"
+            min={0}
+            max={1000}
+            step={5}
+            disabled={disabled}
+          />
+
+          <TargetInput
+            id="settings-fat-target"
+            label="Daily fat"
+            value={profile?.fatTargetG ?? 0}
+            onCommit={handleFatCommit}
             unit="g / day"
             min={0}
             max={500}
@@ -286,6 +352,22 @@ export default function SettingsPage() {
       >
         <CustomCategoriesSection />
       </SettingsGroup>
+
+      {user?.uid ? (
+        <SettingsGroup
+          icon={CreditCard}
+          title="Recurring fees"
+          subtitle="Subscriptions, rent, insurance, and other predictable charges."
+        >
+          <RecurringFeesSection
+            uid={user.uid}
+            profile={profile}
+            currency={currency}
+            today={today}
+            framed={false}
+          />
+        </SettingsGroup>
+      ) : null}
 
       {/* Notifications */}
       <SettingsGroup

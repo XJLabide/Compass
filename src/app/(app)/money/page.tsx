@@ -29,12 +29,20 @@ import type { ExpenseDoc } from "@/lib/db/types";
 import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
 import BudgetSection from "@/components/money/BudgetSection";
+import RecurringFeesSection, {
+  type RecurringSummary,
+} from "@/components/money/RecurringFeesSection";
 import {
   displayCategory,
   listExpenseCategories,
 } from "@/lib/money/categories";
 
 const DEFAULT_CURRENCY = "USD";
+const EMPTY_RECURRING_SUMMARY: RecurringSummary = {
+  monthlyCommitted: 0,
+  activeCount: 0,
+  dueSoonCount: 0,
+};
 
 function formatMoney(minor: number, currency: string): string {
   const amount = minor / 100;
@@ -70,6 +78,8 @@ export default function MoneyPage() {
   const [category, setCategory] = useState<string>("food");
   const [kind, setKind] = useState<"expense" | "income">("expense");
   const [note, setNote] = useState("");
+  const [recurringSummary, setRecurringSummary] =
+    useState<RecurringSummary>(EMPTY_RECURRING_SUMMARY);
 
   const categoryOptions = useMemo(
     () => listExpenseCategories(profile),
@@ -114,6 +124,35 @@ export default function MoneyPage() {
   }, [rows]);
 
   const currency = rows?.[0]?.data.currency ?? userCurrency;
+
+  const moneyPlan = useMemo(() => {
+    const monthlyCap = profile?.budgets?.__monthly_total ?? 0;
+    const remainingAfterCommitments =
+      rows && monthlyCap > 0
+        ? monthlyCap - totals.expense - recurringSummary.monthlyCommitted
+        : null;
+    const day = Math.max(1, Number(today.slice(8, 10)));
+    const daysInMonth = new Date(
+      Number(today.slice(0, 4)),
+      Number(today.slice(5, 7)),
+      0,
+    ).getDate();
+    const daysLeft = Math.max(1, daysInMonth - day + 1);
+    return {
+      monthlyCap,
+      remainingAfterCommitments,
+      safeDaily:
+        remainingAfterCommitments === null
+          ? null
+          : Math.max(0, Math.floor(remainingAfterCommitments / daysLeft)),
+    };
+  }, [
+    profile?.budgets,
+    recurringSummary.monthlyCommitted,
+    rows,
+    today,
+    totals.expense,
+  ]);
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
@@ -209,6 +248,49 @@ export default function MoneyPage() {
           }
         />
       </div>
+
+      <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
+        <div className="grid gap-3 sm:grid-cols-4">
+          <DecisionCell
+            label="Recurring"
+            value={formatMoney(recurringSummary.monthlyCommitted, currency)}
+            hint={`${recurringSummary.activeCount} active`}
+          />
+          <DecisionCell
+            label="Budget cap"
+            value={
+              moneyPlan.monthlyCap > 0
+                ? formatMoney(moneyPlan.monthlyCap, currency)
+                : "Not set"
+            }
+            hint="monthly"
+          />
+          <DecisionCell
+            label="Free after bills"
+            value={
+              moneyPlan.remainingAfterCommitments === null
+                ? "Set budget"
+                : formatMoney(moneyPlan.remainingAfterCommitments, currency)
+            }
+            hint="budget minus spent and recurring"
+            tone={
+              moneyPlan.remainingAfterCommitments !== null &&
+              moneyPlan.remainingAfterCommitments < 0
+                ? "negative"
+                : "neutral"
+            }
+          />
+          <DecisionCell
+            label="Safe daily spend"
+            value={
+              moneyPlan.safeDaily === null
+                ? "Set budget"
+                : formatMoney(moneyPlan.safeDaily, currency)
+            }
+            hint="for the rest of month"
+          />
+        </div>
+      </section>
 
       {/* Quick-add form */}
       <form
@@ -315,12 +397,24 @@ export default function MoneyPage() {
 
       {/* Budgets */}
       {uid ? (
-        <BudgetSection
-          uid={uid}
-          profile={profile}
-          spendByCategory={totals.byCat}
-          currency={currency}
-        />
+        <>
+          <RecurringFeesSection
+            uid={uid}
+            profile={profile}
+            currency={currency}
+            today={today}
+            variant="overview"
+            onSummaryChange={setRecurringSummary}
+          />
+          <BudgetSection
+            uid={uid}
+            profile={profile}
+            spendByCategory={totals.byCat}
+            currency={currency}
+            recurringCommitted={recurringSummary.monthlyCommitted}
+            totalSpent={totals.expense}
+          />
+        </>
       ) : null}
 
       {/* Category breakdown */}
@@ -461,6 +555,36 @@ function SummaryCell({
           {value}
         </div>
       )}
+    </div>
+  );
+}
+
+function DecisionCell({
+  label,
+  value,
+  hint,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  tone?: "neutral" | "negative";
+}) {
+  return (
+    <div>
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted">
+        {label}
+      </div>
+      <div
+        className={
+          tone === "negative"
+            ? "mt-1 text-lg font-semibold tabular-nums text-red-300"
+            : "mt-1 text-lg font-semibold tabular-nums text-neutral-100"
+        }
+      >
+        {value}
+      </div>
+      <div className="mt-0.5 text-[11px] text-muted">{hint}</div>
     </div>
   );
 }
