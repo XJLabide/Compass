@@ -5,18 +5,19 @@ import { BookOpen, Coffee, Cookie, Flame, Plus, Trash2, Utensils } from "lucide-
 import clsx from "clsx";
 
 import type { FavoriteFood, LoggedMealItem, Profile } from "@/lib/db/types";
+import { Timestamp } from "firebase/firestore";
 import FoodLibraryModal from "./FoodLibraryModal";
 import MacroRatioChart from "./MacroRatioChart";
 
 const PRESETS = [
-  { name: "Eggs (2 large)", emoji: "🥚", calories: 140, protein: 12, carbs: 0, fat: 10 },
-  { name: "Chicken & Rice", emoji: "🍗", calories: 450, protein: 35, carbs: 50, fat: 8 },
-  { name: "Oats with Honey", emoji: "🥣", calories: 280, protein: 8, carbs: 55, fat: 4 },
-  { name: "Protein Shake", emoji: "🥤", calories: 160, protein: 25, carbs: 3, fat: 2 },
-  { name: "Banana", emoji: "🍌", calories: 105, protein: 1, carbs: 27, fat: 0 },
-  { name: "Avocado Toast", emoji: "🥑", calories: 320, protein: 8, carbs: 30, fat: 18 },
-  { name: "Whole Milk (glass)", emoji: "🥛", calories: 150, protein: 8, carbs: 12, fat: 8 },
-  { name: "Mixed Nuts (handful)", emoji: "🥜", calories: 180, protein: 5, carbs: 6, fat: 16 },
+  { name: "Chicken Breast", emoji: "🍗", calories: 165, protein: 31, carbs: 0, fat: 3.6, base: 100, isGrams: true },
+  { name: "White Rice (cooked)", emoji: "🍚", calories: 130, protein: 2.7, carbs: 28, fat: 0.3, base: 100, isGrams: true },
+  { name: "Large Egg", emoji: "🥚", calories: 70, protein: 6, carbs: 0, fat: 5, base: 1, isGrams: false },
+  { name: "Oats (dry)", emoji: "🥣", calories: 389, protein: 16.9, carbs: 66.3, fat: 6.9, base: 100, isGrams: true },
+  { name: "Banana", emoji: "🍌", calories: 105, protein: 1.3, carbs: 27, fat: 0.3, base: 1, isGrams: false },
+  { name: "Avocado", emoji: "🥑", calories: 160, protein: 2, carbs: 9, fat: 15, base: 100, isGrams: true },
+  { name: "Protein Powder", emoji: "🥤", calories: 120, protein: 24, carbs: 3, fat: 1.5, base: 1, isGrams: false },
+  { name: "Whole Milk", emoji: "🥛", calories: 150, protein: 8, carbs: 12, fat: 8, base: 1, isGrams: false },
 ];
 
 export interface MealLoggerProps {
@@ -44,6 +45,10 @@ export default function MealLogger({
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
   const [category, setCategory] = useState<LoggedMealItem["category"]>("breakfast");
+
+  // Portion scaling state
+  const [selectedPreset, setSelectedPreset] = useState<typeof PRESETS[number] | null>(null);
+  const [servingSize, setServingSize] = useState("");
 
   // Daily totals
   const totals = useMemo(() => {
@@ -89,17 +94,53 @@ export default function MealLogger({
     const newItem: LoggedMealItem = {
       ...item,
       id: `meal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: { toDate: () => new Date() } as any, // Mock Timestamp or SDK compatible representation
+      createdAt: Timestamp.now(),
     };
     onUpdateMeals?.([...loggedMeals, newItem]);
+  };
+
+  const handleSelectPreset = (p: typeof PRESETS[number]) => {
+    setSelectedPreset(p);
+    setServingSize(String(p.base));
+    setName(p.name);
+    setCalories(String(p.calories));
+    setProtein(String(p.protein));
+    setCarbs(String(p.carbs));
+    setFat(String(p.fat));
+  };
+
+  const handleServingSizeChange = (val: string) => {
+    setServingSize(val);
+    if (!selectedPreset) return;
+    const numericSize = parseFloat(val) || 0;
+    if (numericSize <= 0) return;
+
+    const scale = numericSize / selectedPreset.base;
+    setCalories(String(Math.round(selectedPreset.calories * scale)));
+    setProtein(String(Math.round(selectedPreset.protein * scale)));
+    setCarbs(String(Math.round(selectedPreset.carbs * scale)));
+    setFat(String(Math.round(selectedPreset.fat * scale)));
+  };
+
+  const handleManualMacroChange = (setter: (v: string) => void, val: string) => {
+    setter(val);
+    setSelectedPreset(null);
   };
 
   const handleQuickAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
+    let finalName = name.trim();
+    if (selectedPreset) {
+      const unit = selectedPreset.isGrams ? "g" : "x";
+      if (parseFloat(servingSize) !== selectedPreset.base || selectedPreset.isGrams) {
+        finalName = `${selectedPreset.name} (${servingSize}${unit})`;
+      }
+    }
+
     handleAddMealItem({
-      name: name.trim(),
+      name: finalName,
       calories: parseInt(calories) || 0,
       proteinG: parseInt(protein) || 0,
       carbsG: parseInt(carbs) || 0,
@@ -113,6 +154,8 @@ export default function MealLogger({
     setProtein("");
     setCarbs("");
     setFat("");
+    setSelectedPreset(null);
+    setServingSize("");
     setShowAddForm(false);
   };
 
@@ -275,27 +318,102 @@ export default function MealLogger({
           <div className="space-y-2">
             <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted">Quick Presets</h5>
             <div className="grid grid-cols-4 gap-1.5">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.name}
-                  type="button"
-                  onClick={() => {
-                    setName(p.name);
-                    setCalories(String(p.calories));
-                    setProtein(String(p.protein));
-                    setCarbs(String(p.carbs));
-                    setFat(String(p.fat));
-                  }}
-                  className="flex flex-col items-center justify-center rounded-lg border border-border bg-neutral-900/60 p-2 text-center transition hover:bg-neutral-800"
-                >
-                  <span className="text-lg">{p.emoji}</span>
-                  <span className="mt-1 text-[8px] font-bold text-neutral-300 truncate w-full px-0.5">
-                    {p.name.split(" ")[0]}
-                  </span>
-                </button>
-              ))}
+              {PRESETS.map((p) => {
+                const active = selectedPreset?.name === p.name;
+                return (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => handleSelectPreset(p)}
+                    className={clsx(
+                      "flex flex-col items-center justify-center rounded-lg border p-2 text-center transition",
+                      active
+                        ? "border-accent bg-accent/10 text-accent"
+                        : "border-border bg-neutral-900/60 text-neutral-300 hover:bg-neutral-800"
+                    )}
+                  >
+                    <span className="text-lg">{p.emoji}</span>
+                    <span className="mt-1 text-[8px] font-bold truncate w-full px-0.5">
+                      {p.name.split(" ")[0]}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
+
+          {/* Portion Adjuster if preset is selected */}
+          {selectedPreset && (
+            <div className="rounded-lg border border-accent/20 bg-accent/5 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-accent flex items-center gap-1">
+                  Scale Portion: {selectedPreset.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPreset(null);
+                    setServingSize("");
+                  }}
+                  className="text-[9px] text-muted hover:text-neutral-200"
+                >
+                  Clear Scale
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={servingSize}
+                    onChange={(e) => handleServingSizeChange(e.target.value)}
+                    className="h-8 w-20 rounded-lg border border-border bg-neutral-900 px-2.5 text-center text-xs text-neutral-100 focus:border-accent focus:outline-none"
+                  />
+                  <span className="text-xs text-muted">
+                    {selectedPreset.isGrams ? "grams (g)" : "qty"}
+                  </span>
+                </div>
+                {/* Weight helper presets */}
+                {selectedPreset.isGrams && (
+                  <div className="flex gap-1">
+                    {[50, 100, 150, 200].map((w) => (
+                      <button
+                        key={w}
+                        type="button"
+                        onClick={() => handleServingSizeChange(String(w))}
+                        className={clsx(
+                          "rounded px-2 py-1 text-[9px] font-bold transition",
+                          parseFloat(servingSize) === w
+                            ? "bg-accent text-neutral-950"
+                            : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                        )}
+                      >
+                        {w}g
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {!selectedPreset.isGrams && (
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4].map((qty) => (
+                      <button
+                        key={qty}
+                        type="button"
+                        onClick={() => handleServingSizeChange(String(qty))}
+                        className={clsx(
+                          "rounded px-2.5 py-1 text-[9px] font-bold transition",
+                          parseFloat(servingSize) === qty
+                            ? "bg-accent text-neutral-950"
+                            : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                        )}
+                      >
+                        {qty}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-4 border-t border-border/40 pt-3">
             <div className="space-y-1">
@@ -304,7 +422,7 @@ export default function MealLogger({
                 type="text"
                 required
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => handleManualMacroChange(setName, e.target.value)}
                 placeholder="e.g. Oatmeal"
                 className="h-9 w-full rounded-lg border border-border bg-neutral-900 px-3 text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
               />
@@ -317,7 +435,7 @@ export default function MealLogger({
                 <input
                   type="number"
                   value={calories}
-                  onChange={(e) => setCalories(e.target.value)}
+                  onChange={(e) => handleManualMacroChange(setCalories, e.target.value)}
                   placeholder="kcal"
                   className="h-8 w-24 rounded-lg border border-border bg-neutral-900 px-2.5 text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
                 />
@@ -326,7 +444,7 @@ export default function MealLogger({
                     <button
                       key={inc}
                       type="button"
-                      onClick={() => setCalories((c) => String((parseInt(c) || 0) + parseInt(inc)))}
+                      onClick={() => handleManualMacroChange(setCalories, String((parseInt(calories) || 0) + parseInt(inc)))}
                       className="rounded bg-neutral-800 px-2 py-0.5 text-[10px] font-bold text-neutral-300 hover:bg-neutral-700 transition"
                     >
                       {inc}
@@ -341,7 +459,7 @@ export default function MealLogger({
                 <input
                   type="number"
                   value={protein}
-                  onChange={(e) => setProtein(e.target.value)}
+                  onChange={(e) => handleManualMacroChange(setProtein, e.target.value)}
                   placeholder="grams"
                   className="h-8 w-24 rounded-lg border border-border bg-neutral-900 px-2.5 text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
                 />
@@ -350,7 +468,7 @@ export default function MealLogger({
                     <button
                       key={inc}
                       type="button"
-                      onClick={() => setProtein((p) => String((parseInt(p) || 0) + parseInt(inc)))}
+                      onClick={() => handleManualMacroChange(setProtein, String((parseInt(protein) || 0) + parseInt(inc)))}
                       className="rounded bg-cyan-950/40 border border-cyan-800/30 px-2 py-0.5 text-[10px] font-bold text-cyan-300 hover:bg-cyan-900/40 transition"
                     >
                       {inc}g
@@ -365,7 +483,7 @@ export default function MealLogger({
                 <input
                   type="number"
                   value={carbs}
-                  onChange={(e) => setCarbs(e.target.value)}
+                  onChange={(e) => handleManualMacroChange(setCarbs, e.target.value)}
                   placeholder="grams"
                   className="h-8 w-24 rounded-lg border border-border bg-neutral-900 px-2.5 text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
                 />
@@ -374,7 +492,7 @@ export default function MealLogger({
                     <button
                       key={inc}
                       type="button"
-                      onClick={() => setCarbs((c) => String((parseInt(c) || 0) + parseInt(inc)))}
+                      onClick={() => handleManualMacroChange(setCarbs, String((parseInt(carbs) || 0) + parseInt(inc)))}
                       className="rounded bg-amber-950/40 border border-amber-800/30 px-2 py-0.5 text-[10px] font-bold text-amber-300 hover:bg-amber-900/40 transition"
                     >
                       {inc}g
@@ -389,7 +507,7 @@ export default function MealLogger({
                 <input
                   type="number"
                   value={fat}
-                  onChange={(e) => setFat(e.target.value)}
+                  onChange={(e) => handleManualMacroChange(setFat, e.target.value)}
                   placeholder="grams"
                   className="h-8 w-24 rounded-lg border border-border bg-neutral-900 px-2.5 text-xs text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
                 />
