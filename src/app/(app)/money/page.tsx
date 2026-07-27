@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type FormEvent,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   addDoc,
   deleteDoc,
@@ -19,23 +13,26 @@ import {
 import {
   ArrowDownRight,
   ArrowUpRight,
+  TrendingUp,
   Trash2,
   Wallet,
+  PieChart,
+  DollarSign,
 } from "lucide-react";
+import clsx from "clsx";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
-import { expensePath, expensesPath } from "@/lib/db/paths";
-import type { ExpenseDoc } from "@/lib/db/types";
+import { accountsPath, expensePath, expensesPath, portfolioPath } from "@/lib/db/paths";
+import type { AccountBalanceDoc, ExpenseDoc, PortfolioHoldingDoc } from "@/lib/db/types";
 import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
 import BudgetSection from "@/components/money/BudgetSection";
 import RecurringFeesSection, {
   type RecurringSummary,
 } from "@/components/money/RecurringFeesSection";
-import {
-  displayCategory,
-  listExpenseCategories,
-} from "@/lib/money/categories";
+import { displayCategory, listExpenseCategories } from "@/lib/money/categories";
+import PortfolioTab from "@/components/money/PortfolioTab";
+import BalancesTab from "@/components/money/BalancesTab";
 
 const DEFAULT_CURRENCY = "USD";
 const EMPTY_RECURRING_SUMMARY: RecurringSummary = {
@@ -59,34 +56,69 @@ function formatMoney(minor: number, currency: string): string {
   }
 }
 
-type Row = { id: string; data: ExpenseDoc };
+type ExpenseRow = { id: string; data: ExpenseDoc };
 
-export default function MoneyPage() {
+export default function FinancePage() {
   const { uid, profile, effectiveProfile } = useUserData();
   const tz = effectiveProfile?.timezone ?? "UTC";
   const userCurrency = effectiveProfile?.currency ?? DEFAULT_CURRENCY;
-  const today = useMemo(
-    () => computeLocalDate(new Date(), tz),
-    [tz],
-  );
+  const today = useMemo(() => computeLocalDate(new Date(), tz), [tz]);
   const monthStart = useMemo(() => `${today.slice(0, 7)}-01`, [today]);
 
-  const [rows, setRows] = useState<Row[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"portfolio" | "balances" | "cashflow">("portfolio");
 
+  // State for net worth aggregation
+  const [liquidTotal, setLiquidTotal] = useState(0);
+  const [portfolioTotal, setPortfolioTotal] = useState(0);
+
+  // Cash flow state
+  const [rows, setRows] = useState<ExpenseRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<string>("food");
   const [kind, setKind] = useState<"expense" | "income">("expense");
   const [note, setNote] = useState("");
-  const [recurringSummary, setRecurringSummary] =
-    useState<RecurringSummary>(EMPTY_RECURRING_SUMMARY);
-
-  const categoryOptions = useMemo(
-    () => listExpenseCategories(profile),
-    [profile],
-  );
+  const [recurringSummary, setRecurringSummary] = useState<RecurringSummary>(EMPTY_RECURRING_SUMMARY);
   const [adding, setAdding] = useState(false);
 
+  const categoryOptions = useMemo(() => listExpenseCategories(profile), [profile]);
+
+  // Subscribe to liquid accounts total for Net Worth hero
+  useEffect(() => {
+    if (!uid) return;
+    const unsub = onSnapshot(accountsPath(uid), (snap) => {
+      const total = snap.docs.reduce((acc, doc) => acc + (doc.data().balanceMinor || 0) / 100, 0);
+      setLiquidTotal(total);
+    });
+    return unsub;
+  }, [uid]);
+
+  // Subscribe to portfolio holdings total for Net Worth hero
+  useEffect(() => {
+    if (!uid) return;
+    const unsub = onSnapshot(portfolioPath(uid), (snap) => {
+      const tickers = Array.from(new Set(snap.docs.map((d) => d.data().ticker)));
+      if (tickers.length === 0) return;
+
+      // Fetch live stock quotes
+      fetch(`/api/finance/quote?symbols=${encodeURIComponent(tickers.join(","))}`)
+        .then((r) => r.json())
+        .then((json) => {
+          const quotes = json?.quotes || {};
+          let sum = 0;
+          snap.docs.forEach((d) => {
+            const h = d.data() as PortfolioHoldingDoc;
+            const price = quotes[h.ticker]?.price ?? h.costBasisPerShare ?? 100;
+            sum += price * h.shares;
+          });
+          setPortfolioTotal(sum);
+        })
+        .catch(() => {});
+    });
+    return unsub;
+  }, [uid]);
+
+  // Subscribe to cash flow expenses
   useEffect(() => {
     if (!uid) return;
     const q = query(
@@ -100,491 +132,358 @@ export default function MoneyPage() {
         setRows(snap.docs.map((d) => ({ id: d.id, data: d.data() })));
         setError(null);
       },
-      (err) => setError(err.message),
+      (err) => {
+        setError(err.message);
+        setRows([]);
+      },
     );
-    return () => unsub();
+    return unsub;
   }, [uid, monthStart]);
 
-  const totals = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    const byCat = new Map<string, number>();
-    for (const r of rows ?? []) {
-      if (r.data.kind === "income") {
-        income += r.data.amountMinor;
-      } else {
-        expense += r.data.amountMinor;
-        byCat.set(
-          r.data.category,
-          (byCat.get(r.data.category) ?? 0) + r.data.amountMinor,
-        );
-      }
+  const { monthIncomeMinor, monthExpenseMinor } = useMemo(() => {
+    if (!rows) return { monthIncomeMinor: 0, monthExpenseMinor: 0 };
+    let inc = 0;
+    let exp = 0;
+    for (const r of rows) {
+      if (r.data.kind === "income") inc += r.data.amountMinor;
+      else exp += r.data.amountMinor;
     }
-    return { income, expense, net: income - expense, byCat };
+    return { monthIncomeMinor: inc, monthExpenseMinor: exp };
   }, [rows]);
 
-  const currency = rows?.[0]?.data.currency ?? userCurrency;
+  const spendByCategory = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!rows) return map;
+    for (const r of rows) {
+      if (r.data.kind === "expense") {
+        const cat = r.data.category || "other";
+        map.set(cat, (map.get(cat) || 0) + r.data.amountMinor);
+      }
+    }
+    return map;
+  }, [rows]);
 
-  const moneyPlan = useMemo(() => {
-    const monthlyCap = profile?.budgets?.__monthly_total ?? 0;
-    const remainingAfterCommitments =
-      rows && monthlyCap > 0
-        ? monthlyCap - totals.expense - recurringSummary.monthlyCommitted
-        : null;
-    const day = Math.max(1, Number(today.slice(8, 10)));
-    const daysInMonth = new Date(
-      Number(today.slice(0, 4)),
-      Number(today.slice(5, 7)),
-      0,
-    ).getDate();
-    const daysLeft = Math.max(1, daysInMonth - day + 1);
-    return {
-      monthlyCap,
-      remainingAfterCommitments,
-      safeDaily:
-        remainingAfterCommitments === null
-          ? null
-          : Math.max(0, Math.floor(remainingAfterCommitments / daysLeft)),
-    };
-  }, [
-    profile?.budgets,
-    recurringSummary.monthlyCommitted,
-    rows,
-    today,
-    totals.expense,
-  ]);
-
-  const handleSubmit = useCallback(
+  const handleAddExpense = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
-      if (!uid || adding) return;
-      const value = parseFloat(amount);
-      if (Number.isNaN(value) || value <= 0) return;
+      if (!uid) return;
+
+      const num = parseFloat(amount);
+      if (!Number.isFinite(num) || num <= 0) {
+        setError("Please enter a valid positive amount.");
+        return;
+      }
+      const amountMinor = Math.round(num * 100);
+
       setAdding(true);
+      setError(null);
+
       try {
-        const minor = Math.round(value * 100);
-        // Firestore rejects `undefined` field values, so build the payload
-        // with the note key only when it has content.
-        const trimmedNote = note.trim();
-        const payload: Record<string, unknown> = {
-          amountMinor: minor,
+        await addDoc(expensesPath(uid), {
+          amountMinor,
           currency: userCurrency,
           kind,
-          category: kind === "income" ? "income" : category,
+          category: category.trim() || "other",
           localDate: today,
-          date: serverTimestamp(),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-        if (trimmedNote) payload.note = trimmedNote;
-        await addDoc(expensesPath(uid), payload as unknown as ExpenseDoc);
+          date: serverTimestamp() as any,
+          note: note.trim() || undefined,
+          createdAt: serverTimestamp() as any,
+          updatedAt: serverTimestamp() as any,
+        });
+
         setAmount("");
         setNote("");
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to add entry",
-        );
+        setError(err instanceof Error ? err.message : "Failed to add entry.");
       } finally {
         setAdding(false);
       }
     },
-    [uid, adding, amount, kind, category, note, today, userCurrency],
+    [uid, amount, userCurrency, kind, category, today, note],
   );
 
-  const remove = useCallback(
+  const handleDeleteExpense = useCallback(
     async (id: string) => {
       if (!uid) return;
       try {
         await deleteDoc(expensePath(uid, id));
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to delete entry",
-        );
+        setError(err instanceof Error ? err.message : "Failed to delete entry.");
       }
     },
     [uid],
   );
 
-  const monthLabel = useMemo(() => {
-    try {
-      return new Intl.DateTimeFormat("en-US", {
-        timeZone: tz,
-        month: "long",
-        year: "numeric",
-      }).format(new Date());
-    } catch {
-      return today.slice(0, 7);
-    }
-  }, [tz, today]);
+  if (!uid) return null;
+
+  const totalNetWorth = liquidTotal + portfolioTotal;
 
   return (
-    <section className="space-y-4">
-      <header className="flex items-baseline justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-neutral-100">Money</h1>
-        <span className="text-xs text-muted">{monthLabel}</span>
-      </header>
-
-      {/* Month totals */}
-      <div className="grid grid-cols-3 gap-3">
-        <SummaryCell
-          label="Income"
-          value={rows ? formatMoney(totals.income, currency) : null}
-          tone="positive"
-        />
-        <SummaryCell
-          label="Spent"
-          value={rows ? formatMoney(totals.expense, currency) : null}
-          tone="negative"
-        />
-        <SummaryCell
-          label="Net"
-          value={rows ? formatMoney(totals.net, currency) : null}
-          tone={
-            !rows
-              ? "neutral"
-              : totals.net >= 0
-                ? "positive"
-                : "negative"
-          }
-        />
+    <section className="space-y-6 pb-12">
+      {/* Header */}
+      <div className="flex flex-col gap-1 border-b border-border pb-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">Finance</h1>
+          <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-400">
+            Live Market Data
+          </span>
+        </div>
+        <p className="text-xs text-muted">
+          Net worth, stock & ETF portfolio tracking, liquid balances, and cash flow.
+        </p>
       </div>
 
-      <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
-        <div className="grid gap-3 sm:grid-cols-4">
-          <DecisionCell
-            label="Recurring"
-            value={formatMoney(recurringSummary.monthlyCommitted, currency)}
-            hint={`${recurringSummary.activeCount} active`}
-          />
-          <DecisionCell
-            label="Budget cap"
-            value={
-              moneyPlan.monthlyCap > 0
-                ? formatMoney(moneyPlan.monthlyCap, currency)
-                : "Not set"
-            }
-            hint="monthly"
-          />
-          <DecisionCell
-            label="Free after bills"
-            value={
-              moneyPlan.remainingAfterCommitments === null
-                ? "Set budget"
-                : formatMoney(moneyPlan.remainingAfterCommitments, currency)
-            }
-            hint="budget minus spent and recurring"
-            tone={
-              moneyPlan.remainingAfterCommitments !== null &&
-              moneyPlan.remainingAfterCommitments < 0
-                ? "negative"
-                : "neutral"
-            }
-          />
-          <DecisionCell
-            label="Safe daily spend"
-            value={
-              moneyPlan.safeDaily === null
-                ? "Set budget"
-                : formatMoney(moneyPlan.safeDaily, currency)
-            }
-            hint="for the rest of month"
-          />
-        </div>
-      </section>
-
-      {/* Quick-add form */}
-      <form
-        onSubmit={handleSubmit}
-        className="rounded-xl border border-border bg-neutral-900/40 p-4 space-y-3"
-      >
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setKind("expense")}
-            className={
-              kind === "expense"
-                ? "h-9 flex-1 rounded-md bg-red-500/20 text-sm font-medium text-red-200"
-                : "h-9 flex-1 rounded-md bg-neutral-800/60 text-sm text-muted hover:text-neutral-200"
-            }
-          >
-            Expense
-          </button>
-          <button
-            type="button"
-            onClick={() => setKind("income")}
-            className={
-              kind === "income"
-                ? "h-9 flex-1 rounded-md bg-emerald-500/20 text-sm font-medium text-emerald-200"
-                : "h-9 flex-1 rounded-md bg-neutral-800/60 text-sm text-muted hover:text-neutral-200"
-            }
-          >
-            Income
-          </button>
-        </div>
-
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <label
-              htmlFor="money-amount"
-              className="block text-[10px] uppercase tracking-wide text-muted"
-            >
-              Amount
-            </label>
-            <input
-              id="money-amount"
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              min="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              className="mt-1 h-11 w-full rounded-md border border-border bg-neutral-900 px-3 text-sm text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
-              required
-            />
+      {/* Net Worth Hero Overview Banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-neutral-900 via-neutral-900/90 to-neutral-950 p-6 shadow-xl">
+        <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+              Total Net Worth
+            </span>
+            <h2 className="mt-1 text-4xl font-extrabold tracking-tight text-neutral-100">
+              ${totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </h2>
           </div>
-          {kind === "expense" ? (
-            <div className="flex-1">
-              <label
-                htmlFor="money-category"
-                className="block text-[10px] uppercase tracking-wide text-muted"
-              >
-                Category
-              </label>
-              <select
-                id="money-category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="mt-1 h-11 w-full rounded-md border border-border bg-neutral-900 px-3 text-sm text-neutral-100 focus:border-accent focus:outline-none"
-              >
-                {categoryOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                    {c.custom ? " ·" : ""}
-                  </option>
-                ))}
-              </select>
+
+          <div className="flex flex-wrap gap-4 border-t border-border/50 pt-3 sm:border-t-0 sm:pt-0">
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-400">
+                Liquid Cash
+              </span>
+              <p className="text-base font-bold text-neutral-100">
+                ${liquidTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
             </div>
-          ) : null}
+            <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 px-4 py-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-400">
+                Invested Assets
+              </span>
+              <p className="text-base font-bold text-neutral-100">
+                ${portfolioTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <input
-          type="text"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Note (optional)"
-          className="h-10 w-full rounded-md border border-border bg-neutral-900 px-3 text-sm text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none"
-        />
-
+      {/* 3 Smart Sub-Tabs */}
+      <div className="flex border-b border-border/60">
         <button
-          type="submit"
-          disabled={adding || !amount}
-          className="h-11 w-full rounded-md bg-accent text-sm font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => setActiveTab("portfolio")}
+          className={clsx(
+            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition",
+            activeTab === "portfolio"
+              ? "border-accent text-accent"
+              : "border-transparent text-muted hover:text-neutral-200",
+          )}
         >
-          {adding ? "Saving…" : kind === "expense" ? "Add expense" : "Add income"}
+          <TrendingUp className="h-4 w-4" />
+          📈 Portfolio & Stocks
         </button>
-      </form>
-
-      {error ? (
-        <div
-          role="alert"
-          aria-live="polite"
-          className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+        <button
+          onClick={() => setActiveTab("balances")}
+          className={clsx(
+            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition",
+            activeTab === "balances"
+              ? "border-accent text-accent"
+              : "border-transparent text-muted hover:text-neutral-200",
+          )}
         >
-          {error}
-        </div>
-      ) : null}
+          <Wallet className="h-4 w-4" />
+          💵 Balances & Accounts
+        </button>
+        <button
+          onClick={() => setActiveTab("cashflow")}
+          className={clsx(
+            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition",
+            activeTab === "cashflow"
+              ? "border-accent text-accent"
+              : "border-transparent text-muted hover:text-neutral-200",
+          )}
+        >
+          <DollarSign className="h-4 w-4" />
+          💸 Cash Flow (Daily Log)
+        </button>
+      </div>
 
-      {/* Budgets */}
-      {uid ? (
-        <>
-          <RecurringFeesSection
-            uid={uid}
-            profile={profile}
-            currency={currency}
-            today={today}
-            variant="overview"
-            onSummaryChange={setRecurringSummary}
-          />
+      {/* Active Tab Views */}
+      {activeTab === "portfolio" && <PortfolioTab uid={uid} />}
+
+      {activeTab === "balances" && <BalancesTab uid={uid} userCurrency={userCurrency} />}
+
+      {activeTab === "cashflow" && (
+        <div className="space-y-6">
+          {/* Monthly Cash Flow Summaries */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-border bg-neutral-900/40 p-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                <ArrowDownRight className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="text-xs text-muted">Income (This Month)</span>
+                <p className="text-xl font-bold text-emerald-400">
+                  {formatMoney(monthIncomeMinor, userCurrency)}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-neutral-900/40 p-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400">
+                <ArrowUpRight className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="text-xs text-muted">Expenses (This Month)</span>
+                <p className="text-xl font-bold text-rose-400">
+                  {formatMoney(monthExpenseMinor, userCurrency)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Expense/Income Entry Form */}
+          <div className="rounded-xl border border-border bg-neutral-900/40 p-4 space-y-4">
+            <h3 className="text-sm font-semibold text-neutral-100">Log Cash Flow Entry</h3>
+
+            {error && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleAddExpense} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <div>
+                <label className="text-xs text-muted">Type</label>
+                <select
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value as "expense" | "income")}
+                  className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="expense">Expense</option>
+                  <option value="income">Income</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs text-muted">Amount ($)</label>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-muted">Category</label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  {categoryOptions.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  type="submit"
+                  disabled={adding}
+                  className="w-full rounded-lg bg-accent py-2 text-xs font-semibold text-accent-foreground transition hover:opacity-90"
+                >
+                  {adding ? "Saving..." : "Log Entry"}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Transactions History */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-neutral-200">Recent Transactions</h3>
+
+            {!rows ? (
+              <Skeleton className="h-24 w-full" />
+            ) : rows.length === 0 ? (
+              <div className="rounded-xl border border-border/50 p-6 text-center text-xs text-muted">
+                No entries logged this month yet.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {rows.map((r) => {
+                  const isInc = r.data.kind === "income";
+                  return (
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between rounded-xl border border-border/60 bg-neutral-900/30 p-3.5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                            isInc
+                              ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                              : "border border-rose-500/30 bg-rose-500/10 text-rose-400"
+                          }`}
+                        >
+                          {isInc ? (
+                            <ArrowDownRight className="h-4 w-4" />
+                          ) : (
+                            <ArrowUpRight className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-sm text-neutral-100">
+                            {displayCategory(r.data.category)}
+                          </span>
+                          <p className="text-xs text-muted">{r.data.localDate}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <span
+                          className={`font-semibold text-sm ${
+                            isInc ? "text-emerald-400" : "text-neutral-100"
+                          }`}
+                        >
+                          {isInc ? "+" : "-"}
+                          {formatMoney(r.data.amountMinor, userCurrency)}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteExpense(r.id)}
+                          className="text-muted hover:text-rose-400 transition"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <BudgetSection
             uid={uid}
             profile={profile}
-            spendByCategory={totals.byCat}
-            currency={currency}
+            spendByCategory={spendByCategory}
+            currency={userCurrency}
             recurringCommitted={recurringSummary.monthlyCommitted}
-            totalSpent={totals.expense}
+            totalSpent={monthExpenseMinor}
           />
-        </>
-      ) : null}
-
-      {/* Category breakdown */}
-      {rows && rows.length > 0 && totals.expense > 0 ? (
-        <section
-          aria-label="Spending by category"
-          className="rounded-xl border border-border bg-neutral-900/40 p-4"
-        >
-          <h2 className="text-xs font-medium uppercase tracking-wide text-muted">
-            By category
-          </h2>
-          <ul className="mt-3 space-y-2">
-            {[...totals.byCat.entries()]
-              .sort(([, a], [, b]) => b - a)
-              .map(([cat, minor]) => {
-                const pct = (minor / totals.expense) * 100;
-                return (
-                  <li key={cat} className="flex items-center gap-3">
-                    <span className="w-24 shrink-0 truncate text-xs text-muted">
-                      {displayCategory(cat)}
-                    </span>
-                    <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-neutral-800/70">
-                      <div
-                        className="absolute inset-y-0 left-0 rounded-full bg-accent/70"
-                        style={{ width: `${Math.max(4, pct)}%` }}
-                      />
-                    </div>
-                    <span className="w-24 shrink-0 text-right text-xs tabular-nums text-neutral-200">
-                      {formatMoney(minor, currency)}
-                    </span>
-                  </li>
-                );
-              })}
-          </ul>
-        </section>
-      ) : null}
-
-      {/* Recent entries */}
-      <section aria-label="Entries">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-muted">
-          This month
-        </h2>
-        {rows === null ? (
-          <div className="mt-2 space-y-2">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="mt-2 rounded-xl border border-dashed border-border bg-neutral-900/30 px-4 py-8 text-center">
-            <Wallet aria-hidden className="mx-auto h-6 w-6 text-muted" />
-            <p className="mt-2 text-sm font-medium text-neutral-100">
-              No entries this month
-            </p>
-            <p className="mt-1 text-xs text-muted">
-              Add your first expense or income above.
-            </p>
-          </div>
-        ) : (
-          <ul className="mt-2 divide-y divide-border overflow-hidden rounded-xl border border-border bg-neutral-900/40">
-            {rows.map((r) => (
-              <li
-                key={r.id}
-                className="group flex items-center gap-3 px-3 py-3 transition-colors hover:bg-neutral-800/40"
-              >
-                <div
-                  className={
-                    r.data.kind === "income"
-                      ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400"
-                      : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400"
-                  }
-                >
-                  {r.data.kind === "income" ? (
-                    <ArrowDownRight className="h-4 w-4" />
-                  ) : (
-                    <ArrowUpRight className="h-4 w-4" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-neutral-100">
-                    {r.data.note || displayCategory(r.data.category)}
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted">
-                    {displayCategory(r.data.category)} · {r.data.localDate}
-                  </div>
-                </div>
-                <span
-                  className={
-                    r.data.kind === "income"
-                      ? "shrink-0 text-sm font-semibold text-emerald-300 tabular-nums"
-                      : "shrink-0 text-sm font-semibold text-neutral-100 tabular-nums"
-                  }
-                >
-                  {r.data.kind === "income" ? "+" : "−"}
-                  {formatMoney(r.data.amountMinor, r.data.currency)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => remove(r.id)}
-                  aria-label="Delete entry"
-                  className="shrink-0 rounded-md p-1 text-muted opacity-60 transition-opacity hover:bg-red-500/10 hover:text-red-300 hover:opacity-100 focus-visible:opacity-100"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </section>
-  );
-}
-
-function SummaryCell({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string | null;
-  tone: "positive" | "negative" | "neutral";
-}) {
-  const color =
-    tone === "positive"
-      ? "text-emerald-300"
-      : tone === "negative"
-        ? "text-red-300"
-        : "text-neutral-200";
-  return (
-    <div className="rounded-lg border border-border bg-neutral-900/60 px-3 py-2">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-muted">
-        {label}
-      </div>
-      {value === null ? (
-        <Skeleton className="mt-1 h-5 w-20" />
-      ) : (
-        <div className={`mt-0.5 text-base font-semibold tabular-nums ${color}`}>
-          {value}
+          <RecurringFeesSection
+            uid={uid}
+            profile={profile}
+            currency={userCurrency}
+            today={today}
+            onSummaryChange={setRecurringSummary}
+          />
         </div>
       )}
-    </div>
-  );
-}
-
-function DecisionCell({
-  label,
-  value,
-  hint,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  tone?: "neutral" | "negative";
-}) {
-  return (
-    <div>
-      <div className="text-[10px] font-medium uppercase tracking-wide text-muted">
-        {label}
-      </div>
-      <div
-        className={
-          tone === "negative"
-            ? "mt-1 text-lg font-semibold tabular-nums text-red-300"
-            : "mt-1 text-lg font-semibold tabular-nums text-neutral-100"
-        }
-      >
-        {value}
-      </div>
-      <div className="mt-0.5 text-[11px] text-muted">{hint}</div>
-    </div>
+    </section>
   );
 }

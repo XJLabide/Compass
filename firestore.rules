@@ -240,6 +240,14 @@ service cloud.firestore {
         allow delete: if isOwner(uid);
       }
 
+      match /portfolio/{holdingId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /accounts/{accountId} {
+        allow read, write: if isOwner(uid);
+      }
+
       // Nori (AI assistant) chat threads + messages.
       // Threads: users/{uid}/noriThreads/{threadId}
       // Messages: .../noriThreads/{threadId}/messages/{messageId}

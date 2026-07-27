@@ -475,3 +475,38 @@ export interface RecurringFeeDoc {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
+
+// ---------------------------------------------------------------------------
+// users/{uid}/portfolio/{holdingId}
+// ---------------------------------------------------------------------------
+
+export type HoldingCategory = "stock" | "etf" | "crypto" | "cash" | "other";
+
+export interface PortfolioHoldingDoc {
+  /** Stock / ETF ticker symbol, e.g. "VOO", "QQQ", "AAPL", "BTC-USD". */
+  ticker: string;
+  /** Display name, e.g. "Vanguard S&P 500 ETF". */
+  name: string;
+  /** Shares or coins held. */
+  shares: number;
+  /** Average purchase cost basis per share (in USD). */
+  costBasisPerShare?: number;
+  category: HoldingCategory;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// users/{uid}/accounts/{accountId}
+// ---------------------------------------------------------------------------
+
+export type AccountType = "checking" | "savings" | "credit" | "emergency" | "cash";
+
+export interface AccountBalanceDoc {
+  name: string;
+  type: AccountType;
+  /** Stored in minor units (e.g. cents). Positive for assets, negative for credit/debts. */
+  balanceMinor: number;
+  currency: string;
+  updatedAt: Timestamp;
+}

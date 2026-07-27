@@ -83,3 +83,7 @@ export const noriThreadConverter: FirestoreDataConverter<NoriThread> =
 
 export const noriMessageConverter: FirestoreDataConverter<NoriMessage> =
   makePassthroughConverter<NoriMessage>();
+
+export const portfolioConverter = makePassthroughConverter<import("./types").PortfolioHoldingDoc>();
+
+export const accountConverter = makePassthroughConverter<import("./types").AccountBalanceDoc>();

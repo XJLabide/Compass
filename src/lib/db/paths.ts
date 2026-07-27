@@ -21,6 +21,8 @@ import {
   routineConverter,
   sessionConverter,
   todoConverter,
+  portfolioConverter,
+  accountConverter,
 } from "./converters";
 import type {
   DailyDoc,
@@ -36,6 +38,8 @@ import type {
   RoutineDoc,
   SessionDoc,
   TodoDoc,
+  PortfolioHoldingDoc,
+  AccountBalanceDoc,
 } from "./types";
 
 /**
@@ -313,4 +317,50 @@ export function noriMessagePath(
     "messages",
     messageId,
   ).withConverter(noriMessageConverter);
+}
+
+// ---------------------------------------------------------------------------
+// portfolio — users/{uid}/portfolio/{holdingId}
+// ---------------------------------------------------------------------------
+
+export function portfolioPath(
+  uid: string,
+  db?: Firestore,
+): CollectionReference<PortfolioHoldingDoc> {
+  return collection(userDoc(uid, db), "portfolio").withConverter(
+    portfolioConverter,
+  );
+}
+
+export function holdingPath(
+  uid: string,
+  holdingId: string,
+  db?: Firestore,
+): DocumentReference<PortfolioHoldingDoc> {
+  return doc(userDoc(uid, db), "portfolio", holdingId).withConverter(
+    portfolioConverter,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// accounts — users/{uid}/accounts/{accountId}
+// ---------------------------------------------------------------------------
+
+export function accountsPath(
+  uid: string,
+  db?: Firestore,
+): CollectionReference<AccountBalanceDoc> {
+  return collection(userDoc(uid, db), "accounts").withConverter(
+    accountConverter,
+  );
+}
+
+export function accountPath(
+  uid: string,
+  accountId: string,
+  db?: Firestore,
+): DocumentReference<AccountBalanceDoc> {
+  return doc(userDoc(uid, db), "accounts", accountId).withConverter(
+    accountConverter,
+  );
 }
