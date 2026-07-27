@@ -68,6 +68,9 @@ export interface CheckInFormProps {
    * survives reload and back/forward.
    */
   onDateChange?: (next: string) => void;
+  hideHeader?: boolean;
+  hideDatePicker?: boolean;
+  showMealLogger?: boolean;
 }
 
 type FormState = {
@@ -145,6 +148,9 @@ export default function CheckInForm({
   profile,
   initialLocalDate,
   onDateChange,
+  hideHeader = false,
+  hideDatePicker = false,
+  showMealLogger = true,
 }: CheckInFormProps) {
   const { user } = useAuth();
 
@@ -384,19 +390,21 @@ export default function CheckInForm({
 
   return (
     <form onSubmit={handleSubmit} className="pb-32" noValidate>
-      <header className="flex items-baseline justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-neutral-100">Check-in</h1>
-          <p className="mt-1 text-xs text-muted">
-            {localDate === today ? "Today" : "Backfill"} · {localDate}
-          </p>
-        </div>
-        {savedAgo ? (
-          <span aria-live="polite" className="text-xs text-muted">
-            Saved {savedAgo}
-          </span>
-        ) : null}
-      </header>
+      {!hideHeader && (
+        <header className="flex items-baseline justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-neutral-100">Check-in</h1>
+            <p className="mt-1 text-xs text-muted">
+              {localDate === today ? "Today" : "Backfill"} · {localDate}
+            </p>
+          </div>
+          {savedAgo ? (
+            <span aria-live="polite" className="text-xs text-muted">
+              Saved {savedAgo}
+            </span>
+          ) : null}
+        </header>
+      )}
 
       {loadError ? (
         <div
@@ -408,19 +416,21 @@ export default function CheckInForm({
         </div>
       ) : null}
 
-      <div className="mt-5 rounded-xl border border-border bg-neutral-900/40 p-4">
-        <DatePicker
-          value={localDate}
-          today={today}
-          min={minBackfill}
-          onPick={(next) => {
-            // Hand off URL changes to the parent — the snapshot effect keyed
-            // on `localDate` will rehydrate the form for the new day.
-            hydratedRef.current = false;
-            onDateChange?.(next);
-          }}
-        />
-      </div>
+      {!hideDatePicker && (
+        <div className="mt-5 rounded-xl border border-border bg-neutral-900/40 p-4">
+          <DatePicker
+            value={localDate}
+            today={today}
+            min={minBackfill}
+            onPick={(next) => {
+              // Hand off URL changes to the parent — the snapshot effect keyed
+              // on `localDate` will rehydrate the form for the new day.
+              hydratedRef.current = false;
+              onDateChange?.(next);
+            }}
+          />
+        </div>
+      )}
 
       {/* On md+: numeric inputs switch to a 2-column grid.
           Left column: bodyweight + sleep. Right column: calories + protein.
@@ -464,15 +474,17 @@ export default function CheckInForm({
         </div>
 
       {/* Nutrition (Calorie & Macro Tracker) */}
-      <div className="mt-4 rounded-xl border border-border bg-neutral-900/40 p-4">
-        <h3 className="text-sm font-semibold text-neutral-100 mb-3">Nutrition & Meals</h3>
-        <MealLogger
-          loggedMeals={state.loggedMeals}
-          profile={profile}
-          onUpdateMeals={handleUpdateMeals}
-          onUpdateProfileFavorites={handleUpdateProfileFavorites}
-        />
-      </div>
+      {showMealLogger && (
+        <div className="mt-4 rounded-xl border border-border bg-neutral-900/40 p-4">
+          <h3 className="text-sm font-semibold text-neutral-100 mb-3">Nutrition & Meals</h3>
+          <MealLogger
+            loggedMeals={state.loggedMeals}
+            profile={profile}
+            onUpdateMeals={handleUpdateMeals}
+            onUpdateProfileFavorites={handleUpdateProfileFavorites}
+          />
+        </div>
+      )}
 
       {/* Full-width fields below the 2-col section */}
       <div className="mt-4 rounded-xl border border-border bg-neutral-900/40 p-4">

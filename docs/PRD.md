@@ -204,4 +204,8 @@ Tracked here so we don't forget but explicitly out of scope:
 
 ---
 
+## 14. Architecture & Navigation Updates
+
+- **v2.1 UX & Navigation Consolidation:** See [docs/PRD_UX_CONSOLIDATION.md](file:///Users/xander/Documents/Projects/Personal Tracker/docs/PRD_UX_CONSOLIDATION.md) for full specifications on consolidating `/check-in` into `/today`, streamlining navigation to 6 core hubs, and renaming daily routines to habits without impacting backend data schemas or rules.
+
 **Next step after PRD approval:** write `ARCHITECTURE.md` (Firestore rules, route structure, component breakdown) and `ROADMAP.md` (week-by-week build plan to v1).

@@ -116,11 +116,11 @@ export default function RoutinesSummary({
             id="routines-summary-heading"
             className="text-xs font-medium uppercase tracking-wide text-muted"
           >
-            Today&apos;s routines
+            Today&apos;s habits
           </h2>
         </div>
         <Link
-          href="/todos?tab=routines"
+          href="/today"
           className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
         >
           Open <ArrowRight className="h-3 w-3" />
@@ -129,7 +129,7 @@ export default function RoutinesSummary({
 
       {empty ? (
         <p className="mt-3 text-[11px] text-muted">
-          No routines scheduled for today. Add one in the Routines tab.
+          No habits scheduled for today. Add one in Today.
         </p>
       ) : (
         <>

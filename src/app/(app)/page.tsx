@@ -16,6 +16,7 @@ import MoneySummary from "@/components/dashboard/MoneySummary";
 import RoutinesSummary from "@/components/dashboard/RoutinesSummary";
 import EmptyState from "@/components/dashboard/EmptyState";
 import Skeleton from "@/components/ui/Skeleton";
+import CompassLoader from "@/components/ui/CompassLoader";
 
 /**
  * `/` — dashboard home.
@@ -42,11 +43,7 @@ export default function HomePage() {
         <header>
           <h1 className="text-2xl font-semibold text-neutral-100">Home</h1>
         </header>
-        <div className="space-y-4">
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-44 w-full" />
-        </div>
+        <CompassLoader mode="card" size="lg" label="Loading Executive Dashboard..." />
       </section>
     );
   }

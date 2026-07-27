@@ -19,6 +19,7 @@ import DatePicker, {
 } from "@/components/checkin/DatePicker";
 import { detectTimezone } from "@/components/settings/TimezoneSelect";
 import Skeleton from "@/components/ui/Skeleton";
+import CompassLoader from "@/components/ui/CompassLoader";
 
 const DATE_PARAM = "date";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -136,11 +137,7 @@ export default function NutritionPage() {
     return (
       <section className="space-y-4">
         <h1 className="text-2xl font-semibold text-neutral-100">Nutrition</h1>
-        <div className="space-y-3">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-44 w-full" />
-        </div>
+        <CompassLoader mode="card" size="lg" label="Loading Nutrition Console..." />
       </section>
     );
   }

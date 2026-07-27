@@ -4,17 +4,16 @@ import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/useAuth";
 import { isAllowed } from "@/lib/auth/allowlist";
+import CompassLoader from "@/components/ui/CompassLoader";
 
 /**
  * Client-side auth gate for the protected `(app)` route group.
  *
  * Behavior:
- *  - while `loading`: render a centered spinner (no flash of app shell)
- *  - signed-out: replace to `/login`
+ *  - while `loading`: render full-screen Spinning Compass Loader
+ *  - signed-out: replace to `/login` and return null (prevents loader lockup)
  *  - signed-in but not allowlisted: `signOut()` then replace to `/not-authorized`
- *  - signed-in and allowlisted: render children
- *
- * Server-side enforcement lives in Firestore rules — this is only a UX gate.
+ *  - signed-in and allowlisted: render app children
  */
 export default function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -29,29 +28,20 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       return;
     }
     if (!allowed) {
-      // Sign out first so the user lands on /not-authorized in a clean state
-      // and a refresh doesn't bounce them straight back into the gate.
       void signOut().finally(() => {
         router.replace("/not-authorized");
       });
     }
   }, [loading, user, allowed, router, signOut]);
 
-  if (loading || !user || !allowed) {
+  if (loading) {
     return (
-      <div
-        className="flex min-h-dvh items-center justify-center"
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-      >
-        <span
-          className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-700 border-t-neutral-200"
-          aria-hidden="true"
-        />
-        <span className="sr-only">Loading…</span>
-      </div>
+      <CompassLoader mode="fullscreen" size="xl" label="Navigating Compass..." />
     );
+  }
+
+  if (!user || !allowed) {
+    return null;
   }
 
   return <>{children}</>;

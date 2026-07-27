@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import clsx from "clsx";
+import CompassLoader from "@/components/ui/CompassLoader";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
 import {
@@ -549,10 +550,7 @@ function StreamingBubble({ streaming }: { streaming: StreamingState }) {
           </div>
         ) : null}
         {!streaming.content && streaming.toolCalls.size === 0 ? (
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            …
-          </span>
+          <CompassLoader mode="inline" size="sm" label="Thinking..." />
         ) : null}
       </div>
     </div>

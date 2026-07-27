@@ -50,6 +50,7 @@ import { Settings2 } from "lucide-react";
 
 import ResumeBanner from "@/components/workout/ResumeBanner";
 import Skeleton from "@/components/ui/Skeleton";
+import CompassLoader from "@/components/ui/CompassLoader";
 import EditPlannedExercisesDialog, {
   type PlannedExerciseSwap,
 } from "@/components/workout/EditPlannedExercisesDialog";
@@ -671,14 +672,7 @@ export default function WorkoutPage() {
       {/* 2. Next Up */}
       <div className="mt-5">
         {!programLoaded || rotation === null ? (
-          <div className="rounded-2xl border border-border bg-panel/60 p-4 sm:p-5">
-            <div className="space-y-3">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-6 w-40" />
-              <Skeleton className="h-3 w-32" />
-              <Skeleton className="h-11 w-full" />
-            </div>
-          </div>
+          <CompassLoader mode="card" size="lg" label="Loading Workout Program..." />
         ) : !program ? (
           <EmptyProgramCard kind="no-program" />
         ) : rotation.next ? (

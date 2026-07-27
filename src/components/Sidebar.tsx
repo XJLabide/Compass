@@ -30,13 +30,11 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", Icon: Home },
   { href: "/today", label: "Today", Icon: Sun },
-  { href: "/nori", label: "Nori", Icon: Sparkles },
+  { href: "/nutrition", label: "Nutrition", Icon: Flame },
+  { href: "/workout", label: "Workout", Icon: Dumbbell },
   { href: "/todos", label: "Todos", Icon: CheckSquare },
   { href: "/money", label: "Money", Icon: Wallet },
-  { href: "/workout", label: "Workout", Icon: Dumbbell },
-  { href: "/nutrition", label: "Nutrition", Icon: Flame },
-  { href: "/check-in", label: "Check-in", Icon: ClipboardCheck },
-  { href: "/history", label: "History", Icon: LineChart },
+  { href: "/nori", label: "Nori", Icon: Sparkles },
   { href: "/settings", label: "Settings", Icon: Settings },
 ];
 

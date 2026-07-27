@@ -18,6 +18,7 @@ import {
   Settings,
   X,
   Flame,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -30,21 +31,20 @@ type Tab = {
 /**
  * Mobile bottom tab bar. The first four cells navigate to primary routes via
  * <Link>. The fifth cell ("More") is a button that opens a bottom-sheet
- * listing secondary routes (Check-in, History, Settings) — so the user gets a
- * real "more" hub instead of being jumped straight to settings.
+ * listing secondary routes — so the user gets a real "more" hub instead of
+ * being jumped straight to settings.
  */
 const PRIMARY_TABS: Tab[] = [
   { href: "/", label: "Home", Icon: Home },
   { href: "/today", label: "Today", Icon: Sun },
-  { href: "/todos", label: "Todos", Icon: CheckSquare },
-  { href: "/money", label: "Money", Icon: Wallet },
+  { href: "/nutrition", label: "Nutrition", Icon: Flame },
+  { href: "/workout", label: "Workout", Icon: Dumbbell },
 ];
 
 const SECONDARY_LINKS: Tab[] = [
-  { href: "/workout", label: "Workout", Icon: Dumbbell },
-  { href: "/nutrition", label: "Nutrition", Icon: Flame },
-  { href: "/check-in", label: "Check-in", Icon: ClipboardCheck },
-  { href: "/history", label: "History", Icon: LineChart },
+  { href: "/todos", label: "Todos", Icon: CheckSquare },
+  { href: "/money", label: "Money", Icon: Wallet },
+  { href: "/nori", label: "Nori", Icon: Sparkles },
   { href: "/settings", label: "Settings", Icon: Settings },
 ];
 

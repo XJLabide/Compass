@@ -30,8 +30,19 @@ import {
   CloudSun,
   Wallet,
   ChevronRight,
+  Settings2,
+  X,
+  Zap,
 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import MacroRatioChart from "@/components/checkin/MacroRatioChart";
+import DatePicker, {
+  backfillMinDate,
+  isWithinBackfillWindow,
+} from "@/components/checkin/DatePicker";
+import CheckInForm from "@/components/checkin/CheckInForm";
+import RoutinesTab from "@/components/todos/RoutinesTab";
+import CompassLoader from "@/components/ui/CompassLoader";
 import { useUserData } from "@/lib/data/UserDataProvider";
 import {
   dailyPath,
@@ -115,6 +126,32 @@ export default function TodayPage() {
     [now, tz, effectiveProfile?.wakeTime, effectiveProfile?.bedTime],
   );
 
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [showHabitManager, setShowHabitManager] = useState(false);
+  const [activeTab, setActiveTab] = useState<"execution" | "nutrition" | "checkin">("execution");
+
+  const rawDateParam = searchParams.get("date");
+  const minBackfill = useMemo(() => backfillMinDate(today), [today]);
+
+  const activeDate = useMemo(() => {
+    if (!rawDateParam || !/^\d{4}-\d{2}-\d{2}$/.test(rawDateParam)) return today;
+    if (isWithinBackfillWindow(rawDateParam, today, minBackfill)) {
+      return rawDateParam;
+    }
+    return today;
+  }, [rawDateParam, today, minBackfill]);
+
+  const handleDateChange = useCallback(
+    (next: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("date", next);
+      router.replace(`/today?${params.toString()}`);
+    },
+    [router, searchParams],
+  );
+
   // --- Subscriptions ------------------------------------------------------
   const [todos, setTodos] = useState<TodoRow[] | null>(null);
   const [routines, setRoutines] = useState<RoutineRow[] | null>(null);
@@ -148,7 +185,7 @@ export default function TodayPage() {
     if (!uid) return;
     setDailyLoaded(false);
     const unsub = onSnapshot(
-      dailyPath(uid, today),
+      dailyPath(uid, activeDate),
       (snap) => {
         setTodayDaily(snap.data() ?? null);
         setDailyLoaded(true);
@@ -156,17 +193,17 @@ export default function TodayPage() {
       () => setDailyLoaded(true),
     );
     return () => unsub();
-  }, [uid, today]);
+  }, [uid, activeDate]);
 
   useEffect(() => {
     if (!uid) return;
     const unsub = onSnapshot(
-      query(expensesPath(uid), where("localDate", "==", today)),
+      query(expensesPath(uid), where("localDate", "==", activeDate)),
       (snap) => setTodayExpenses(snap.docs.map((d) => d.data())),
       () => setTodayExpenses([]),
     );
     return () => unsub();
-  }, [uid, today]);
+  }, [uid, activeDate]);
 
   // --- Derived ------------------------------------------------------------
   const scheduledSession = useMemo(
@@ -240,18 +277,26 @@ export default function TodayPage() {
   return (
     <section className="space-y-6">
       <header className="space-y-3 border-b border-border pb-3">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted">
-              Today
+              {activeDate === today ? "Today" : "Backfill"}
             </p>
             <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-neutral-100">
               {dateLabel}
             </h1>
           </div>
-          <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent">
-            {dayTag}
-          </span>
+          <div className="flex items-center gap-3">
+            <DatePicker
+              value={activeDate}
+              today={today}
+              min={minBackfill}
+              onPick={handleDateChange}
+            />
+            <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent whitespace-nowrap">
+              {dayTag}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -263,7 +308,7 @@ export default function TodayPage() {
         asleep={awake.asleep}
       />
 
-      {/* Progress counters */}
+      {/* Unified Progress Counter */}
       <ProgressStrip
         todosTotal={
           todayTodos.overdue.length +
@@ -278,62 +323,128 @@ export default function TodayPage() {
         checkInDone={checkInHasAny}
       />
 
-      {/* Workout */}
-      <WorkoutSection
-        scheduled={scheduledSession}
-      />
+      {/* 3 Smart Focus Tabs Switcher */}
+      <div className="flex rounded-xl border border-border bg-neutral-900/60 p-1 gap-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab("execution")}
+          className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold transition-all ${
+            activeTab === "execution"
+              ? "bg-accent/15 text-accent shadow-sm border border-accent/30"
+              : "text-muted hover:text-neutral-200"
+          }`}
+        >
+          <Zap className="h-4 w-4" />
+          <span>Execution</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("nutrition")}
+          className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold transition-all ${
+            activeTab === "nutrition"
+              ? "bg-accent/15 text-accent shadow-sm border border-accent/30"
+              : "text-muted hover:text-neutral-200"
+          }`}
+        >
+          <Flame className="h-4 w-4 text-amber-400" />
+          <span>Nutrition</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("checkin")}
+          className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold transition-all ${
+            activeTab === "checkin"
+              ? "bg-accent/15 text-accent shadow-sm border border-accent/30"
+              : "text-muted hover:text-neutral-200"
+          }`}
+        >
+          <ClipboardCheck className="h-4 w-4 text-cyan-400" />
+          <span>Check-in</span>
+        </button>
+      </div>
 
-      {/* Routines */}
-      <RoutinesSection
-        uid={uid}
-        items={scheduledRoutines.list}
-        timeBlocks={timeBlocks}
-        today={today}
-        loaded={routines !== null}
-      />
+      {/* TAB 1: EXECUTION */}
+      {activeTab === "execution" && (
+        <div className="space-y-6">
+          <WorkoutSection scheduled={scheduledSession} />
+          <RoutinesSection
+            uid={uid}
+            items={scheduledRoutines.list}
+            timeBlocks={timeBlocks}
+            today={activeDate}
+            loaded={routines !== null}
+            onManage={() => setShowHabitManager(true)}
+          />
+          <TodosSection
+            uid={uid}
+            overdue={todayTodos.overdue}
+            dueToday={todayTodos.dueToday}
+            noDate={todayTodos.noDate}
+            today={today}
+            loaded={todos !== null}
+          />
+          <MoneySection
+            income={moneyTotals.income}
+            expense={moneyTotals.expense}
+            net={moneyTotals.net}
+            currency={currency}
+            loaded={todayExpenses !== null}
+          />
+        </div>
+      )}
 
-      {/* Nutrition */}
-      <NutritionSection
-        profile={effectiveProfile}
-        daily={todayDaily}
-        loaded={dailyLoaded}
-      />
+      {/* TAB 2: NUTRITION */}
+      {activeTab === "nutrition" && (
+        <div className="space-y-6">
+          <NutritionSection
+            profile={effectiveProfile}
+            daily={todayDaily}
+            loaded={dailyLoaded}
+          />
+        </div>
+      )}
 
-      {/* Todos */}
-      <TodosSection
-        uid={uid}
-        overdue={todayTodos.overdue}
-        dueToday={todayTodos.dueToday}
-        noDate={todayTodos.noDate}
-        today={today}
-        loaded={todos !== null}
-      />
+      {/* TAB 3: DAILY CHECK-IN */}
+      {activeTab === "checkin" && (
+        <div className="space-y-6">
+          {effectiveProfile && (
+            <section className="rounded-xl border border-border bg-neutral-900/40 p-4 space-y-4">
+              <SectionHeader
+                icon={ClipboardCheck}
+                title="Daily Check-in"
+              />
+              <CheckInForm
+                profile={effectiveProfile}
+                initialLocalDate={activeDate}
+                onDateChange={handleDateChange}
+                hideHeader={true}
+                hideDatePicker={true}
+                showMealLogger={false}
+              />
+            </section>
+          )}
+        </div>
+      )}
 
-      {/* Money */}
-      <MoneySection
-        income={moneyTotals.income}
-        expense={moneyTotals.expense}
-        net={moneyTotals.net}
-        currency={currency}
-        loaded={todayExpenses !== null}
-      />
-
-      {/* Quick check-in stub */}
-      <CheckInStub
-        uid={uid}
-        today={today}
-        daily={todayDaily}
-        loaded={dailyLoaded}
-        unitImperial={unitSystem !== "metric"}
-      />
-
-      {/* Reflection */}
-      <ReflectionBlock
-        uid={uid}
-        today={today}
-        daily={todayDaily}
-        loaded={dailyLoaded}
-      />
+      {/* Habit Manager Modal/Drawer */}
+      {showHabitManager && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-panel p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-lg font-semibold text-neutral-100 flex items-center gap-2">
+                <Settings2 className="h-5 w-5 text-accent" /> Manage Habits
+              </h3>
+              <button
+                onClick={() => setShowHabitManager(false)}
+                className="rounded-lg p-1.5 text-muted hover:bg-neutral-800 hover:text-neutral-100 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <RoutinesTab />
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -508,56 +619,51 @@ function RoutinesSection({
   timeBlocks,
   today,
   loaded,
+  onManage,
 }: {
   uid: string;
   items: RoutineRow[];
   timeBlocks: RoutineTimeBlock[];
   today: string;
   loaded: boolean;
+  onManage: () => void;
 }) {
-  const toggle = useCallback(
-    async (row: RoutineRow) => {
-      const next = { ...(row.data.done ?? {}) };
-      if (next[today]) {
-        delete next[today];
-      } else {
-        next[today] = true;
-      }
-      try {
-        await updateDoc(routinePath(uid, row.id), {
-          done: next,
-          updatedAt: serverTimestamp(),
-        });
-      } catch {
-        /* silent — full editor surfaces errors */
-      }
-    },
-    [uid, today],
-  );
+  const toggle = async (row: RoutineRow) => {
+    const nextDone = { ...(row.data.done ?? {}) };
+    if (nextDone[today]) {
+      delete nextDone[today];
+    } else {
+      nextDone[today] = true;
+    }
+    await updateDoc(routinePath(uid, row.id), {
+      done: nextDone,
+      updatedAt: serverTimestamp(),
+    });
+  };
 
   const activeGroups = useMemo(() => {
-    if (!loaded || items.length === 0) return [];
+    if (!loaded) return [];
     return groupRoutinesByBlock(items, timeBlocks).filter(
       (g) => g.routines.length > 0,
     );
   }, [items, timeBlocks, loaded]);
 
   if (!loaded) {
-    return <SectionSkeleton title="Routines" />;
+    return <SectionSkeleton title="Habits" />;
   }
   if (items.length === 0) {
     return (
       <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
         <SectionHeader
           icon={Flame}
-          title="Routines"
+          title="Habits"
           right={
-            <Link
-              href="/todos?tab=routines"
+            <button
+              onClick={onManage}
               className="inline-flex items-center gap-1 text-[10px] font-medium text-accent hover:underline"
             >
               Manage <ChevronRight className="h-3 w-3" />
-            </Link>
+            </button>
           }
         />
         <p className="mt-2 text-[11px] text-muted">
@@ -570,14 +676,14 @@ function RoutinesSection({
     <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
       <SectionHeader
         icon={Flame}
-        title="Routines"
+        title="Habits"
         right={
-          <Link
-            href="/todos?tab=routines"
+          <button
+            onClick={onManage}
             className="inline-flex items-center gap-1 text-[10px] font-medium text-accent hover:underline"
           >
             Manage <ChevronRight className="h-3 w-3" />
-          </Link>
+          </button>
         }
       />
       <div className="mt-3 space-y-4">
@@ -1323,12 +1429,7 @@ function SectionHeader({
 
 function SectionSkeleton({ title }: { title: string }) {
   return (
-    <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted">
-        {title}
-      </div>
-      <Skeleton className="mt-3 h-16 w-full" />
-    </section>
+    <CompassLoader mode="card" size="md" label={`Loading ${title}...`} />
   );
 }
 

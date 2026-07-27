@@ -2,8 +2,7 @@ import clsx from "clsx";
 import type { HTMLAttributes } from "react";
 
 /**
- * Tiny shimmer placeholder. Avoid layout shift by giving callers explicit
- * height/width via className.
+ * Shimmer placeholder. Preserves exact caller height and width without layout shifts.
  */
 export default function Skeleton({
   className,
@@ -13,7 +12,7 @@ export default function Skeleton({
     <div
       aria-hidden
       className={clsx(
-        "animate-pulse rounded bg-neutral-800/70",
+        "animate-pulse rounded-lg bg-neutral-800/60 border border-border/20",
         className,
       )}
       {...rest}

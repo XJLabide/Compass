@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import CompassLoader from "@/components/ui/CompassLoader";
 
 import type { SessionDoc } from "@/lib/db/types";
 
@@ -33,7 +34,7 @@ export default function SessionListItem({
             </p>
             {inProgress ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-300">
-                <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
+                <CompassLoader mode="inline" size="sm" label="" />
                 In progress
               </span>
             ) : null}
