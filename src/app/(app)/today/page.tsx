@@ -82,7 +82,7 @@ import { kgToDisplay, weightUnitLabel } from "@/lib/workout/units";
 import Skeleton from "@/components/ui/Skeleton";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
-const DEFAULT_CURRENCY = "USD";
+const DEFAULT_CURRENCY = "PHP";
 
 type TodoRow = { id: string; data: TodoDoc };
 type RoutineRow = { id: string; data: RoutineDoc };

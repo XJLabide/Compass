@@ -33,7 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/nutrition", label: "Nutrition", Icon: Flame },
   { href: "/workout", label: "Workout", Icon: Dumbbell },
   { href: "/todos", label: "Todos", Icon: CheckSquare },
-  { href: "/money", label: "Money", Icon: Wallet },
+  { href: "/money", label: "Finances", Icon: Wallet },
   { href: "/nori", label: "Nori", Icon: Sparkles },
   { href: "/settings", label: "Settings", Icon: Settings },
 ];

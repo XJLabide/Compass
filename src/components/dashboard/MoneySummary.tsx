@@ -16,7 +16,7 @@ export interface MoneySummaryProps {
   timezone: string;
 }
 
-const DEFAULT_CURRENCY = "USD";
+const DEFAULT_CURRENCY = "PHP";
 
 function formatMoney(minor: number, currency: string): string {
   try {

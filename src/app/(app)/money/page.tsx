@@ -8,6 +8,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   where,
 } from "firebase/firestore";
 import {
@@ -18,11 +19,13 @@ import {
   Wallet,
   PieChart,
   DollarSign,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import clsx from "clsx";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
-import { accountsPath, expensePath, expensesPath, portfolioPath } from "@/lib/db/paths";
+import { accountsPath, expensePath, expensesPath, portfolioPath, profilePath } from "@/lib/db/paths";
 import type { AccountBalanceDoc, ExpenseDoc, PortfolioHoldingDoc } from "@/lib/db/types";
 import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
@@ -33,27 +36,17 @@ import RecurringFeesSection, {
 import { displayCategory, listExpenseCategories } from "@/lib/money/categories";
 import PortfolioTab from "@/components/money/PortfolioTab";
 import BalancesTab from "@/components/money/BalancesTab";
+import { formatCurrencyAmount, getCurrencySymbol } from "@/lib/money/currency";
 
-const DEFAULT_CURRENCY = "USD";
+const DEFAULT_CURRENCY = "PHP";
 const EMPTY_RECURRING_SUMMARY: RecurringSummary = {
   monthlyCommitted: 0,
   activeCount: 0,
   dueSoonCount: 0,
 };
 
-function formatMoney(minor: number, currency: string): string {
-  const amount = minor / 100;
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      currencyDisplay: "narrowSymbol",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch {
-    return `${amount.toFixed(2)} ${currency}`;
-  }
+function formatMoney(minor: number, currency: string, hideAmounts: boolean = false): string {
+  return formatCurrencyAmount(minor / 100, currency, 2, hideAmounts);
 }
 
 type ExpenseRow = { id: string; data: ExpenseDoc };
@@ -61,11 +54,29 @@ type ExpenseRow = { id: string; data: ExpenseDoc };
 export default function FinancePage() {
   const { uid, profile, effectiveProfile } = useUserData();
   const tz = effectiveProfile?.timezone ?? "UTC";
-  const userCurrency = effectiveProfile?.currency ?? DEFAULT_CURRENCY;
+  const userCurrency = "PHP";
   const today = useMemo(() => computeLocalDate(new Date(), tz), [tz]);
   const monthStart = useMemo(() => `${today.slice(0, 7)}-01`, [today]);
 
+  useEffect(() => {
+    if (uid && profile && profile.currency !== "PHP") {
+      void setDoc(profilePath(uid), { currency: "PHP" }, { merge: true });
+    }
+  }, [uid, profile]);
+
   const [activeTab, setActiveTab] = useState<"portfolio" | "balances" | "cashflow">("portfolio");
+  const [hideAmounts, setHideAmounts] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("compass_finances_privacy_mode") === "true";
+  });
+
+  const toggleHideAmounts = () => {
+    setHideAmounts((prev) => {
+      const next = !prev;
+      localStorage.setItem("compass_finances_privacy_mode", next.toString());
+      return next;
+    });
+  };
 
   // State for net worth aggregation
   const [liquidTotal, setLiquidTotal] = useState(0);
@@ -105,13 +116,21 @@ export default function FinancePage() {
         .then((r) => r.json())
         .then((json) => {
           const quotes = json?.quotes || {};
-          let sum = 0;
+          const usdToPhpRate = json?.usdToPhpRate || 58.5;
+          let sumUsd = 0;
           snap.docs.forEach((d) => {
-            const h = d.data() as PortfolioHoldingDoc;
-            const price = quotes[h.ticker]?.price ?? h.costBasisPerShare ?? 100;
-            sum += price * h.shares;
+            const h = d.data() as PortfolioHoldingDoc & { usdAmount?: number };
+            const usdPrice = quotes[h.ticker]?.price ?? h.costBasisPerShare ?? 100;
+
+            let posUsd = 0;
+            if (h.usdAmount !== undefined && h.usdAmount !== null && h.usdAmount > 0) {
+              posUsd = h.usdAmount;
+            } else if (h.shares !== undefined && h.shares !== null && h.shares > 0) {
+              posUsd = h.shares * usdPrice;
+            }
+            sumUsd += posUsd;
           });
-          setPortfolioTotal(sum);
+          setPortfolioTotal(sumUsd * usdToPhpRate);
         })
         .catch(() => {});
     });
@@ -222,9 +241,28 @@ export default function FinancePage() {
     <section className="space-y-6 pb-12">
       {/* Header */}
       <div className="flex flex-col gap-1 border-b border-border pb-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">Finance</h1>
-          <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-400">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-neutral-100">Finances</h1>
+            <button
+              onClick={toggleHideAmounts}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-neutral-800/80 px-2.5 py-1 text-xs font-medium text-muted transition hover:border-neutral-600 hover:text-neutral-100"
+              title={hideAmounts ? "Show Amounts" : "Hide Amounts (Privacy Mode)"}
+            >
+              {hideAmounts ? (
+                <>
+                  <EyeOff className="h-3.5 w-3.5 text-amber-400" />
+                  <span className="text-[11px] text-amber-400 font-semibold">Hidden</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="h-3.5 w-3.5 text-muted" />
+                  <span className="text-[11px]">Hide</span>
+                </>
+              )}
+            </button>
+          </div>
+          <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] sm:text-xs font-semibold text-emerald-400">
             Live Market Data
           </span>
         </div>
@@ -234,32 +272,32 @@ export default function FinancePage() {
       </div>
 
       {/* Net Worth Hero Overview Banner */}
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-neutral-900 via-neutral-900/90 to-neutral-950 p-6 shadow-xl">
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-neutral-900 via-neutral-900/90 to-neutral-950 p-4 sm:p-6 shadow-xl">
         <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <span className="text-xs font-semibold uppercase tracking-wider text-muted">
               Total Net Worth
             </span>
-            <h2 className="mt-1 text-4xl font-extrabold tracking-tight text-neutral-100">
-              ${totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <h2 className="mt-1 text-3xl sm:text-4xl font-extrabold tracking-tight text-neutral-100">
+              {formatCurrencyAmount(totalNetWorth, userCurrency, 2, hideAmounts)}
             </h2>
           </div>
 
-          <div className="flex flex-wrap gap-4 border-t border-border/50 pt-3 sm:border-t-0 sm:pt-0">
-            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-2">
+          <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-3 sm:flex sm:gap-4 sm:border-t-0 sm:pt-0">
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 sm:px-4">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-400">
                 Liquid Cash
               </span>
-              <p className="text-base font-bold text-neutral-100">
-                ${liquidTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <p className="text-sm sm:text-base font-bold text-neutral-100">
+                {formatCurrencyAmount(liquidTotal, userCurrency, 2, hideAmounts)}
               </p>
             </div>
-            <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 px-4 py-2">
+            <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 px-3 py-2 sm:px-4">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-400">
                 Invested Assets
               </span>
-              <p className="text-base font-bold text-neutral-100">
-                ${portfolioTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <p className="text-sm sm:text-base font-bold text-neutral-100">
+                {formatCurrencyAmount(portfolioTotal, userCurrency, 2, hideAmounts)}
               </p>
             </div>
           </div>
@@ -267,49 +305,53 @@ export default function FinancePage() {
       </div>
 
       {/* 3 Smart Sub-Tabs */}
-      <div className="flex border-b border-border/60">
+      <div className="flex border-b border-border/60 overflow-x-auto whitespace-nowrap scrollbar-none">
         <button
           onClick={() => setActiveTab("portfolio")}
           className={clsx(
-            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition",
+            "flex items-center gap-1.5 border-b-2 px-3 sm:px-4 py-2.5 text-xs font-semibold transition shrink-0",
             activeTab === "portfolio"
               ? "border-accent text-accent"
               : "border-transparent text-muted hover:text-neutral-200",
           )}
         >
           <TrendingUp className="h-4 w-4" />
-          📈 Portfolio & Stocks
+          Portfolio & Stocks
         </button>
         <button
           onClick={() => setActiveTab("balances")}
           className={clsx(
-            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition",
+            "flex items-center gap-1.5 border-b-2 px-3 sm:px-4 py-2.5 text-xs font-semibold transition shrink-0",
             activeTab === "balances"
               ? "border-accent text-accent"
               : "border-transparent text-muted hover:text-neutral-200",
           )}
         >
           <Wallet className="h-4 w-4" />
-          💵 Balances & Accounts
+          Balances & Accounts
         </button>
         <button
           onClick={() => setActiveTab("cashflow")}
           className={clsx(
-            "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition",
+            "flex items-center gap-1.5 border-b-2 px-3 sm:px-4 py-2.5 text-xs font-semibold transition shrink-0",
             activeTab === "cashflow"
               ? "border-accent text-accent"
               : "border-transparent text-muted hover:text-neutral-200",
           )}
         >
           <DollarSign className="h-4 w-4" />
-          💸 Cash Flow (Daily Log)
+          Cash Flow
         </button>
       </div>
 
       {/* Active Tab Views */}
-      {activeTab === "portfolio" && <PortfolioTab uid={uid} />}
+      {activeTab === "portfolio" && (
+        <PortfolioTab uid={uid} userCurrency={userCurrency} hideAmounts={hideAmounts} />
+      )}
 
-      {activeTab === "balances" && <BalancesTab uid={uid} userCurrency={userCurrency} />}
+      {activeTab === "balances" && (
+        <BalancesTab uid={uid} userCurrency={userCurrency} hideAmounts={hideAmounts} />
+      )}
 
       {activeTab === "cashflow" && (
         <div className="space-y-6">
@@ -322,7 +364,7 @@ export default function FinancePage() {
               <div>
                 <span className="text-xs text-muted">Income (This Month)</span>
                 <p className="text-xl font-bold text-emerald-400">
-                  {formatMoney(monthIncomeMinor, userCurrency)}
+                  {formatMoney(monthIncomeMinor, userCurrency, hideAmounts)}
                 </p>
               </div>
             </div>
@@ -334,7 +376,7 @@ export default function FinancePage() {
               <div>
                 <span className="text-xs text-muted">Expenses (This Month)</span>
                 <p className="text-xl font-bold text-rose-400">
-                  {formatMoney(monthExpenseMinor, userCurrency)}
+                  {formatMoney(monthExpenseMinor, userCurrency, hideAmounts)}
                 </p>
               </div>
             </div>
@@ -364,7 +406,7 @@ export default function FinancePage() {
               </div>
 
               <div>
-                <label className="text-xs text-muted">Amount ($)</label>
+                <label className="text-xs text-muted">Amount ({getCurrencySymbol(userCurrency)})</label>
                 <input
                   type="number"
                   step="any"

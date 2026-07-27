@@ -50,17 +50,10 @@ interface Props {
   onSummaryChange?: (summary: RecurringSummary) => void;
 }
 
+import { formatMinorMoney } from "@/lib/money/currency";
+
 function formatMoney(minor: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      currencyDisplay: "narrowSymbol",
-      maximumFractionDigits: 0,
-    }).format(minor / 100);
-  } catch {
-    return `${(minor / 100).toFixed(0)} ${currency}`;
-  }
+  return formatMinorMoney(minor, currency || "PHP");
 }
 
 function daysUntil(fromIso: string, toIso: string): number {

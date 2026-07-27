@@ -488,7 +488,11 @@ export interface PortfolioHoldingDoc {
   /** Display name, e.g. "Vanguard S&P 500 ETF". */
   name: string;
   /** Shares or coins held. */
-  shares: number;
+  shares?: number;
+  /** Direct total dollar amount ($) held in this position. */
+  totalAmount?: number;
+  /** USD Amount in brokerage wallet. */
+  usdAmount?: number;
   /** Average purchase cost basis per share (in USD). */
   costBasisPerShare?: number;
   category: HoldingCategory;

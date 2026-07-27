@@ -7,41 +7,51 @@ import { Plus, Wallet, Edit2, Trash2 } from "lucide-react";
 import { accountPath, accountsPath } from "@/lib/db/paths";
 import type { AccountBalanceDoc, AccountType } from "@/lib/db/types";
 import CompassLoader from "@/components/ui/CompassLoader";
+import { formatCurrencyAmount, getCurrencySymbol } from "@/lib/money/currency";
 
 export interface AccountRow {
   id: string;
   data: AccountBalanceDoc;
 }
 
-export default function BalancesTab({ uid, userCurrency }: { uid: string; userCurrency: string }) {
+export default function BalancesTab({
+  uid,
+  userCurrency = "PHP",
+  hideAmounts = false,
+}: {
+  uid: string;
+  userCurrency?: string;
+  hideAmounts?: boolean;
+}) {
   const [accounts, setAccounts] = useState<AccountRow[] | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editAccount, setEditAccount] = useState<AccountRow | null>(null);
 
-  // Form
-  const [name, setName] = useState("Checking Account");
+  // Form state
+  const [name, setName] = useState("Main Checking");
   const [type, setType] = useState<AccountType>("checking");
-  const [balance, setBalance] = useState("5000");
+  const [balance, setBalance] = useState("2500");
   const [saving, setSaving] = useState(false);
 
+  // Subscribe to user accounts
   useEffect(() => {
     if (!uid) return;
     const unsub = onSnapshot(accountsPath(uid), (snap) => {
       const rows = snap.docs.map((d) => ({ id: d.id, data: d.data() }));
 
-      // Seed default accounts if user has zero liquid accounts
+      // Seed initial accounts if user has 0 accounts
       if (rows.length === 0) {
         void addDoc(accountsPath(uid), {
           name: "Main Checking",
           type: "checking",
-          balanceMinor: 250000, // $2,500.00
+          balanceMinor: 250000,
           currency: userCurrency,
           updatedAt: serverTimestamp(),
         });
         void addDoc(accountsPath(uid), {
           name: "High-Yield Savings",
           type: "savings",
-          balanceMinor: 1000000, // $10,000.00
+          balanceMinor: 500000,
           currency: userCurrency,
           updatedAt: serverTimestamp(),
         });
@@ -52,13 +62,15 @@ export default function BalancesTab({ uid, userCurrency }: { uid: string; userCu
     return unsub;
   }, [uid, userCurrency]);
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uid) return;
+    if (!uid || !name) return;
     setSaving(true);
-    const balanceMinor = Math.round((parseFloat(balance) || 0) * 100);
 
     try {
+      const num = parseFloat(balance);
+      const balanceMinor = Number.isFinite(num) ? Math.round(num * 100) : 0;
+
       if (editAccount) {
         await setDoc(
           accountPath(uid, editAccount.id),
@@ -80,10 +92,9 @@ export default function BalancesTab({ uid, userCurrency }: { uid: string; userCu
           updatedAt: serverTimestamp(),
         });
       }
+
       setModalOpen(false);
       setEditAccount(null);
-      setName("Checking Account");
-      setBalance("1000");
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("Failed to save account:", err);
@@ -103,7 +114,7 @@ export default function BalancesTab({ uid, userCurrency }: { uid: string; userCu
   };
 
   if (!accounts) {
-    return <CompassLoader mode="card" size="md" label="Loading Accounts..." />;
+    return <CompassLoader mode="card" size="lg" label="Loading Accounts..." />;
   }
 
   const totalLiquid = accounts.reduce((acc, a) => acc + a.data.balanceMinor / 100, 0);
@@ -117,13 +128,12 @@ export default function BalancesTab({ uid, userCurrency }: { uid: string; userCu
             Total Liquid Cash & Balances
           </span>
           <h2 className="mt-1 text-3xl font-bold tracking-tight text-neutral-100">
-            ${totalLiquid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {formatCurrencyAmount(totalLiquid, userCurrency, 2, hideAmounts)}
           </h2>
         </div>
         <button
           onClick={() => {
             setEditAccount(null);
-            setName("New Account");
             setBalance("1000");
             setModalOpen(true);
           }}
@@ -159,7 +169,7 @@ export default function BalancesTab({ uid, userCurrency }: { uid: string; userCu
 
               <div className="flex items-baseline justify-between pt-2 border-t border-border/50">
                 <span className="text-2xl font-bold text-neutral-100">
-                  ${bal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {formatCurrencyAmount(bal, userCurrency, 2, hideAmounts)}
                 </span>
 
                 <div className="flex items-center gap-2">
@@ -198,7 +208,7 @@ export default function BalancesTab({ uid, userCurrency }: { uid: string; userCu
               {editAccount ? "Update Account Balance" : "Add Account"}
             </h3>
 
-            <form onSubmit={handleSave} className="space-y-4">
+            <form onSubmit={handleSaveAccount} className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-muted">Account Name</label>
                 <input
@@ -228,7 +238,7 @@ export default function BalancesTab({ uid, userCurrency }: { uid: string; userCu
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-muted">Balance ($)</label>
+                  <label className="text-xs font-medium text-muted">Balance ({getCurrencySymbol(userCurrency)})</label>
                   <input
                     type="number"
                     step="any"

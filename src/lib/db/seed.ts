@@ -52,6 +52,7 @@ const DEFAULT_PROFILE: Omit<Profile, "createdAt" | "updatedAt" | "displayName"> 
   unitSystem: "imperial",
   proteinTargetG: 180,
   weeklyGainLb: 0.5,
+  currency: "PHP",
   // Replaced at call time with the user's resolved IANA tz.
   timezone: "UTC",
 };

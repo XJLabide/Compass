@@ -205,7 +205,7 @@ export default function SettingsPage() {
   const detectedTz = profile ? null : detectTimezone();
   const settingsTz = profile?.timezone ?? detectedTz ?? "UTC";
   const today = computeLocalDate(new Date(), settingsTz);
-  const currency = profile?.currency ?? "USD";
+  const currency = profile?.currency ?? "PHP";
   // Disable inputs only while we haven't yet heard back from the snapshot.
   // After loading, even a missing profile doc renders the form with sensible
   // defaults so the user can configure their preferences.

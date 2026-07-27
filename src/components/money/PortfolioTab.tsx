@@ -13,13 +13,16 @@ import {
   TrendingUp,
   TrendingDown,
   Trash2,
+  Edit2,
   PieChart as PieIcon,
   RefreshCw,
+  DollarSign,
 } from "lucide-react";
 
 import { holdingPath, portfolioPath } from "@/lib/db/paths";
 import type { HoldingCategory, PortfolioHoldingDoc } from "@/lib/db/types";
 import CompassLoader from "@/components/ui/CompassLoader";
+import { formatCurrencyAmount } from "@/lib/money/currency";
 
 export interface StockQuote {
   symbol: string;
@@ -34,20 +37,30 @@ export interface StockQuote {
 
 export interface HoldingRow {
   id: string;
-  data: PortfolioHoldingDoc;
+  data: PortfolioHoldingDoc & { usdAmount?: number };
 }
 
-export default function PortfolioTab({ uid }: { uid: string }) {
+export default function PortfolioTab({
+  uid,
+  userCurrency = "PHP",
+  hideAmounts = false,
+}: {
+  uid: string;
+  userCurrency?: string;
+  hideAmounts?: boolean;
+}) {
   const [holdings, setHoldings] = useState<HoldingRow[] | null>(null);
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
+  const [usdToPhpRate, setUsdToPhpRate] = useState<number>(58.5);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form state
   const [ticker, setTicker] = useState("VOO");
   const [name, setName] = useState("Vanguard S&P 500 ETF");
-  const [shares, setShares] = useState("10");
-  const [costBasis, setCostBasis] = useState("");
+  const [usdAmount, setUsdAmount] = useState("471.39");
+  const [shares, setShares] = useState("0.97");
   const [category, setCategory] = useState<HoldingCategory>("etf");
   const [saving, setSaving] = useState(false);
 
@@ -55,15 +68,18 @@ export default function PortfolioTab({ uid }: { uid: string }) {
   useEffect(() => {
     if (!uid) return;
     const unsub = onSnapshot(portfolioPath(uid), (snap) => {
-      const rows = snap.docs.map((d) => ({ id: d.id, data: d.data() }));
+      const rows = snap.docs.map((d) => ({
+        id: d.id,
+        data: d.data() as PortfolioHoldingDoc & { usdAmount?: number },
+      }));
 
       // Seed initial VOO and QQQ holdings if user has zero holdings
       if (rows.length === 0) {
         void addDoc(portfolioPath(uid), {
           ticker: "VOO",
           name: "Vanguard S&P 500 ETF",
-          shares: 10,
-          costBasisPerShare: 450,
+          usdAmount: 471.39,
+          shares: 0.97,
           category: "etf",
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -71,8 +87,8 @@ export default function PortfolioTab({ uid }: { uid: string }) {
         void addDoc(portfolioPath(uid), {
           ticker: "QQQ",
           name: "Invesco QQQ Trust ETF",
-          shares: 5,
-          costBasisPerShare: 410,
+          usdAmount: 54.98,
+          shares: 0.12,
           category: "etf",
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -84,7 +100,7 @@ export default function PortfolioTab({ uid }: { uid: string }) {
     return unsub;
   }, [uid]);
 
-  // 2. Fetch live stock quotes for all holdings
+  // 2. Fetch live stock quotes & live USD->PHP rate
   const fetchQuotes = useCallback(async (symbolList: string[]) => {
     if (symbolList.length === 0) return;
     setLoadingQuotes(true);
@@ -96,6 +112,9 @@ export default function PortfolioTab({ uid }: { uid: string }) {
         const json = await res.json();
         if (json?.quotes) {
           setQuotes(json.quotes);
+        }
+        if (json?.usdToPhpRate && json.usdToPhpRate > 0) {
+          setUsdToPhpRate(json.usdToPhpRate);
         }
       }
     } catch (err) {
@@ -109,77 +128,154 @@ export default function PortfolioTab({ uid }: { uid: string }) {
   useEffect(() => {
     if (!holdings || holdings.length === 0) return;
     const symbols = Array.from(new Set(holdings.map((h) => h.data.ticker)));
+
+    // Initial fetch
     void fetchQuotes(symbols);
+
+    // Live auto-polling every 10 seconds for real-time market updates
+    const intervalId = setInterval(() => {
+      void fetchQuotes(symbols);
+    }, 10_000);
+
+    // Refetch live quotes when user returns to window/tab
+    const onFocus = () => {
+      void fetchQuotes(symbols);
+    };
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [holdings, fetchQuotes]);
 
-  // 3. Compute portfolio totals & daily P&L
+  // 3. Compute portfolio totals & daily P&L in Pesos
   const portfolioStats = useMemo(() => {
-    if (!holdings) return { totalValue: 0, todayChange: 0, todayChangePct: 0 };
-    let totalValue = 0;
-    let todayChange = 0;
+    if (!holdings) return { totalValueInPhp: 0, todayChangeInPhp: 0, todayChangePct: 0, totalUsd: 0 };
+    let totalUsd = 0;
+    let todayChangeUsd = 0;
 
     for (const h of holdings) {
       const q = quotes[h.data.ticker];
-      const price = q?.price ?? h.data.costBasisPerShare ?? 100;
-      const change = q?.change ?? 0;
-      const positionValue = price * h.data.shares;
-      const positionChange = change * h.data.shares;
+      const usdPrice = q?.price ?? 100;
+      const usdChange = q?.change ?? 0;
 
-      totalValue += positionValue;
-      todayChange += positionChange;
+      // Position USD value: priority to USD amount, fallback to shares * usdPrice
+      let posUsd = 0;
+      let posShares = 0;
+
+      if (h.data.usdAmount !== undefined && h.data.usdAmount !== null && h.data.usdAmount > 0) {
+        posUsd = h.data.usdAmount;
+        posShares = usdPrice > 0 ? posUsd / usdPrice : h.data.shares ?? 0;
+      } else if (h.data.shares !== undefined && h.data.shares !== null && h.data.shares > 0) {
+        posShares = h.data.shares;
+        posUsd = posShares * usdPrice;
+      }
+
+      totalUsd += posUsd;
+      todayChangeUsd += usdChange * posShares;
     }
 
-    const previousTotal = totalValue - todayChange;
-    const todayChangePct = previousTotal > 0 ? (todayChange / previousTotal) * 100 : 0;
+    const rate = userCurrency === "PHP" ? usdToPhpRate : 1;
+    const totalValueInPhp = totalUsd * rate;
+    const todayChangeInPhp = todayChangeUsd * rate;
 
-    return { totalValue, todayChange, todayChangePct };
-  }, [holdings, quotes]);
+    const previousTotalUsd = totalUsd - todayChangeUsd;
+    const todayChangePct = previousTotalUsd > 0 ? (todayChangeUsd / previousTotalUsd) * 100 : 0;
+
+    return { totalValueInPhp, todayChangeInPhp, todayChangePct, totalUsd };
+  }, [holdings, quotes, usdToPhpRate, userCurrency]);
 
   // 4. Asset category distribution
   const allocation = useMemo(() => {
     if (!holdings) return [];
     const catMap: Record<string, number> = {};
-    let total = 0;
+    let totalUsd = 0;
 
     for (const h of holdings) {
       const q = quotes[h.data.ticker];
-      const price = q?.price ?? h.data.costBasisPerShare ?? 100;
-      const val = price * h.data.shares;
+      const usdPrice = q?.price ?? 100;
+      let posUsd = 0;
+
+      if (h.data.usdAmount !== undefined && h.data.usdAmount !== null && h.data.usdAmount > 0) {
+        posUsd = h.data.usdAmount;
+      } else if (h.data.shares !== undefined && h.data.shares !== null) {
+        posUsd = h.data.shares * usdPrice;
+      }
+
       const cat = h.data.category || "other";
-      catMap[cat] = (catMap[cat] || 0) + val;
-      total += val;
+      catMap[cat] = (catMap[cat] || 0) + posUsd;
+      totalUsd += posUsd;
     }
 
     return Object.entries(catMap).map(([cat, val]) => ({
       category: cat,
       value: val,
-      percent: total > 0 ? (val / total) * 100 : 0,
+      percent: totalUsd > 0 ? (val / totalUsd) * 100 : 0,
     }));
   }, [holdings, quotes]);
 
-  // Handle Add Holding
+  const openAddModal = () => {
+    setEditingId(null);
+    setTicker("VOO");
+    setName("Vanguard S&P 500 ETF");
+    setUsdAmount("471.39");
+    setShares("0.97");
+    setCategory("etf");
+    setModalOpen(true);
+  };
+
+  const openEditModal = (h: HoldingRow) => {
+    setEditingId(h.id);
+    setTicker(h.data.ticker);
+    setName(h.data.name);
+    const q = quotes[h.data.ticker];
+    const usdPrice = q?.price ?? 100;
+
+    if (h.data.usdAmount !== undefined && h.data.usdAmount !== null && h.data.usdAmount > 0) {
+      setUsdAmount(h.data.usdAmount.toString());
+      setShares((h.data.usdAmount / (usdPrice || 1)).toFixed(4));
+    } else if (h.data.shares !== undefined && h.data.shares !== null) {
+      setShares(h.data.shares.toString());
+      setUsdAmount((h.data.shares * usdPrice).toFixed(2));
+    }
+
+    setCategory(h.data.category || "etf");
+    setModalOpen(true);
+  };
+
+  // Handle Add / Edit Holding
   const handleSaveHolding = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uid || !ticker) return;
     setSaving(true);
     try {
-      await addDoc(portfolioPath(uid), {
+      const numUsd = parseFloat(usdAmount);
+      const numShares = parseFloat(shares);
+
+      const payload = {
         ticker: ticker.toUpperCase().trim(),
         name: name.trim() || ticker.toUpperCase().trim(),
-        shares: Math.max(0.0001, parseFloat(shares) || 1),
-        costBasisPerShare: costBasis ? parseFloat(costBasis) : undefined,
+        usdAmount: Number.isFinite(numUsd) && numUsd > 0 ? numUsd : undefined,
+        shares: Number.isFinite(numShares) && numShares > 0 ? numShares : undefined,
         category,
-        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
+      };
+
+      if (editingId) {
+        await setDoc(holdingPath(uid, editingId), payload, { merge: true });
+      } else {
+        await addDoc(portfolioPath(uid), {
+          ...payload,
+          createdAt: serverTimestamp(),
+        });
+      }
+
       setModalOpen(false);
-      setTicker("");
-      setName("");
-      setShares("1");
-      setCostBasis("");
+      setEditingId(null);
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error("Failed to add holding:", err);
+      console.error("Failed to save holding:", err);
     } finally {
       setSaving(false);
     }
@@ -199,7 +295,7 @@ export default function PortfolioTab({ uid }: { uid: string }) {
     return <CompassLoader mode="card" size="lg" label="Loading Live Portfolio..." />;
   }
 
-  const isGain = portfolioStats.todayChange >= 0;
+  const isGain = portfolioStats.todayChangeInPhp >= 0;
 
   return (
     <div className="space-y-6">
@@ -208,11 +304,17 @@ export default function PortfolioTab({ uid }: { uid: string }) {
         <div className="flex items-start justify-between">
           <div>
             <span className="text-xs font-medium uppercase tracking-wider text-muted">
-              Stock & ETF Portfolio
+              Stock & ETF Portfolio Value
             </span>
             <h2 className="mt-1 text-3xl font-bold tracking-tight text-neutral-100">
-              ${portfolioStats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatCurrencyAmount(portfolioStats.totalValueInPhp, "PHP", 2, hideAmounts)}
             </h2>
+            <span className="text-xs text-muted font-mono mt-0.5 block">
+              {hideAmounts
+                ? "$ •••••• USD"
+                : `$${portfolioStats.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`}{" "}
+              · Live Rate: 1 USD = ₱{usdToPhpRate.toFixed(2)} PHP
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -226,11 +328,11 @@ export default function PortfolioTab({ uid }: { uid: string }) {
               <RefreshCw className={`h-3.5 w-3.5 ${loadingQuotes ? "animate-spin" : ""}`} />
             </button>
             <button
-              onClick={() => setModalOpen(true)}
+              onClick={openAddModal}
               className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-xs font-semibold text-accent-foreground transition hover:opacity-90"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add Holding
+              Add Position
             </button>
           </div>
         </div>
@@ -246,7 +348,7 @@ export default function PortfolioTab({ uid }: { uid: string }) {
           >
             {isGain ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
             {isGain ? "+" : ""}
-            ${portfolioStats.todayChange.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (
+            {formatCurrencyAmount(portfolioStats.todayChangeInPhp, "PHP", 2, hideAmounts)} (
             {isGain ? "+" : ""}
             {portfolioStats.todayChangePct.toFixed(2)}%)
           </span>
@@ -266,10 +368,22 @@ export default function PortfolioTab({ uid }: { uid: string }) {
           <div className="space-y-2">
             {holdings.map((h) => {
               const q = quotes[h.data.ticker];
-              const price = q?.price ?? h.data.costBasisPerShare ?? 0;
-              const val = price * h.data.shares;
+              const usdPrice = q?.price ?? 100;
               const changePct = q?.changePercent ?? 0;
               const isPos = changePct >= 0;
+
+              let posUsd = 0;
+              let calculatedShares = 0;
+
+              if (h.data.usdAmount !== undefined && h.data.usdAmount !== null && h.data.usdAmount > 0) {
+                posUsd = h.data.usdAmount;
+                calculatedShares = usdPrice > 0 ? parseFloat((posUsd / usdPrice).toFixed(4)) : 0;
+              } else if (h.data.shares !== undefined && h.data.shares !== null) {
+                calculatedShares = h.data.shares;
+                posUsd = calculatedShares * usdPrice;
+              }
+
+              const posPhp = posUsd * usdToPhpRate;
 
               return (
                 <div
@@ -288,25 +402,37 @@ export default function PortfolioTab({ uid }: { uid: string }) {
                         </span>
                       </div>
                       <p className="text-xs text-muted truncate max-w-[180px] sm:max-w-[240px]">
-                        {h.data.name} · {h.data.shares} shares
+                        {h.data.name} · <span className="font-semibold text-neutral-200">{calculatedShares} shares</span>
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-neutral-100">
-                        ${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <p className="text-base font-bold text-neutral-100">
+                        {formatCurrencyAmount(posPhp, "PHP", 2, hideAmounts)}
                       </p>
-                      <p className={`text-xs font-medium ${isPos ? "text-emerald-400" : "text-rose-400"}`}>
-                        ${price.toFixed(2)} ({isPos ? "+" : ""}
-                        {changePct.toFixed(2)}%)
+                      <p className="text-[11px] text-muted">
+                        {hideAmounts ? "$ •••••• USD" : `$${posUsd.toFixed(2)} USD`}
                       </p>
+                      {usdPrice > 0 ? (
+                        <p className={`text-[10px] font-medium ${isPos ? "text-emerald-400" : "text-rose-400"}`}>
+                          ${usdPrice.toFixed(2)} ({isPos ? "+" : ""}
+                          {changePct.toFixed(2)}%)
+                        </p>
+                      ) : null}
                     </div>
 
                     <button
+                      onClick={() => openEditModal(h)}
+                      className="text-muted hover:text-cyan-400 transition p-1.5 rounded-md hover:bg-neutral-800"
+                      title="Edit USD amount or shares"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(h.id)}
-                      className="text-muted hover:text-rose-400 transition"
+                      className="text-muted hover:text-rose-400 transition p-1.5 rounded-md hover:bg-neutral-800"
                       title="Remove position"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -354,11 +480,13 @@ export default function PortfolioTab({ uid }: { uid: string }) {
         </div>
       </div>
 
-      {/* Add Holding Modal */}
+      {/* Add / Edit Holding Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-neutral-900 p-6 space-y-4 shadow-2xl">
-            <h3 className="text-lg font-semibold text-neutral-100">Add Stock or ETF Position</h3>
+            <h3 className="text-lg font-semibold text-neutral-100">
+              {editingId ? `Edit ${ticker} Position` : "Add Stock or ETF Position"}
+            </h3>
 
             <form onSubmit={handleSaveHolding} className="space-y-4">
               <div>
@@ -390,19 +518,53 @@ export default function PortfolioTab({ uid }: { uid: string }) {
                 />
               </div>
 
+              {/* PRIMARY FIELD: USD Amount in Brokerage Wallet */}
+              <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-4 space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-1">
+                  <DollarSign className="h-3.5 w-3.5" />
+                  USD Amount in Brokerage Wallet ($ USD)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  placeholder="e.g. 471.39"
+                  value={usdAmount}
+                  onChange={(e) => {
+                    const amt = e.target.value;
+                    setUsdAmount(amt);
+                    const q = quotes[ticker];
+                    if (parseFloat(amt) > 0 && q?.price) {
+                      setShares((parseFloat(amt) / q.price).toFixed(4));
+                    }
+                  }}
+                  className="w-full rounded-lg border border-cyan-500/40 bg-neutral-950 px-3 py-2 text-xl font-extrabold text-neutral-100 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                />
+                <p className="text-[11px] text-muted">
+                  Live Conversion: = {formatCurrencyAmount((parseFloat(usdAmount) || 0) * usdToPhpRate, "PHP")} (1 USD = ₱{usdToPhpRate.toFixed(2)} PHP)
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted">Shares / Quantity</label>
+                  <label className="text-xs font-medium text-muted">Exact Calculated Shares</label>
                   <input
                     type="number"
                     step="any"
-                    required
-                    placeholder="10"
+                    placeholder="e.g. 0.97"
                     value={shares}
-                    onChange={(e) => setShares(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"
+                    onChange={(e) => {
+                      const s = e.target.value;
+                      setShares(s);
+                      const q = quotes[ticker];
+                      if (parseFloat(s) > 0 && q?.price) {
+                        setUsdAmount((parseFloat(s) * q.price).toFixed(2));
+                      }
+                    }}
+                    className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent font-semibold"
                   />
                 </div>
+
                 <div>
                   <label className="text-xs font-medium text-muted">Category</label>
                   <select
@@ -419,18 +581,6 @@ export default function PortfolioTab({ uid }: { uid: string }) {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-medium text-muted">Cost Basis per Share ($)</label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="e.g. 450.00"
-                  value={costBasis}
-                  onChange={(e) => setCostBasis(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"
-                />
-              </div>
-
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -444,7 +594,7 @@ export default function PortfolioTab({ uid }: { uid: string }) {
                   disabled={saving}
                   className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground hover:opacity-90"
                 >
-                  {saving ? "Saving..." : "Add Position"}
+                  {saving ? "Saving..." : editingId ? "Update Position" : "Add Position"}
                 </button>
               </div>
             </form>

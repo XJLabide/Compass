@@ -239,6 +239,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       unitSystem: "imperial",
       proteinTargetG: 0,
       weeklyGainLb: 0,
+      currency: "PHP",
       timezone: detectTimezone(),
       createdAt: undefined as unknown as Profile["createdAt"],
       updatedAt: undefined as unknown as Profile["updatedAt"],
