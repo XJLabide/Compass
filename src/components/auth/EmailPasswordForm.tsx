@@ -134,6 +134,8 @@ function mapAuthError(err: unknown): string {
       ? String((err as { code: unknown }).code)
       : "";
   switch (code) {
+    case "auth/operation-not-allowed":
+      return "Email/password sign-in is not enabled for this Firebase project.";
     case "auth/invalid-email":
       return "That email address is not valid.";
     case "auth/user-disabled":

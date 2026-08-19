@@ -181,12 +181,11 @@ for all three is fine for a single-user app):
 | Key                                       | Value                                              |
 | ----------------------------------------- | -------------------------------------------------- |
 | `NEXT_PUBLIC_FIREBASE_API_KEY`            | from Firebase config                               |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`        | `<project>.firebaseapp.com`                        |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`        | Local: `<project>.firebaseapp.com`; production PWA: your deployed app domain |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID`         | `<project-id>`                                     |
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`     | `<project>.appspot.com`                            |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`| from Firebase config                               |
 | `NEXT_PUBLIC_FIREBASE_APP_ID`             | from Firebase config                               |
-| `NEXT_PUBLIC_ALLOWED_EMAILS`              | same comma-separated list as your local env        |
 
 After adding, trigger a deploy from the **Deployments** tab (or push a
 trivial commit to `main`).
@@ -200,7 +199,7 @@ Once the deploy is green:
 
 1. Open the production URL (`https://<project>.vercel.app`).
 2. You should be redirected to `/login`.
-3. Sign in with Google or email/password using an allowlisted address.
+3. Sign in with Google or email/password.
 4. You should land on the dashboard. Create a workout or a check-in to
    verify Firestore writes succeed (any rule failure shows up as a console
    error and a toast).
@@ -208,6 +207,15 @@ Once the deploy is green:
 If sign-in fails with `auth/unauthorized-domain`, go back to
 **Authentication → Settings → Authorized domains** in Firebase and add the
 exact Vercel domain.
+
+For installed iOS PWAs, Google sign-in uses Firebase redirect auth instead of a
+popup. If your production app is on Vercel or a custom domain, set
+`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` to that exact app domain, add the same
+domain under Firebase Auth authorized domains, make sure the Google OAuth
+client accepts `https://<app-domain>/__/auth/handler` as an authorized redirect
+URI, then redeploy. The Next config proxies `/__/auth/*` back to
+`<project-id>.firebaseapp.com`, which is required for Firebase's same-domain
+redirect helper flow on Safari/iOS.
 
 ## Subsequent deploys
 
@@ -237,8 +245,8 @@ allowlist will see the UI but every write will fail with `permission-denied`.
 | ------------------------------------------------ | ---------------------------------------------------------------------------- |
 | White screen, console says "Firebase: Error (auth/invalid-api-key)" | Missing or wrong `NEXT_PUBLIC_FIREBASE_*` in Vercel — redeploy after fixing. |
 | Sign-in popup closes immediately                 | `auth/unauthorized-domain` — add the Vercel domain to Firebase authorized domains. |
-| Sign-in works, but `/not-authorized` shows       | Email isn't on `NEXT_PUBLIC_ALLOWED_EMAILS` (case-insensitive match).        |
-| Sign-in + dashboard works, but every write fails | Email isn't in `allowed()` in `firestore.rules`, or rules weren't deployed.  |
+| Installed iOS PWA returns to "Welcome back" after Google | Set production `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` to the deployed app domain, authorize that domain in Firebase, and redeploy. |
+| Sign-in + dashboard works, but writes fail       | Firestore owner rules were not deployed or point at a different Firebase project. |
 | Vercel build fails on type errors                | Run `npm run typecheck` locally — production builds run a full type check.  |
 | Local writes fail with "Missing or insufficient permissions" | Rules deployed to a different Firebase project than the one your `.env.local` points at. |
 

@@ -58,6 +58,8 @@ function mapGoogleError(err: unknown): string {
       ? String((err as { code: unknown }).code)
       : "";
   switch (code) {
+    case "auth/operation-not-allowed":
+      return "Google sign-in is not enabled for this Firebase project. Enable the Google provider in Firebase Authentication, then try again.";
     case "auth/popup-blocked":
       return "Popup blocked by your browser. Allow popups and try again.";
     case "auth/popup-closed-by-user":

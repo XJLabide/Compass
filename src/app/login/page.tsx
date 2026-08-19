@@ -17,7 +17,14 @@ import LoginHero from "@/components/auth/LoginHero";
  */
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, signInGoogle, signInEmail } = useAuth();
+  const {
+    user,
+    loading,
+    redirectError,
+    clearRedirectError,
+    signInGoogle,
+    signInEmail,
+  } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
 
@@ -25,6 +32,13 @@ export default function LoginPage() {
     if (loading || !user) return;
     router.replace("/");
   }, [loading, user, router]);
+
+  useEffect(() => {
+    if (!redirectError) return;
+    setAuthNotice(null);
+    setError(redirectError);
+    clearRedirectError();
+  }, [redirectError, clearRedirectError]);
 
   const showForm = !loading && !user;
 
@@ -64,6 +78,7 @@ export default function LoginPage() {
                   <EmailPasswordForm
                     onSubmit={async (email, password) => {
                       setError(null);
+                      clearRedirectError();
                       setAuthNotice("Signing you in...");
                       await signInEmail(email, password);
                     }}
@@ -82,6 +97,7 @@ export default function LoginPage() {
                   <GoogleSignInButton
                     onSignIn={async () => {
                       setError(null);
+                      clearRedirectError();
                       setAuthNotice("Waiting for Google…");
                       await signInGoogle();
                       setAuthNotice("Signing you in...");

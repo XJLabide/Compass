@@ -46,15 +46,15 @@ All Firebase values come from your Firebase web app config
 | Variable                                  | Description                                                |
 | ----------------------------------------- | ---------------------------------------------------------- |
 | `NEXT_PUBLIC_FIREBASE_API_KEY`            | Firebase web API key                                       |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`        | `<project-id>.firebaseapp.com`                             |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`        | Local: `<project-id>.firebaseapp.com`. Production PWA: your app domain, with `/__/auth/*` proxied by `next.config.mjs`. |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID`         | Firebase project ID                                        |
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`     | `<project-id>.appspot.com`                                 |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`| Numeric sender ID                                          |
 | `NEXT_PUBLIC_FIREBASE_APP_ID`             | Firebase app ID (`1:...:web:...`)                          |
-| `NEXT_PUBLIC_ALLOWED_EMAILS`              | Comma-separated allowlist (case-insensitive). Non-listed users are signed out and shown `/not-authorized`. |
 
-The same allowlist is mirrored in [`firestore.rules`](firestore.rules) — see
-[`docs/FIRESTORE_RULES.md`](docs/FIRESTORE_RULES.md) for the edit + deploy flow.
+For installed iOS PWAs, Google sign-in uses Firebase redirect auth. On Vercel,
+set `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` to the deployed app domain and add that
+exact domain in Firebase Auth authorized domains.
 
 ## Scripts
 
@@ -99,13 +99,12 @@ Pushes to `main` trigger a Vercel production deploy.
 
 - Firestore is locked down by [`firestore.rules`](firestore.rules): a request
   is only allowed if the caller is authenticated, the `request.auth.uid`
-  matches the `{uid}` in the path, and `request.auth.token.email` is on the
-  hard-coded allowlist in the rules file.
-- The app shell also enforces the allowlist client-side via
-  `NEXT_PUBLIC_ALLOWED_EMAILS`. Keep the two lists in sync.
+  matches the `{uid}` in the path.
+- The app shell requires Firebase Auth, but it does not maintain a separate
+  email allowlist.
 - The `NEXT_PUBLIC_*` env vars are public by design — Firebase web config is
-  not a secret. Access control happens via Firebase Auth + the rules
-  allowlist, not by hiding the API key.
+  not a secret. Access control happens via Firebase Auth + owner-scoped
+  Firestore rules, not by hiding the API key.
 
 ## License
 
