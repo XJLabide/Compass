@@ -210,6 +210,10 @@ export interface LoggedSet {
  *  `discarded` is a user-abandoned in-progress session (kept for audit, hidden from feeds). */
 export type SessionStatus = "in_progress" | "completed" | "discarded";
 
+export type FitnessActivityType = "weight_lifting" | "running" | "sports";
+export type RunType = "easy" | "tempo" | "intervals" | "long_run" | "general";
+export type MatchOutcome = "win" | "loss" | "draw" | "none";
+
 export interface SessionDoc {
   /** Client-computed `YYYY-MM-DD` in user tz. */
   localDate: LocalDate;
@@ -217,8 +221,10 @@ export interface SessionDoc {
   date: Timestamp;
   /** Id from `ProgramDoc.sessions[].id` if logged from a template. */
   programSessionId?: string;
-  /** Display name, e.g. `"Upper A"` or a free-form label. */
+  /** Display name, e.g. `"Upper A"`, `"Morning Run"`, or `"Basketball Game"`. */
   name: string;
+  /** Activity type classification. Defaults to "weight_lifting" for backward compatibility. */
+  activityType?: FitnessActivityType;
   /** Lifecycle state. Optional for backward compat with seeded/legacy docs. */
   status?: SessionStatus;
   /** Server timestamp when the user tapped "Start session". */
@@ -237,9 +243,31 @@ export interface SessionDoc {
    * reads this when present, otherwise falls back to the program template.
    */
   plannedExercises?: PlannedExercise[];
+  /** Optional running distance in kilometers. */
+  distanceKm?: number;
+  /** Calculated running pace in minutes per kilometer. */
+  paceMinPerKm?: number;
+  /** Run category preset type. */
+  runType?: RunType;
+  /** Sport category name (e.g. "Basketball", "Soccer", "Tennis", "Swimming"). */
+  sportName?: string;
+  /** Game mode classification. */
+  gameType?: "casual" | "match";
+  /** Match outcome for competitive sports games. */
+  matchOutcome?: MatchOutcome;
+  /** Score or result text (e.g. "21-18", "3-1"). */
+  score?: string;
+  /** Name of opponent or rival team. */
+  opponent?: string;
+  /** Perceived workout intensity. */
+  intensity?: "low" | "moderate" | "high";
+  /** Estimated calories burned during the session. */
+  caloriesBurned?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
+
+
 
 // ---------------------------------------------------------------------------
 // users/{uid}/daily/{YYYY-MM-DD}

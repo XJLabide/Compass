@@ -143,10 +143,10 @@ export default function MoneySummary({ uid, timezone }: MoneySummaryProps) {
         <div className="flex items-center gap-2">
           <Wallet aria-hidden className="h-4 w-4 text-accent" />
           <h2
-            id="money-summary-heading"
+            id="finances-summary-heading"
             className="text-xs font-medium uppercase tracking-wide text-muted"
           >
-            Money · {monthLabel}
+            Finances · {monthLabel}
           </h2>
         </div>
         <Link
@@ -161,7 +161,7 @@ export default function MoneySummary({ uid, timezone }: MoneySummaryProps) {
         <Cell label="In" value={formatMoney(income, currency)} tone="positive" />
         <Cell label="Out" value={formatMoney(expense, currency)} tone="negative" />
         <Cell
-          label="Net"
+          label="Net Flow"
           value={formatMoney(net, currency)}
           tone={net >= 0 ? "positive" : "negative"}
         />

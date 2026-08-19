@@ -24,12 +24,12 @@ export default function NotAuthorizedPage() {
         Not authorized
       </h1>
       <p className="mt-3 text-sm text-muted">
-        Compass is a single-user app. The account you used isn&apos;t
-        on the allowlist, so we&apos;ve signed you out.
+        This account could not access the app. We&apos;ve signed you out so you
+        can try again.
       </p>
       <p className="mt-2 text-sm text-muted">
-        If you have a different account that should have access, try signing in
-        with that one.
+        If this keeps happening, use a different account or check your Firebase
+        authentication setup.
       </p>
 
       <button

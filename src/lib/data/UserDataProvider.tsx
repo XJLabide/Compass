@@ -14,7 +14,6 @@ import { FirebaseError } from "firebase/app";
 import { onSnapshot } from "firebase/firestore";
 
 import { useAuth } from "@/lib/auth/useAuth";
-import { isAllowed } from "@/lib/auth/allowlist";
 import { profilePath, programPath } from "@/lib/db/paths";
 import { ensureSeeded, migrateStaleSeededExercises } from "@/lib/db/seed";
 import type { Profile, ProgramDoc } from "@/lib/db/types";
@@ -152,7 +151,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
   // First-run seed, driven by the realtime snapshot.
   //
   // We only attempt to write when:
-  //   - The user is signed in and on the allowlist
+  //   - The user is signed in
   //   - The profile snapshot has resolved AND came back empty
   //   - We're not already mid-write
   //
@@ -162,7 +161,6 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!user) return;
-    if (!isAllowed(user.email)) return;
     if (!profileLoaded) return;
     if (profile) {
       // Already seeded — clear any leftover error from a prior cold start.
@@ -217,7 +215,6 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
   const migratedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!user) return;
-    if (!isAllowed(user.email)) return;
     if (migratedRef.current === user.uid) return;
     migratedRef.current = user.uid;
     migrateStaleSeededExercises(user.uid).catch((err) => {

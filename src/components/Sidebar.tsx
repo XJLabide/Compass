@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import {
-  Dumbbell,
+  Activity,
   Home,
   Sun,
   ClipboardCheck,
@@ -31,7 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", Icon: Home },
   { href: "/today", label: "Today", Icon: Sun },
   { href: "/nutrition", label: "Nutrition", Icon: Flame },
-  { href: "/workout", label: "Workout", Icon: Dumbbell },
+  { href: "/fitness", label: "Fitness", Icon: Activity },
   { href: "/todos", label: "Todos", Icon: CheckSquare },
   { href: "/money", label: "Finances", Icon: Wallet },
   { href: "/nori", label: "Nori", Icon: Sparkles },
@@ -40,8 +40,12 @@ const NAV_ITEMS: NavItem[] = [
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
+  if (href === "/fitness") {
+    return pathname === "/fitness" || pathname.startsWith("/fitness/") || pathname === "/workout" || pathname.startsWith("/workout/");
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
+
 
 export default function Sidebar() {
   const { collapsed, toggle } = useSidebar();

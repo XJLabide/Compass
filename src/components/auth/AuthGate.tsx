@@ -3,7 +3,6 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/useAuth";
-import { isAllowed } from "@/lib/auth/allowlist";
 import CompassLoader from "@/components/ui/CompassLoader";
 
 /**
@@ -12,14 +11,11 @@ import CompassLoader from "@/components/ui/CompassLoader";
  * Behavior:
  *  - while `loading`: render full-screen Spinning Compass Loader
  *  - signed-out: replace to `/login` and return null (prevents loader lockup)
- *  - signed-in but not allowlisted: `signOut()` then replace to `/not-authorized`
- *  - signed-in and allowlisted: render app children
+ *  - signed-in: render app children
  */
 export default function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { user, loading, signOut } = useAuth();
-
-  const allowed = user ? isAllowed(user.email) : false;
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     if (loading) return;
@@ -27,12 +23,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       router.replace("/login");
       return;
     }
-    if (!allowed) {
-      void signOut().finally(() => {
-        router.replace("/not-authorized");
-      });
-    }
-  }, [loading, user, allowed, router, signOut]);
+  }, [loading, user, router]);
 
   if (loading) {
     return (
@@ -40,7 +31,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!user || !allowed) {
+  if (!user) {
     return null;
   }
 

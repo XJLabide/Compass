@@ -348,7 +348,7 @@ export default function SettingsPage() {
       <SettingsGroup
         icon={Tag}
         title="Expense categories"
-        subtitle="Add your own categories to use in the Money tracker."
+        subtitle="Add your own categories to use in the Finances tracker."
       >
         <CustomCategoriesSection />
       </SettingsGroup>

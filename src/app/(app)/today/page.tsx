@@ -1039,7 +1039,7 @@ function MoneySection({
   currency: string;
   loaded: boolean;
 }) {
-  if (!loaded) return <SectionSkeleton title="Money" />;
+  if (!loaded) return <SectionSkeleton title="Finances" />;
   const fmt = (minor: number) => {
     try {
       return new Intl.NumberFormat("en-US", {
@@ -1056,7 +1056,7 @@ function MoneySection({
     <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
       <SectionHeader
         icon={Wallet}
-        title="Money · today"
+        title="Finances · today"
         right={
           <Link
             href="/money"
@@ -1075,7 +1075,7 @@ function MoneySection({
           <MoneyCell label="In" value={fmt(income)} tone="positive" />
           <MoneyCell label="Out" value={fmt(expense)} tone="negative" />
           <MoneyCell
-            label="Net"
+            label="Net Flow"
             value={fmt(net)}
             tone={net >= 0 ? "positive" : "negative"}
           />

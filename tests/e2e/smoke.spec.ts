@@ -22,7 +22,7 @@ test("login page shows Compass brand + form", async ({ page, viewport }) => {
   }
 });
 
-test("not-authorized page renders for blocked emails", async ({ page }) => {
+test("not-authorized page renders", async ({ page }) => {
   await page.goto("/not-authorized");
   await expect(page.getByText(/not authorized/i)).toBeVisible();
 });

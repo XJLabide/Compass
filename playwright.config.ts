@@ -61,7 +61,6 @@ export default defineConfig({
       NEXT_PUBLIC_FIREBASE_DB_ID: "p-tracker",
       NEXT_PUBLIC_USE_EMULATORS: "true",
       NEXT_PUBLIC_EMULATOR_HOST: "127.0.0.1",
-      NEXT_PUBLIC_ALLOWED_EMAILS: "test@compass.test",
     },
   },
 });

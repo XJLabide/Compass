@@ -5,33 +5,15 @@ rules_version = '2';
 // Model:
 //   - Default-deny at root.
 //   - All app data lives under `users/{uid}/...`.
-//   - Access requires `request.auth.uid == uid` AND the signed-in email is on
-//     the hard-coded allowlist (`allowed()` below).
+//   - Access requires `request.auth.uid == uid`.
 //   - Per-collection write validators enforce field shapes (numeric ranges,
 //     required fields). See `docs/FIRESTORE_RULES.md` for deploy + edit notes.
-//
-// IMPORTANT: To add or remove an allowed user, edit `allowed()` below and
-// redeploy via `firebase deploy --only firestore:rules`.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // -------------------------------------------------------------------
-    // Allowlist (v1: hard-coded; promote to script-generated if it grows).
-    // -------------------------------------------------------------------
-    function allowed() {
-      return [
-        'labide.xj@gmail.com',
-        // Test-only email used by Playwright e2e against the emulator. The
-        // domain is reserved and not deliverable, so adding it here doesn't
-        // expose real-world accounts even when deployed to prod.
-        'test@compass.test'
-      ];
-    }
-
     function isOwner(uid) {
       return request.auth != null
-        && request.auth.uid == uid
-        && request.auth.token.email in allowed();
+        && request.auth.uid == uid;
     }
 
     // -------------------------------------------------------------------
@@ -79,8 +61,21 @@ service cloud.firestore {
         && (!('plannedExercises' in data) || data.plannedExercises is list)
         && (!('durationMin' in data)
             || (data.durationMin is number && data.durationMin >= 0 && data.durationMin <= 1440))
-        && (!('notes' in data) || data.notes is string);
+        && (!('notes' in data) || data.notes is string)
+        && (!('activityType' in data) || data.activityType in ['weight_lifting', 'running', 'sports'])
+        && (!('distanceKm' in data) || (data.distanceKm is number && data.distanceKm >= 0))
+        && (!('paceMinPerKm' in data) || (data.paceMinPerKm is number && data.paceMinPerKm >= 0))
+        && (!('runType' in data) || data.runType in ['easy', 'tempo', 'intervals', 'long_run', 'general'])
+        && (!('sportName' in data) || data.sportName is string)
+        && (!('gameType' in data) || data.gameType in ['casual', 'match'])
+        && (!('matchOutcome' in data) || data.matchOutcome in ['win', 'loss', 'draw', 'none'])
+        && (!('score' in data) || data.score is string)
+        && (!('opponent' in data) || data.opponent is string)
+        && (!('intensity' in data) || data.intensity in ['low', 'moderate', 'high'])
+        && (!('caloriesBurned' in data) || (data.caloriesBurned is number && data.caloriesBurned >= 0));
     }
+
+
 
     function prValid(data) {
       return data.exerciseId is string

@@ -1,9 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 
 /**
- * Test-only credentials. The user is allowlisted via NEXT_PUBLIC_ALLOWED_EMAILS
- * in .env.test / playwright.config.ts. The Auth emulator accepts any password
- * and silently creates the user on first sign-in.
+ * Test-only credentials. The Auth emulator accepts any password and silently
+ * creates the user on first sign-in.
  */
 export const TEST_EMAIL = "test@compass.test";
 export const TEST_PASSWORD = "test-password-123";

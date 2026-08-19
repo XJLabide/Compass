@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/lib/auth/useAuth";
-import { isAllowed } from "@/lib/auth/allowlist";
 import EmailPasswordForm from "@/components/auth/EmailPasswordForm";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import LoginBackground from "@/components/auth/LoginBackground";
@@ -18,25 +17,14 @@ import LoginHero from "@/components/auth/LoginHero";
  */
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, signInGoogle, signInEmail, signOut } = useAuth();
+  const { user, loading, signInGoogle, signInEmail } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading || !user) return;
-
-    if (isAllowed(user.email)) {
-      router.replace("/");
-      return;
-    }
-
-    const email = user.email ?? "that Google account";
-    setAuthNotice(null);
-    setError(
-      `${email} signed in successfully, but it is not on this app's allowlist. Use the allowlisted account or add this email to NEXT_PUBLIC_ALLOWED_EMAILS, then restart the dev server.`,
-    );
-    void signOut();
-  }, [loading, user, router, signOut]);
+    router.replace("/");
+  }, [loading, user, router]);
 
   const showForm = !loading && !user;
 
@@ -68,7 +56,7 @@ export default function LoginPage() {
                 Welcome back
               </h1>
               <p className="mt-2 text-xs leading-relaxed text-muted">
-                Compass is single-user. Use the allowlisted account to continue.
+                Sign in with your account to continue.
               </p>
 
               {showForm ? (
@@ -76,7 +64,7 @@ export default function LoginPage() {
                   <EmailPasswordForm
                     onSubmit={async (email, password) => {
                       setError(null);
-                      setAuthNotice("Checking your account…");
+                      setAuthNotice("Signing you in...");
                       await signInEmail(email, password);
                     }}
                     onError={(msg) => {
@@ -96,7 +84,7 @@ export default function LoginPage() {
                       setError(null);
                       setAuthNotice("Waiting for Google…");
                       await signInGoogle();
-                      setAuthNotice("Checking your account…");
+                      setAuthNotice("Signing you in...");
                     }}
                     onError={(msg) => {
                       setAuthNotice(null);

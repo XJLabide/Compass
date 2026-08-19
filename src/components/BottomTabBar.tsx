@@ -9,7 +9,7 @@ import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import {
   Home,
   Sun,
-  Dumbbell,
+  Activity,
   CheckSquare,
   Wallet,
   MoreHorizontal,
@@ -38,7 +38,7 @@ const PRIMARY_TABS: Tab[] = [
   { href: "/", label: "Home", Icon: Home },
   { href: "/today", label: "Today", Icon: Sun },
   { href: "/nutrition", label: "Nutrition", Icon: Flame },
-  { href: "/workout", label: "Workout", Icon: Dumbbell },
+  { href: "/fitness", label: "Fitness", Icon: Activity },
 ];
 
 const SECONDARY_LINKS: Tab[] = [
@@ -52,8 +52,12 @@ function isActive(pathname: string, href: string): boolean {
   if (href === "/") {
     return pathname === "/";
   }
+  if (href === "/fitness") {
+    return pathname === "/fitness" || pathname.startsWith("/fitness/") || pathname === "/workout" || pathname.startsWith("/workout/");
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
+
 
 function isInMoreSection(pathname: string): boolean {
   return SECONDARY_LINKS.some((s) => isActive(pathname, s.href));

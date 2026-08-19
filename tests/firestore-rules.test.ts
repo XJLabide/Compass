@@ -23,8 +23,7 @@ import {
 } from "firebase/firestore";
 
 const PROJECT_ID = "personal-tracker-rules-test";
-const ALLOWED_EMAIL = "labide.xj@gmail.com";
-const NOT_ALLOWED_EMAIL = "stranger@example.com";
+const USER_EMAIL = "user@example.com";
 
 let env: RulesTestEnvironment;
 
@@ -47,7 +46,7 @@ beforeEach(async () => {
   await env.clearFirestore();
 });
 
-function ownedDb(uid: string, email = ALLOWED_EMAIL) {
+function ownedDb(uid: string, email = USER_EMAIL) {
   return env
     .authenticatedContext(uid, { email, email_verified: true })
     .firestore();
@@ -79,7 +78,7 @@ describe("default-deny", () => {
 });
 
 describe("cross-user isolation", () => {
-  test("allowlisted user cannot read another uid's data", async () => {
+  test("signed-in user cannot read another uid's data", async () => {
     // Seed alice's profile via the privileged context.
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), "users/alice/profile/profile"), {
@@ -95,7 +94,7 @@ describe("cross-user isolation", () => {
     await assertFails(getDoc(doc(bob, "users/alice/profile/profile")));
   });
 
-  test("allowlisted user cannot write to another uid's subtree", async () => {
+  test("signed-in user cannot write to another uid's subtree", async () => {
     const bob = ownedDb("bob");
     await assertFails(
       setDoc(doc(bob, "users/alice/daily/2026-05-13"), {
@@ -106,18 +105,8 @@ describe("cross-user isolation", () => {
   });
 });
 
-describe("allowlist enforcement", () => {
-  test("signed-in user NOT on allowlist is denied even on own subtree", async () => {
-    const db = ownedDb("alice", NOT_ALLOWED_EMAIL);
-    await assertFails(getDoc(doc(db, "users/alice/profile/profile")));
-    await assertFails(
-      setDoc(doc(db, "users/alice/daily/2026-05-13"), {
-        localDate: "2026-05-13",
-      }),
-    );
-  });
-
-  test("allowlisted user can read/write their own subtree", async () => {
+describe("owner access", () => {
+  test("signed-in user can read/write their own subtree", async () => {
     const db = ownedDb("alice");
     await assertSucceeds(
       setDoc(doc(db, "users/alice/daily/2026-05-13"), {
