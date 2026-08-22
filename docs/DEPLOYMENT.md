@@ -250,6 +250,45 @@ allowlist will see the UI but every write will fail with `permission-denied`.
 | Vercel build fails on type errors                | Run `npm run typecheck` locally — production builds run a full type check.  |
 | Local writes fail with "Missing or insufficient permissions" | Rules deployed to a different Firebase project than the one your `.env.local` points at. |
 
+## PWA runtime model
+
+Compass registers `public/sw.js` in production through
+`src/components/PwaRuntime.tsx`.
+
+The service worker intentionally caches only:
+
+- static public app assets such as icons, logos, and the manifest
+- hashed Next.js assets under `/_next/static/`
+
+It intentionally does **not** cache:
+
+- `/api/*`
+- Firebase auth helper routes under `/__/auth/*`
+- Firestore responses or user data
+- document navigations
+
+Keep that boundary unless you are explicitly designing a real offline data
+queue. Firebase owns authenticated data persistence; the service worker owns
+installability, static shell speed, and app update delivery.
+
+When a new service worker is available, the app shows an "Update now" prompt.
+The new worker activates only after the user taps it.
+
+## iOS Home Screen checklist
+
+After every production deploy that touches auth, manifest, icons, layout,
+service worker, or fixed mobile controls:
+
+1. Open the production URL in iPhone Safari.
+2. Share → **Add to Home Screen**.
+3. Launch Compass from the Home Screen icon.
+4. Confirm there is no browser chrome and the status bar overlays correctly.
+5. Sign in with Google.
+6. Confirm bottom navigation, quick capture, update prompts, and offline pill
+   do not collide with the home indicator or Dynamic Island.
+7. Toggle airplane mode, reopen Compass, and confirm the app shows the offline
+   state without a blank screen.
+
 ## Lighthouse verification
 
 The PWA targets a Lighthouse **PWA / Best Practices score >= 90** on
@@ -274,7 +313,7 @@ manifest, icons, or service worker.
 | Manifest doesn't have a maskable icon         | `src/app/manifest.ts` already includes a `purpose: "maskable"` entry — verify the deployed `/manifest.webmanifest` matches. |
 | Icons are not the right size                  | Re-run `node /tmp/gen-icons.mjs "$(pwd)"` (or your icon pipeline) to regenerate `public/icon-192.png`, `public/icon-512.png`, `public/apple-touch-icon.png`. |
 | Page is not served over HTTPS                 | Vercel handles this automatically; check you're hitting the `*.vercel.app` URL, not a local proxy. |
-| Does not respond with a 200 when offline      | Firestore offline persistence + Next.js asset caching handle in-app state. The PWA audit only requires the app shell to render, which it does via Next's build output. |
+| Does not respond with a 200 when offline      | Confirm `public/sw.js` is served in production and registered by `PwaRuntime`. |
 | Missing apple-touch-icon                      | Confirm `public/apple-touch-icon.png` exists and is referenced via the default Next.js convention (Next auto-serves `apple-touch-icon.png` from `/public`). |
 
 CLI alternative — run from any machine with Node 18+:

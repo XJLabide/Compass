@@ -45,7 +45,7 @@ import { listExpenseCategories } from "@/lib/money/categories";
  * without leaving the current page.
  *
  * Positioning:
- *   - Mobile: bottom-right, just above the bottom tab bar (`bottom-20`)
+ *   - Mobile: bottom-right, just above the bottom tab bar and iOS home inset
  *   - Desktop (md+): bottom-right of the viewport, larger inset
  */
 type CaptureKind = "weight" | "mood" | "water" | "expense" | "todo" | null;
@@ -91,7 +91,7 @@ export default function QuickCaptureFab() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Quick capture"
-        className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-neutral-900 shadow-2xl shadow-accent/30 ring-2 ring-accent/30 transition hover:scale-105 active:scale-95 md:bottom-6 md:right-6"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-neutral-900 shadow-2xl shadow-accent/30 ring-2 ring-accent/30 transition hover:scale-105 active:scale-95 md:bottom-6 md:right-6"
       >
         <Plus className="h-6 w-6" />
       </button>
@@ -102,7 +102,7 @@ export default function QuickCaptureFab() {
           onClick={close}
         >
           <div
-            className="w-full max-w-md rounded-t-2xl border border-border bg-panel p-4 shadow-2xl md:rounded-2xl"
+            className="w-full max-w-md rounded-t-2xl border border-border bg-panel p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl md:rounded-2xl md:pb-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-border pb-2">
