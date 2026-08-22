@@ -27,8 +27,8 @@ export default function SidebarAwareMain({ children }: { children: ReactNode }) 
         // Desktop: shift right to clear sidebar AND subtract its width so we
         // don't overflow horizontally.
         collapsed
-          ? "md:ml-16 md:w-[calc(100%-4rem)]"
-          : "md:ml-56 md:w-[calc(100%-14rem)]",
+          ? "md:ml-[4.5rem] md:w-[calc(100%-4.5rem)]"
+          : "md:ml-60 md:w-[calc(100%-15rem)]",
         "md:pb-12 md:pt-8 md:px-8",
         // No max-w on the outer element — inner div handles that
       )}
