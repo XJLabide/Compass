@@ -26,3 +26,4 @@ ui-debug.log
 auth-debug.log
 firestore-export/
 emulator-data/
+.vercel
