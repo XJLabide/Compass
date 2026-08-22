@@ -23,6 +23,7 @@ import { holdingPath, portfolioPath } from "@/lib/db/paths";
 import type { HoldingCategory, PortfolioHoldingDoc } from "@/lib/db/types";
 import CompassLoader from "@/components/ui/CompassLoader";
 import { formatCurrencyAmount } from "@/lib/money/currency";
+import { isLegacySeededPortfolioHolding } from "@/lib/money/legacyFinanceSeeds";
 
 export interface StockQuote {
   symbol: string;
@@ -57,44 +58,27 @@ export default function PortfolioTab({
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form state
-  const [ticker, setTicker] = useState("VOO");
-  const [name, setName] = useState("Vanguard S&P 500 ETF");
-  const [usdAmount, setUsdAmount] = useState("471.39");
-  const [shares, setShares] = useState("0.97");
+  const [ticker, setTicker] = useState("");
+  const [name, setName] = useState("");
+  const [usdAmount, setUsdAmount] = useState("");
+  const [shares, setShares] = useState("");
   const [category, setCategory] = useState<HoldingCategory>("etf");
   const [saving, setSaving] = useState(false);
 
   // 1. Subscribe to user's portfolio holdings
   useEffect(() => {
+    setHoldings(null);
+    setQuotes({});
     if (!uid) return;
     const unsub = onSnapshot(portfolioPath(uid), (snap) => {
-      const rows = snap.docs.map((d) => ({
-        id: d.id,
-        data: d.data() as PortfolioHoldingDoc & { usdAmount?: number },
-      }));
-
-      // Seed initial VOO and QQQ holdings if user has zero holdings
-      if (rows.length === 0) {
-        void addDoc(portfolioPath(uid), {
-          ticker: "VOO",
-          name: "Vanguard S&P 500 ETF",
-          usdAmount: 471.39,
-          shares: 0.97,
-          category: "etf",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        void addDoc(portfolioPath(uid), {
-          ticker: "QQQ",
-          name: "Invesco QQQ Trust ETF",
-          usdAmount: 54.98,
-          shares: 0.12,
-          category: "etf",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        return;
-      }
+      const rows = snap.docs.flatMap((d) => {
+        const data = d.data() as PortfolioHoldingDoc & { usdAmount?: number };
+        if (isLegacySeededPortfolioHolding(data)) {
+          void deleteDoc(d.ref);
+          return [];
+        }
+        return [{ id: d.id, data }];
+      });
       setHoldings(rows);
     });
     return unsub;
@@ -217,10 +201,10 @@ export default function PortfolioTab({
 
   const openAddModal = () => {
     setEditingId(null);
-    setTicker("VOO");
-    setName("Vanguard S&P 500 ETF");
-    setUsdAmount("471.39");
-    setShares("0.97");
+    setTicker("");
+    setName("");
+    setUsdAmount("");
+    setShares("");
     setCategory("etf");
     setModalOpen(true);
   };
@@ -256,8 +240,8 @@ export default function PortfolioTab({
       const payload = {
         ticker: ticker.toUpperCase().trim(),
         name: name.trim() || ticker.toUpperCase().trim(),
-        usdAmount: Number.isFinite(numUsd) && numUsd > 0 ? numUsd : undefined,
-        shares: Number.isFinite(numShares) && numShares > 0 ? numShares : undefined,
+        ...(Number.isFinite(numUsd) && numUsd > 0 ? { usdAmount: numUsd } : {}),
+        ...(Number.isFinite(numShares) && numShares > 0 ? { shares: numShares } : {}),
         category,
         updatedAt: serverTimestamp(),
       };
@@ -366,7 +350,11 @@ export default function PortfolioTab({
           </div>
 
           <div className="space-y-2">
-            {holdings.map((h) => {
+            {holdings.length === 0 ? (
+              <div className="rounded-xl border border-border/60 bg-neutral-900/30 p-6 text-center text-xs text-muted">
+                No portfolio positions yet.
+              </div>
+            ) : holdings.map((h) => {
               const q = quotes[h.data.ticker];
               const usdPrice = q?.price ?? 100;
               const changePct = q?.changePercent ?? 0;
@@ -494,14 +482,11 @@ export default function PortfolioTab({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. VOO, QQQ, AAPL, BTC-USD"
+                  placeholder="Ticker symbol"
                   value={ticker}
                   onChange={(e) => {
                     const sym = e.target.value.toUpperCase();
                     setTicker(sym);
-                    if (sym === "VOO") setName("Vanguard S&P 500 ETF");
-                    if (sym === "QQQ") setName("Invesco QQQ Trust ETF");
-                    if (sym === "AAPL") setName("Apple Inc.");
                   }}
                   className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"
                 />
@@ -511,7 +496,7 @@ export default function PortfolioTab({
                 <label className="text-xs font-medium text-muted">Display Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. Vanguard S&P 500 ETF"
+                  placeholder="Display name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"
@@ -528,7 +513,7 @@ export default function PortfolioTab({
                   type="number"
                   step="any"
                   required
-                  placeholder="e.g. 471.39"
+                  placeholder="0.00"
                   value={usdAmount}
                   onChange={(e) => {
                     const amt = e.target.value;
@@ -551,7 +536,7 @@ export default function PortfolioTab({
                   <input
                     type="number"
                     step="any"
-                    placeholder="e.g. 0.97"
+                    placeholder="0.0000"
                     value={shares}
                     onChange={(e) => {
                       const s = e.target.value;

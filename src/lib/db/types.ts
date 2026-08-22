@@ -511,9 +511,9 @@ export interface RecurringFeeDoc {
 export type HoldingCategory = "stock" | "etf" | "crypto" | "cash" | "other";
 
 export interface PortfolioHoldingDoc {
-  /** Stock / ETF ticker symbol, e.g. "VOO", "QQQ", "AAPL", "BTC-USD". */
+  /** Stock / ETF ticker symbol. */
   ticker: string;
-  /** Display name, e.g. "Vanguard S&P 500 ETF". */
+  /** Display name for the holding. */
   name: string;
   /** Shares or coins held. */
   shares?: number;

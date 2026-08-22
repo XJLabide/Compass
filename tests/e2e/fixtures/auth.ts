@@ -32,7 +32,10 @@ export async function clearEmulators(): Promise<void> {
  * signInWithEmailAndPassword will fail if the user doesn't exist — so we
  * sign them up via REST first, then sign in via the UI.
  */
-export async function ensureTestUser(): Promise<string> {
+export async function ensureTestUser(
+  email = TEST_EMAIL,
+  password = TEST_PASSWORD,
+): Promise<string> {
   // signUp is idempotent on the emulator: if the user exists, it returns 400
   // EMAIL_EXISTS which we work around by signing in instead. Returns the localId
   // (uid) so callers can seed Firestore for that user.
@@ -42,8 +45,8 @@ export async function ensureTestUser(): Promise<string> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: TEST_EMAIL,
-        password: TEST_PASSWORD,
+        email,
+        password,
         returnSecureToken: true,
       }),
     },
@@ -59,8 +62,8 @@ export async function ensureTestUser(): Promise<string> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: TEST_EMAIL,
-        password: TEST_PASSWORD,
+        email,
+        password,
         returnSecureToken: true,
       }),
     },
@@ -147,6 +150,26 @@ export async function signIn(page: Page): Promise<string> {
   });
   // Make sure the OnboardingWizard never flashes — if it does, the page
   // would layout-shift mid-test and clicks become unstable.
+  await expect(page.getByText(/welcome to compass/i)).not.toBeVisible({
+    timeout: 5_000,
+  });
+  return uid;
+}
+
+export async function signInAs(
+  page: Page,
+  email: string,
+  password = TEST_PASSWORD,
+): Promise<string> {
+  const uid = await ensureTestUser(email, password);
+  await seedOnboardedProfile(uid);
+  await page.goto("/login");
+  await page.getByPlaceholder(/you@example/i).fill(email);
+  await page.getByPlaceholder(/•+/).fill(password);
+  await page.getByRole("button", { name: /^sign in$/i }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"), {
+    timeout: 15_000,
+  });
   await expect(page.getByText(/welcome to compass/i)).not.toBeVisible({
     timeout: 5_000,
   });

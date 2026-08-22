@@ -37,6 +37,10 @@ import { displayCategory, listExpenseCategories } from "@/lib/money/categories";
 import PortfolioTab from "@/components/money/PortfolioTab";
 import BalancesTab from "@/components/money/BalancesTab";
 import { formatCurrencyAmount, getCurrencySymbol } from "@/lib/money/currency";
+import {
+  isLegacySeededAccount,
+  isLegacySeededPortfolioHolding,
+} from "@/lib/money/legacyFinanceSeeds";
 
 const DEFAULT_CURRENCY = "PHP";
 const EMPTY_RECURRING_SUMMARY: RecurringSummary = {
@@ -96,9 +100,17 @@ export default function FinancePage() {
 
   // Subscribe to liquid accounts total for Net Worth hero
   useEffect(() => {
+    setLiquidTotal(0);
     if (!uid) return;
     const unsub = onSnapshot(accountsPath(uid), (snap) => {
-      const total = snap.docs.reduce((acc, doc) => acc + (doc.data().balanceMinor || 0) / 100, 0);
+      const total = snap.docs.reduce((acc, doc) => {
+        const data = doc.data();
+        if (isLegacySeededAccount(data)) {
+          void deleteDoc(doc.ref);
+          return acc;
+        }
+        return acc + (data.balanceMinor || 0) / 100;
+      }, 0);
       setLiquidTotal(total);
     });
     return unsub;
@@ -106,19 +118,33 @@ export default function FinancePage() {
 
   // Subscribe to portfolio holdings total for Net Worth hero
   useEffect(() => {
+    setPortfolioTotal(0);
     if (!uid) return;
+    let cancelled = false;
     const unsub = onSnapshot(portfolioPath(uid), (snap) => {
-      const tickers = Array.from(new Set(snap.docs.map((d) => d.data().ticker)));
-      if (tickers.length === 0) return;
+      const docs = snap.docs.filter((d) => {
+        const data = d.data() as PortfolioHoldingDoc & { usdAmount?: number };
+        if (isLegacySeededPortfolioHolding(data)) {
+          void deleteDoc(d.ref);
+          return false;
+        }
+        return true;
+      });
+      const tickers = Array.from(new Set(docs.map((d) => d.data().ticker)));
+      if (tickers.length === 0) {
+        setPortfolioTotal(0);
+        return;
+      }
 
       // Fetch live stock quotes
       fetch(`/api/finance/quote?symbols=${encodeURIComponent(tickers.join(","))}`)
         .then((r) => r.json())
         .then((json) => {
+          if (cancelled) return;
           const quotes = json?.quotes || {};
           const usdToPhpRate = json?.usdToPhpRate || 58.5;
           let sumUsd = 0;
-          snap.docs.forEach((d) => {
+          docs.forEach((d) => {
             const h = d.data() as PortfolioHoldingDoc & { usdAmount?: number };
             const usdPrice = quotes[h.ticker]?.price ?? h.costBasisPerShare ?? 100;
 
@@ -134,11 +160,15 @@ export default function FinancePage() {
         })
         .catch(() => {});
     });
-    return unsub;
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, [uid]);
 
   // Subscribe to cash flow expenses
   useEffect(() => {
+    setRows(null);
     if (!uid) return;
     const q = query(
       expensesPath(uid),
@@ -198,6 +228,7 @@ export default function FinancePage() {
       setError(null);
 
       try {
+        const trimmedNote = note.trim();
         await addDoc(expensesPath(uid), {
           amountMinor,
           currency: userCurrency,
@@ -205,7 +236,7 @@ export default function FinancePage() {
           category: category.trim() || "other",
           localDate: today,
           date: serverTimestamp() as any,
-          note: note.trim() || undefined,
+          ...(trimmedNote ? { note: trimmedNote } : {}),
           createdAt: serverTimestamp() as any,
           updatedAt: serverTimestamp() as any,
         });
@@ -392,10 +423,11 @@ export default function FinancePage() {
               </div>
             )}
 
-            <form onSubmit={handleAddExpense} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <form onSubmit={handleAddExpense} className="grid grid-cols-1 gap-3 sm:grid-cols-5">
               <div>
-                <label className="text-xs text-muted">Type</label>
+                <label htmlFor="cashflow-kind" className="text-xs text-muted">Type</label>
                 <select
+                  id="cashflow-kind"
                   value={kind}
                   onChange={(e) => setKind(e.target.value as "expense" | "income")}
                   className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"
@@ -406,8 +438,9 @@ export default function FinancePage() {
               </div>
 
               <div>
-                <label className="text-xs text-muted">Amount ({getCurrencySymbol(userCurrency)})</label>
+                <label htmlFor="cashflow-amount" className="text-xs text-muted">Amount ({getCurrencySymbol(userCurrency)})</label>
                 <input
+                  id="cashflow-amount"
                   type="number"
                   step="any"
                   required
@@ -419,8 +452,9 @@ export default function FinancePage() {
               </div>
 
               <div>
-                <label className="text-xs text-muted">Category</label>
+                <label htmlFor="cashflow-category" className="text-xs text-muted">Category</label>
                 <select
+                  id="cashflow-category"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"
@@ -431,6 +465,18 @@ export default function FinancePage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label htmlFor="cashflow-note" className="text-xs text-muted">Note</label>
+                <input
+                  id="cashflow-note"
+                  type="text"
+                  placeholder="Optional note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"
+                />
               </div>
 
               <div className="flex items-end">
@@ -483,6 +529,9 @@ export default function FinancePage() {
                             {displayCategory(r.data.category)}
                           </span>
                           <p className="text-xs text-muted">{r.data.localDate}</p>
+                          {r.data.note ? (
+                            <p className="text-xs text-neutral-300">{r.data.note}</p>
+                          ) : null}
                         </div>
                       </div>
 

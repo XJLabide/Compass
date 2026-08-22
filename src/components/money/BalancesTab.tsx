@@ -8,6 +8,7 @@ import { accountPath, accountsPath } from "@/lib/db/paths";
 import type { AccountBalanceDoc, AccountType } from "@/lib/db/types";
 import CompassLoader from "@/components/ui/CompassLoader";
 import { formatCurrencyAmount, getCurrencySymbol } from "@/lib/money/currency";
+import { isLegacySeededAccount } from "@/lib/money/legacyFinanceSeeds";
 
 export interface AccountRow {
   id: string;
@@ -28,35 +29,24 @@ export default function BalancesTab({
   const [editAccount, setEditAccount] = useState<AccountRow | null>(null);
 
   // Form state
-  const [name, setName] = useState("Main Checking");
+  const [name, setName] = useState("");
   const [type, setType] = useState<AccountType>("checking");
-  const [balance, setBalance] = useState("2500");
+  const [balance, setBalance] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Subscribe to user accounts
   useEffect(() => {
+    setAccounts(null);
     if (!uid) return;
     const unsub = onSnapshot(accountsPath(uid), (snap) => {
-      const rows = snap.docs.map((d) => ({ id: d.id, data: d.data() }));
-
-      // Seed initial accounts if user has 0 accounts
-      if (rows.length === 0) {
-        void addDoc(accountsPath(uid), {
-          name: "Main Checking",
-          type: "checking",
-          balanceMinor: 250000,
-          currency: userCurrency,
-          updatedAt: serverTimestamp(),
-        });
-        void addDoc(accountsPath(uid), {
-          name: "High-Yield Savings",
-          type: "savings",
-          balanceMinor: 500000,
-          currency: userCurrency,
-          updatedAt: serverTimestamp(),
-        });
-        return;
-      }
+      const rows = snap.docs.flatMap((d) => {
+        const data = d.data();
+        if (isLegacySeededAccount(data)) {
+          void deleteDoc(d.ref);
+          return [];
+        }
+        return [{ id: d.id, data }];
+      });
       setAccounts(rows);
     });
     return unsub;
@@ -134,7 +124,9 @@ export default function BalancesTab({
         <button
           onClick={() => {
             setEditAccount(null);
-            setBalance("1000");
+            setName("");
+            setType("checking");
+            setBalance("");
             setModalOpen(true);
           }}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-xs font-semibold text-accent-foreground transition hover:opacity-90"
@@ -145,8 +137,13 @@ export default function BalancesTab({
       </div>
 
       {/* Account Cards Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {accounts.map((acc) => {
+      {accounts.length === 0 ? (
+        <div className="rounded-xl border border-border/50 p-6 text-center text-xs text-muted">
+          No accounts added yet.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {accounts.map((acc) => {
           const bal = acc.data.balanceMinor / 100;
           return (
             <div
@@ -197,8 +194,9 @@ export default function BalancesTab({
               </div>
             </div>
           );
-        })}
-      </div>
+          })}
+        </div>
+      )}
 
       {/* Account Modal */}
       {modalOpen && (
@@ -214,7 +212,7 @@ export default function BalancesTab({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Main Checking, Savings, Emergency Fund"
+                  placeholder="Account name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"
@@ -243,7 +241,7 @@ export default function BalancesTab({
                     type="number"
                     step="any"
                     required
-                    placeholder="2500.00"
+                    placeholder="0.00"
                     value={balance}
                     onChange={(e) => setBalance(e.target.value)}
                     className="mt-1 w-full rounded-lg border border-border bg-neutral-800 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-accent"

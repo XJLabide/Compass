@@ -15,14 +15,13 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 /**
- * GET /api/finance/quote?symbols=VOO,QQQ,AAPL,BTC-USD
+ * GET /api/finance/quote?symbols=SYMBOL1,SYMBOL2
  *
- * Real-time live market quote API featuring 100% accurate, live USD->PHP
- * exchange rate fetching from reliable open exchange rates service.
+ * Live market quote API with a USD->PHP exchange rate.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const rawSymbols = searchParams.get("symbols") || "VOO,QQQ";
+  const rawSymbols = searchParams.get("symbols") || "";
   const symbols = Array.from(
     new Set(
       rawSymbols
@@ -106,14 +105,14 @@ export async function GET(request: Request) {
   // Fallback for missing symbols if external API is temporarily unreachable
   for (const sym of symbols) {
     if (!results[sym]) {
-      const fallbackPrice = sym === "VOO" ? 485.50 : sym === "QQQ" ? 440.20 : 100.00;
+      const fallbackPrice = 100.00;
       results[sym] = {
         symbol: sym,
         price: fallbackPrice,
         change: 0,
         changePercent: 0,
         previousClose: fallbackPrice,
-        name: sym === "VOO" ? "Vanguard S&P 500 ETF" : sym === "QQQ" ? "Invesco QQQ Trust" : sym,
+        name: sym,
         currency: "USD",
         updatedAt: now,
       };
