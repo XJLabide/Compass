@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { onSnapshot, orderBy, query, where } from "firebase/firestore";
 
@@ -146,11 +147,11 @@ export default function ActivityHeatmap({
 
   if (!loaded) {
     return (
-      <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
-        <div className="text-xs font-medium uppercase tracking-wide text-muted">
+      <section className="flex h-full flex-col rounded-lg border border-border bg-panel p-4">
+        <div className="text-sm font-semibold text-neutral-200">
           Activity
         </div>
-        <Skeleton className="mt-3 h-28 w-full" />
+        <Skeleton className="mt-4 min-h-40 flex-1" />
       </section>
     );
   }
@@ -158,27 +159,35 @@ export default function ActivityHeatmap({
   return (
     <section
       aria-labelledby="activity-heading"
-      className="rounded-xl border border-border bg-neutral-900/40 p-4"
+      className="flex h-full flex-col rounded-lg border border-border bg-panel p-4"
     >
       <div className="flex items-baseline justify-between">
         <h2
           id="activity-heading"
-          className="text-xs font-medium uppercase tracking-wide text-muted"
+          className="text-sm font-semibold text-neutral-200"
         >
           Activity
         </h2>
         <span className="text-xs text-muted">last {WEEKS} weeks</span>
       </div>
 
-      <div className="mt-3 overflow-x-auto">
-        <div className="flex gap-[3px]">
+      <div
+        className="mt-4 flex min-h-48 flex-1 items-center justify-center overflow-x-auto rounded-md bg-neutral-900/35 p-4 [container-type:inline-size]"
+        style={
+          {
+            "--heat-cell": "clamp(18px, 5.2cqw, 30px)",
+            "--heat-gap": "clamp(4px, 1.1cqw, 7px)",
+          } as CSSProperties
+        }
+      >
+        <div className="flex gap-[var(--heat-gap)]">
           {columns.map((col, ci) => (
-            <div key={ci} className="flex flex-col gap-[3px]">
+            <div key={ci} className="flex flex-col gap-[var(--heat-gap)]">
               {col.map((cell, ri) => (
                 <span
                   key={`${ci}-${ri}`}
                   title={cell.date || undefined}
-                  className={cellClass(cell.level, cell.date === "")}
+                  className={cellClass(cell.level, cell.date === "", "chart")}
                 />
               ))}
             </div>
@@ -186,29 +195,37 @@ export default function ActivityHeatmap({
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted">
+      <div className="mt-4 flex items-center gap-2 border-t border-border/60 pt-3 text-[11px] text-muted">
         <span>Less</span>
-        <span className={cellClass(0)} />
-        <span className={cellClass(1)} />
-        <span className={cellClass(2)} />
-        <span className={cellClass(3)} />
+        <span className={cellClass(0, false, "legend")} />
+        <span className={cellClass(1, false, "legend")} />
+        <span className={cellClass(2, false, "legend")} />
+        <span className={cellClass(3, false, "legend")} />
         <span>More</span>
-        <span className="ml-auto">daily log · workout · both</span>
+        <span className="ml-auto">Daily log · workout · both</span>
       </div>
     </section>
   );
 }
 
-function cellClass(level: 0 | 1 | 2 | 3, empty = false): string {
-  if (empty) return "h-3 w-3 rounded-sm bg-transparent";
+function cellClass(
+  level: 0 | 1 | 2 | 3,
+  empty = false,
+  size: "chart" | "legend" = "chart",
+): string {
+  const dimensions =
+    size === "chart"
+      ? "h-[var(--heat-cell)] w-[var(--heat-cell)]"
+      : "h-3 w-3";
+  if (empty) return `${dimensions} rounded bg-transparent`;
   switch (level) {
     case 0:
-      return "h-3 w-3 rounded-sm bg-neutral-800/70";
+      return `${dimensions} rounded bg-neutral-800/70`;
     case 1:
-      return "h-3 w-3 rounded-sm bg-cyan-900/70";
+      return `${dimensions} rounded bg-cyan-900/70`;
     case 2:
-      return "h-3 w-3 rounded-sm bg-cyan-700";
+      return `${dimensions} rounded bg-cyan-700`;
     case 3:
-      return "h-3 w-3 rounded-sm bg-cyan-400";
+      return `${dimensions} rounded bg-cyan-400`;
   }
 }

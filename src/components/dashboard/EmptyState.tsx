@@ -38,7 +38,7 @@ export default function EmptyState({
     return (
       <Link
         href={href}
-        className="block rounded-xl border border-dashed border-border bg-neutral-900/30 px-4 py-3 active:bg-neutral-800/40"
+        className="block rounded-lg border border-dashed border-border bg-neutral-900/30 px-4 py-3 transition-colors hover:border-neutral-600 hover:bg-neutral-900/50 active:bg-neutral-800/40"
       >
         {body}
       </Link>
@@ -46,7 +46,7 @@ export default function EmptyState({
   }
 
   return (
-    <div className="rounded-xl border border-dashed border-border bg-neutral-900/30 px-4 py-3">
+    <div className="rounded-lg border border-dashed border-border bg-neutral-900/30 px-4 py-3">
       {body}
     </div>
   );

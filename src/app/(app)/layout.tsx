@@ -10,7 +10,6 @@ import SidebarAwareMain from "@/components/SidebarAwareMain";
 import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
 import QuickCaptureFab from "@/components/QuickCaptureFab";
 import NotificationsManager from "@/components/NotificationsManager";
-import NoriPanel from "@/components/nori/NoriPanel";
 
 export default function AppShellLayout({
   children,
@@ -34,7 +33,6 @@ export default function AppShellLayout({
                 {children}
               </SidebarAwareMain>
               <QuickCaptureFab />
-              <NoriPanel />
               <OnboardingWizard />
               <NotificationsManager />
             </div>

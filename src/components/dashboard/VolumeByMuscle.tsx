@@ -161,8 +161,8 @@ export default function VolumeByMuscle({
 
   if (!loaded) {
     return (
-      <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
-        <div className="text-xs font-medium uppercase tracking-wide text-muted">
+      <section className="h-full rounded-lg border border-border bg-panel p-4">
+        <div className="text-sm font-semibold text-neutral-200">
           Volume by muscle
         </div>
         <Skeleton className="mt-3 h-44 w-full" />
@@ -173,19 +173,19 @@ export default function VolumeByMuscle({
   return (
     <section
       aria-labelledby="vol-by-muscle-heading"
-      className="rounded-xl border border-border bg-neutral-900/40 p-4"
+      className="h-full rounded-lg border border-border bg-panel p-4"
     >
       <div className="flex items-baseline justify-between">
         <h2
           id="vol-by-muscle-heading"
-          className="text-xs font-medium uppercase tracking-wide text-muted"
+          className="text-sm font-semibold text-neutral-200"
         >
           Volume by muscle
         </h2>
         <span className="text-xs text-muted">last {WINDOW_DAYS} days</span>
       </div>
 
-      <ul className="mt-3 space-y-2">
+      <ul className="mt-3 space-y-2.5">
         {MUSCLE_ORDER.map((m) => {
           const raw = buckets[m] ?? 0;
           const display = kgToDisplay(raw, unitSystem);
@@ -195,10 +195,10 @@ export default function VolumeByMuscle({
               <span className="w-16 shrink-0 text-xs text-muted">
                 {MUSCLE_LABEL[m]}
               </span>
-              <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-neutral-800/70">
+              <div className="relative h-2 flex-1 overflow-hidden rounded-sm bg-neutral-800/70">
                 <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-accent/70"
-                  style={{ width: `${Math.max(2, pct)}%` }}
+                  className="absolute inset-y-0 left-0 rounded-sm bg-accent/70"
+                  style={{ width: raw === 0 ? "0%" : `${Math.max(4, pct)}%` }}
                 />
               </div>
               <span className="w-20 shrink-0 text-right text-xs tabular-nums text-neutral-200">

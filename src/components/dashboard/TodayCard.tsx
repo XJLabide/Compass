@@ -120,12 +120,12 @@ export default function TodayCard({ uid, timezone }: TodayCardProps) {
   return (
     <section
       aria-labelledby="today-heading"
-      className="rounded-xl border border-border bg-neutral-900/40 p-4"
+      className="h-full rounded-lg border border-border bg-panel p-4"
     >
       <div className="flex items-baseline justify-between">
         <h2
           id="today-heading"
-          className="text-xs font-medium uppercase tracking-wide text-muted"
+          className="text-sm font-semibold text-neutral-200"
         >
           Today
         </h2>
@@ -135,7 +135,7 @@ export default function TodayCard({ uid, timezone }: TodayCardProps) {
       {/* Log workout CTA */}
       <Link
         href="/workout"
-        className="mt-3 flex items-center gap-3 rounded-lg border border-border bg-neutral-900/60 px-3 py-3 active:bg-neutral-800/60"
+        className="mt-3 flex items-center gap-3 rounded-md border border-border bg-neutral-900/60 px-3 py-3 transition-colors hover:border-neutral-600 hover:bg-neutral-900 active:bg-neutral-800/60"
       >
         <Dumbbell aria-hidden className="h-5 w-5 text-accent" />
         <div className="min-w-0 flex-1">
@@ -160,7 +160,7 @@ export default function TodayCard({ uid, timezone }: TodayCardProps) {
       {/* Daily log CTA */}
       <Link
         href="/check-in"
-        className="mt-2 flex items-center gap-3 rounded-lg border border-border bg-neutral-900/60 px-3 py-3 active:bg-neutral-800/60"
+        className="mt-2 flex items-center gap-3 rounded-md border border-border bg-neutral-900/60 px-3 py-3 transition-colors hover:border-neutral-600 hover:bg-neutral-900 active:bg-neutral-800/60"
       >
         <ClipboardCheck aria-hidden className="h-5 w-5 text-accent" />
         <div className="min-w-0 flex-1">

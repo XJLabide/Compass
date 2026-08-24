@@ -212,19 +212,19 @@ export default function ThisWeekCard({
   return (
     <section
       aria-labelledby="this-week-heading"
-      className="rounded-xl border border-border bg-neutral-900/40 p-4"
+      className="h-full rounded-lg border border-border bg-panel p-4"
     >
       <div className="flex items-baseline justify-between">
         <h2
           id="this-week-heading"
-          className="text-xs font-medium uppercase tracking-wide text-muted"
+          className="text-sm font-semibold text-neutral-200"
         >
           This week
         </h2>
         <span className="text-xs text-muted">{rangeLabel}</span>
       </div>
 
-      <dl className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <dl className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border lg:grid-cols-4">
         <Cell
           label="Workouts"
           value={loaded ? workoutsLabel : null}
@@ -257,8 +257,8 @@ interface CellProps {
 
 function Cell({ label, value, suffix }: CellProps) {
   return (
-    <div className="rounded-lg border border-border bg-neutral-900/60 px-3 py-2">
-      <dt className="text-[10px] font-medium uppercase tracking-wide text-muted">
+    <div className="min-h-24 bg-neutral-900/60 px-3 py-2.5">
+      <dt className="text-[11px] font-medium text-muted">
         {label}
       </dt>
       <dd className="mt-0.5 text-base font-semibold text-neutral-100">
@@ -278,4 +278,3 @@ function Cell({ label, value, suffix }: CellProps) {
     </div>
   );
 }
-

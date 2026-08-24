@@ -22,18 +22,18 @@ export default function SidebarAwareMain({ children }: { children: ReactNode }) 
     <main
       className={clsx(
         // Mobile: full width, bottom padding to clear fixed tab bar + iOS inset
-        "w-full min-w-0 flex-1 px-4 pt-6",
+        "min-h-dvh w-full min-w-0 flex-1 bg-bg px-3 pt-[max(3.5rem,calc(env(safe-area-inset-top)+0.875rem))]",
         "pb-[calc(env(safe-area-inset-bottom)+5rem)]",
         // Desktop: shift right to clear sidebar AND subtract its width so we
         // don't overflow horizontally.
         collapsed
           ? "md:ml-[4.5rem] md:w-[calc(100%-4.5rem)]"
           : "md:ml-60 md:w-[calc(100%-15rem)]",
-        "md:pb-12 md:pt-8 md:px-8",
+        "md:pb-12 md:px-6 md:pt-7 lg:px-8",
         // No max-w on the outer element — inner div handles that
       )}
     >
-      <div className="mx-auto w-full min-w-0 max-w-3xl lg:max-w-5xl xl:max-w-6xl">
+      <div className="mx-auto w-full min-w-0 max-w-7xl">
         {children}
       </div>
     </main>

@@ -80,11 +80,11 @@ export default function RoutinesSummary({
 
   if (rows === null) {
     return (
-      <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
+      <section className="rounded-lg border border-border bg-panel p-4">
         <div className="flex items-baseline justify-between">
           <div className="flex items-center gap-2">
             <Repeat aria-hidden className="h-4 w-4 text-accent" />
-            <h2 className="text-xs font-medium uppercase tracking-wide text-muted">
+            <h2 className="text-sm font-semibold text-neutral-200">
               Today&apos;s routines
             </h2>
           </div>
@@ -103,21 +103,21 @@ export default function RoutinesSummary({
   return (
     <section
       aria-labelledby="routines-summary-heading"
-      className="rounded-xl border border-border bg-neutral-900/40 p-4"
+      className="rounded-lg border border-border bg-panel p-4"
     >
       <div className="flex items-baseline justify-between">
         <div className="flex items-center gap-2">
           <Repeat aria-hidden className="h-4 w-4 text-accent" />
           <h2
             id="routines-summary-heading"
-            className="text-xs font-medium uppercase tracking-wide text-muted"
+            className="text-sm font-semibold text-neutral-200"
           >
             Today&apos;s habits
           </h2>
         </div>
         <Link
           href="/today"
-          className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+          className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80"
         >
           Open <ArrowRight className="h-3 w-3" />
         </Link>
@@ -138,7 +138,7 @@ export default function RoutinesSummary({
               {pct}%
             </span>
           </div>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-800/70">
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-sm bg-neutral-800/70">
             <div
               className="h-full bg-accent/70 transition-[width] duration-300"
               style={{ width: `${pct}%` }}

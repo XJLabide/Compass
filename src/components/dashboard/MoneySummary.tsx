@@ -111,11 +111,11 @@ export default function MoneySummary({ uid, timezone }: MoneySummaryProps) {
 
   if (rows === null) {
     return (
-      <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
+      <section className="rounded-lg border border-border bg-panel p-4">
         <div className="flex items-baseline justify-between">
           <div className="flex items-center gap-2">
             <Wallet aria-hidden className="h-4 w-4 text-accent" />
-            <h2 className="text-xs font-medium uppercase tracking-wide text-muted">
+            <h2 className="text-sm font-semibold text-neutral-200">
               Money · {monthLabel}
             </h2>
           </div>
@@ -134,21 +134,21 @@ export default function MoneySummary({ uid, timezone }: MoneySummaryProps) {
   return (
     <section
       aria-labelledby="money-summary-heading"
-      className="rounded-xl border border-border bg-neutral-900/40 p-4"
+      className="rounded-lg border border-border bg-panel p-4"
     >
       <div className="flex items-baseline justify-between">
         <div className="flex items-center gap-2">
           <Wallet aria-hidden className="h-4 w-4 text-accent" />
           <h2
-            id="finances-summary-heading"
-            className="text-xs font-medium uppercase tracking-wide text-muted"
+            id="money-summary-heading"
+            className="text-sm font-semibold text-neutral-200"
           >
             Finances · {monthLabel}
           </h2>
         </div>
         <Link
           href="/money"
-          className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+          className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80"
         >
           Open <ArrowRight className="h-3 w-3" />
         </Link>
@@ -172,7 +172,7 @@ export default function MoneySummary({ uid, timezone }: MoneySummaryProps) {
               : "mt-3 flex items-center gap-2 rounded-md border border-amber-400/40 bg-amber-400/10 px-2.5 py-1.5 text-[11px] text-amber-200"
           }
         >
-          <span className="font-semibold uppercase tracking-wide">
+          <span className="font-semibold">
             {budgetWarning.tone === "over" ? "Over budget" : "Near budget"}
           </span>
           <span className="capitalize">
@@ -203,7 +203,7 @@ function Cell({
     tone === "positive" ? "text-emerald-300" : "text-red-300";
   return (
     <div className="rounded-md border border-border bg-neutral-900/60 px-2.5 py-1.5">
-      <div className="text-[9px] font-medium uppercase tracking-wide text-muted">
+      <div className="text-[10px] font-medium text-muted">
         {label}
       </div>
       <div className={`mt-0.5 text-sm font-semibold tabular-nums ${color}`}>

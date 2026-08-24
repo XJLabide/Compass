@@ -175,11 +175,11 @@ function MoreSheet({
       onClick={onClose}
     >
       <div
-        className="w-full rounded-t-2xl border-t border-border bg-panel pb-[env(safe-area-inset-bottom)] shadow-2xl"
+        className="w-full rounded-t-lg border-t border-border bg-panel pb-[env(safe-area-inset-bottom)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+          <span className="text-sm font-semibold text-neutral-200">
             More
           </span>
           <button
@@ -202,7 +202,7 @@ function MoreSheet({
                   onClick={() => onPick(href)}
                   aria-current={active ? "page" : undefined}
                   className={clsx(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors",
+                    "flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition-colors",
                     active
                       ? "bg-accent/10 text-accent"
                       : "text-neutral-100 hover:bg-neutral-800/60",

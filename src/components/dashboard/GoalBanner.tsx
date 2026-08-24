@@ -199,8 +199,8 @@ export default function GoalBanner({
 
   if (points === null) {
     return (
-      <div className="rounded-xl border border-border bg-neutral-900/40 px-4 py-3">
-        <div className="text-xs font-medium uppercase tracking-wide text-muted">
+      <div className="h-full rounded-lg border border-border bg-panel px-4 py-3">
+        <div className="text-sm font-semibold text-neutral-200">
           Goal
         </div>
         <Skeleton className="mt-2 h-5 w-32" />
@@ -268,11 +268,11 @@ export default function GoalBanner({
   return (
     <section
       aria-label="Bodyweight goal trend"
-      className={`rounded-xl border ${styles.border} ${styles.bg} px-4 py-3`}
+      className={`h-full rounded-lg border ${styles.border} ${styles.bg} px-4 py-3`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs font-medium uppercase tracking-wide text-muted">
+          <div className="text-sm font-semibold text-neutral-200">
             Goal
           </div>
           <div className={`mt-1 flex items-center gap-2 ${styles.text}`}>
@@ -284,7 +284,7 @@ export default function GoalBanner({
           </div>
         </div>
         <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${styles.chip}`}
+          className={`shrink-0 rounded-md px-2 py-1 text-xs font-medium ${styles.chip}`}
         >
           {band}
         </span>

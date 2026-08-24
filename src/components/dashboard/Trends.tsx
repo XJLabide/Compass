@@ -142,19 +142,19 @@ export default function Trends({ uid, timezone, unitSystem }: TrendsProps) {
   return (
     <section
       aria-labelledby="trends-heading"
-      className="rounded-xl border border-border bg-neutral-900/40 p-4"
+      className="h-full rounded-lg border border-border bg-panel p-4"
     >
       <div className="flex items-baseline justify-between">
         <h2
           id="trends-heading"
-          className="text-xs font-medium uppercase tracking-wide text-muted"
+          className="text-sm font-semibold text-neutral-200"
         >
           Trends
         </h2>
         <span className="text-xs text-muted">Last 8 weeks</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border xl:grid-cols-4">
         <TrendCell
           label="Bodyweight"
           unit={weightUnit}
@@ -163,7 +163,7 @@ export default function Trends({ uid, timezone, unitSystem }: TrendsProps) {
           latestDigits={1}
         />
         <TrendCell
-          label="Volume / wk"
+          label="Volume / week"
           unit={weightUnit}
           series={volumeSeries}
           loaded={loaded}
@@ -211,9 +211,9 @@ function TrendCell({
   );
 
   return (
-    <div className="rounded-lg border border-border bg-neutral-900/60 p-3">
+    <div className="bg-neutral-900/60 p-3">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[10px] font-medium uppercase tracking-wide text-muted">
+        <span className="text-[11px] font-medium text-muted">
           {label}
         </span>
         <span className="text-sm font-semibold text-neutral-100">
@@ -232,7 +232,7 @@ function TrendCell({
         ) : enough ? (
           <MiniChart data={chartData} />
         ) : (
-          <div className="flex h-16 items-center justify-center rounded bg-neutral-900/40 px-2 text-center text-[11px] leading-tight text-muted">
+          <div className="flex h-16 items-center justify-center border-t border-border/60 px-2 text-center text-[11px] leading-tight text-muted">
             Log 3 entries to see your trend
           </div>
         )}

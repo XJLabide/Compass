@@ -79,7 +79,7 @@ export default function TodoSummary({ uid }: TodoSummaryProps) {
     }
     if (rows.length === 0) {
       return (
-        <div className="mt-3 rounded-lg border border-dashed border-border bg-neutral-900/30 px-3 py-4 text-center">
+        <div className="mt-3 rounded-md border border-dashed border-border bg-neutral-900/30 px-3 py-4 text-center">
           <p className="text-xs font-medium text-neutral-100">
             All clear ✓
           </p>
@@ -120,21 +120,21 @@ export default function TodoSummary({ uid }: TodoSummaryProps) {
   return (
     <section
       aria-labelledby="todo-summary-heading"
-      className="rounded-xl border border-border bg-neutral-900/40 p-4"
+      className="rounded-lg border border-border bg-panel p-4"
     >
       <div className="flex items-baseline justify-between">
         <div className="flex items-center gap-2">
           <ListTodo aria-hidden className="h-4 w-4 text-accent" />
           <h2
             id="todo-summary-heading"
-            className="text-xs font-medium uppercase tracking-wide text-muted"
+            className="text-sm font-semibold text-neutral-200"
           >
             Todos
           </h2>
         </div>
         <Link
           href="/todos"
-          className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+          className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80"
         >
           Open <ArrowRight className="h-3 w-3" />
         </Link>

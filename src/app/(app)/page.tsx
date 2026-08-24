@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+
 import { useUserData } from "@/lib/data/UserDataProvider";
 
 import TodayCard from "@/components/dashboard/TodayCard";
@@ -53,13 +56,18 @@ export default function HomePage() {
   const profileMissing = !profile;
 
   return (
-    <section className="space-y-6">
-      <header className="flex items-baseline justify-between gap-3 border-b border-border pb-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">
-          Home
-        </h1>
+    <section className="space-y-7">
+      <header className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">
+            Home
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Today, habits, fitness, and finances in one scan.
+          </p>
+        </div>
         {effectiveProfile.displayName ? (
-          <span className="text-xs text-muted">
+          <span className="text-sm text-muted">
             Hi, {effectiveProfile.displayName}
           </span>
         ) : null}
@@ -86,7 +94,7 @@ export default function HomePage() {
 
       {/* TODAY ---------------------------------------------------------- */}
       <DashboardSection title="Today">
-        <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-stretch">
           <TodayCard uid={uid} timezone={tz} />
           <GoalBanner
             uid={uid}
@@ -119,11 +127,25 @@ export default function HomePage() {
       </DashboardSection>
 
       {/* FITNESS -------------------------------------------------------- */}
-      <DashboardSection title="Fitness">
-        <ThisWeekCard uid={uid} timezone={tz} unitSystem={units} />
-        <ActivityHeatmap uid={uid} timezone={tz} />
-        <Trends uid={uid} timezone={tz} unitSystem={units} />
-        <VolumeByMuscle uid={uid} unitSystem={units} />
+      <DashboardSection
+        title="Fitness"
+        actionHref="/fitness"
+        actionLabel="Open fitness"
+      >
+        <div className="grid gap-4 xl:grid-cols-12">
+          <div className="xl:col-span-5">
+            <ThisWeekCard uid={uid} timezone={tz} unitSystem={units} />
+          </div>
+          <div className="xl:col-span-7">
+            <Trends uid={uid} timezone={tz} unitSystem={units} />
+          </div>
+          <div className="xl:col-span-5">
+            <ActivityHeatmap uid={uid} timezone={tz} />
+          </div>
+          <div className="xl:col-span-7">
+            <VolumeByMuscle uid={uid} unitSystem={units} />
+          </div>
+        </div>
       </DashboardSection>
 
       {/* PRs ------------------------------------------------------------ */}
@@ -136,16 +158,31 @@ export default function HomePage() {
 
 function DashboardSection({
   title,
+  actionHref,
+  actionLabel,
   children,
 }: {
   title: string;
+  actionHref?: string;
+  actionLabel?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
-      <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">
-        {title}
-      </h2>
+    <section className="space-y-3.5">
+      <div className="flex min-h-8 items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-neutral-200">
+          {title}
+        </h2>
+        {actionHref && actionLabel ? (
+          <Link
+            href={actionHref}
+            className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80"
+          >
+            {actionLabel}
+            <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+          </Link>
+        ) : null}
+      </div>
       <div className="space-y-4">{children}</div>
     </section>
   );
