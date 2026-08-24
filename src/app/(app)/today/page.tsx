@@ -99,9 +99,11 @@ export default function TodayPage() {
   const {
     activeDate: today,
     actualDate,
+    hasActiveDay,
     isCarriedOver,
+    startDay,
     endDay,
-    saving: endingDay,
+    saving: daySaving,
     error: endDayError,
   } = useActiveDay();
   const tz = effectiveProfile?.timezone ?? "UTC";
@@ -286,12 +288,12 @@ export default function TodayPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted">
-              {activeDate === today ? "Active Day" : "Backfill"}
+              {hasActiveDay ? (activeDate === today ? "Active Day" : "Backfill") : "Not Started"}
             </p>
             <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-neutral-100">
               {dateLabel}
             </h1>
-            {isCarriedOver && activeDate === today ? (
+            {hasActiveDay && isCarriedOver && activeDate === today ? (
               <p className="mt-1 text-xs text-amber-300">
                 Calendar is {actualDate}. Logs still go to {today} until you end the day.
               </p>
@@ -310,44 +312,75 @@ export default function TodayPage() {
             <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent whitespace-nowrap">
               {dayTag}
             </span>
-            {activeDate === today ? (
+            {!hasActiveDay ? (
+              <button
+                type="button"
+                onClick={() => void startDay()}
+                disabled={daySaving}
+                className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {daySaving ? "Starting..." : "Start My Day"}
+              </button>
+            ) : activeDate === today ? (
               <button
                 type="button"
                 onClick={() => void endDay()}
-                disabled={endingDay}
+                disabled={daySaving}
                 className="rounded-lg border border-border bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 transition hover:border-neutral-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {endingDay ? "Ending..." : "End Day"}
+                {daySaving ? "Ending..." : "End Day"}
               </button>
             ) : null}
           </div>
         </div>
       </header>
 
+      {!hasActiveDay ? (
+        <section className="rounded-xl border border-border bg-neutral-900/40 p-5">
+          <h2 className="text-base font-semibold text-neutral-100">Start your day</h2>
+          <p className="mt-1 text-sm text-muted">
+            Daily logs, quick capture, workouts, routines, and spending will attach to {actualDate} after you start.
+          </p>
+          <button
+            type="button"
+            onClick={() => void startDay()}
+            disabled={daySaving}
+            className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {daySaving ? "Starting..." : "Start My Day"}
+          </button>
+        </section>
+      ) : null}
+
       {/* Time-of-day banner */}
-      <TimeOfDayBanner
-        block={block}
-        pct={awake.pct}
-        remainingLabel={awake.remainingLabel}
-        asleep={awake.asleep}
-      />
+      {hasActiveDay ? (
+        <TimeOfDayBanner
+          block={block}
+          pct={awake.pct}
+          remainingLabel={awake.remainingLabel}
+          asleep={awake.asleep}
+        />
+      ) : null}
 
       {/* Unified Progress Counter */}
-      <ProgressStrip
-        todosTotal={
-          todayTodos.overdue.length +
-          todayTodos.dueToday.length +
-          todayTodos.noDate.length
-        }
-        todosDoneToday={
-          (todos ?? []).filter((r) => r.data.done).length
-        }
-        routinesTotal={scheduledRoutines.list.length}
-        routinesDone={scheduledRoutines.done.length}
-        checkInDone={checkInHasAny}
-      />
+      {hasActiveDay ? (
+        <ProgressStrip
+          todosTotal={
+            todayTodos.overdue.length +
+            todayTodos.dueToday.length +
+            todayTodos.noDate.length
+          }
+          todosDoneToday={
+            (todos ?? []).filter((r) => r.data.done).length
+          }
+          routinesTotal={scheduledRoutines.list.length}
+          routinesDone={scheduledRoutines.done.length}
+          checkInDone={checkInHasAny}
+        />
+      ) : null}
 
       {/* 3 Smart Focus Tabs Switcher */}
+      {hasActiveDay ? (
       <div className="flex rounded-xl border border-border bg-neutral-900/60 p-1 gap-1">
         <button
           type="button"
@@ -386,9 +419,10 @@ export default function TodayPage() {
           <span>Check-in</span>
         </button>
       </div>
+      ) : null}
 
       {/* TAB 1: EXECUTION */}
-      {activeTab === "execution" && (
+      {hasActiveDay && activeTab === "execution" && (
         <div className="space-y-6">
           <WorkoutSection scheduled={scheduledSession} />
           <RoutinesSection
@@ -418,7 +452,7 @@ export default function TodayPage() {
       )}
 
       {/* TAB 2: NUTRITION */}
-      {activeTab === "nutrition" && (
+      {hasActiveDay && activeTab === "nutrition" && (
         <div className="space-y-6">
           <NutritionSection
             profile={effectiveProfile}
@@ -429,7 +463,7 @@ export default function TodayPage() {
       )}
 
       {/* TAB 3: DAILY CHECK-IN */}
-      {activeTab === "checkin" && (
+      {hasActiveDay && activeTab === "checkin" && (
         <div className="space-y-6">
           {effectiveProfile && (
             <section className="rounded-xl border border-border bg-neutral-900/40 p-4 space-y-4">

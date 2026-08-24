@@ -60,7 +60,14 @@ const MOOD_LABELS: Record<number, string> = {
 
 export default function QuickCaptureFab() {
   const { uid, profile, effectiveProfile } = useUserData();
-  const { activeDate: today, isCarriedOver } = useActiveDay();
+  const {
+    activeDate: today,
+    hasActiveDay,
+    isCarriedOver,
+    startDay,
+    saving: daySaving,
+    error: dayError,
+  } = useActiveDay();
 
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<CaptureKind>(null);
@@ -110,7 +117,11 @@ export default function QuickCaptureFab() {
                   {kind ? `Log ${kind}` : "Quick capture"}
                 </span>
                 <p className="text-[11px] text-muted">
-                  {isCarriedOver ? `Still logging ${today}` : `Logging ${today}`}
+                  {hasActiveDay
+                    ? isCarriedOver
+                      ? `Still logging ${today}`
+                      : `Logging ${today}`
+                    : "Start your day before logging"}
                 </p>
               </div>
               <button
@@ -124,7 +135,22 @@ export default function QuickCaptureFab() {
             </div>
 
             <div className="mt-3">
-              {kind === null ? (
+              {!hasActiveDay ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted">
+                    Start your day first so quick captures attach to the right date.
+                  </p>
+                  {dayError ? <ErrMsg msg={dayError} /> : null}
+                  <button
+                    type="button"
+                    onClick={() => void startDay()}
+                    disabled={daySaving}
+                    className="h-11 w-full rounded-md bg-accent text-sm font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {daySaving ? "Starting..." : "Start My Day"}
+                  </button>
+                </div>
+              ) : kind === null ? (
                 <KindGrid onPick={setKind} />
               ) : kind === "weight" ? (
                 <WeightForm

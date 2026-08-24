@@ -19,6 +19,7 @@ import {
   updateDoc,
   type FieldValue,
 } from "firebase/firestore";
+import clsx from "clsx";
 import {
   CalendarDays,
   CheckCircle2,
@@ -36,6 +37,7 @@ import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import { todoPath, todosPath } from "@/lib/db/paths";
 import type { TodoDoc, TodoRecurrence } from "@/lib/db/types";
 import Skeleton from "@/components/ui/Skeleton";
+import StartDayPrompt from "@/components/day/StartDayPrompt";
 
 type Row = { id: string; data: TodoDoc };
 
@@ -49,7 +51,7 @@ function addDaysIso(iso: string, delta: number): string {
 
 export default function TodosTab() {
   const { uid } = useUserData();
-  const { activeDate: today } = useActiveDay();
+  const { activeDate: today, hasActiveDay } = useActiveDay();
 
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +131,10 @@ export default function TodosTab() {
   const toggle = useCallback(
     async (row: Row) => {
       if (!uid) return;
+      if (!hasActiveDay) {
+        setError("Start your day before completing todos.");
+        return;
+      }
       try {
         const next = !row.data.done;
         await updateDoc(todoPath(uid, row.id), {
@@ -152,7 +158,7 @@ export default function TodosTab() {
         setError(err instanceof Error ? err.message : "Failed to update");
       }
     },
-    [uid, today],
+    [uid, today, hasActiveDay],
   );
 
   const remove = useCallback(
@@ -244,6 +250,8 @@ export default function TodosTab() {
         </div>
       </form>
 
+      {!hasActiveDay ? <StartDayPrompt scope="today's todo tracking" /> : null}
+
       {error ? (
         <div
           role="alert"
@@ -276,6 +284,7 @@ export default function TodosTab() {
             tone="overdue"
             items={grouped.overdue}
             today={today}
+            hasActiveDay={hasActiveDay}
             onToggle={toggle}
             onRemove={remove}
             onSave={saveEdit}
@@ -285,6 +294,7 @@ export default function TodosTab() {
             tone="today"
             items={grouped.todayItems}
             today={today}
+            hasActiveDay={hasActiveDay}
             onToggle={toggle}
             onRemove={remove}
             onSave={saveEdit}
@@ -293,6 +303,7 @@ export default function TodosTab() {
             title="Upcoming"
             items={grouped.upcoming}
             today={today}
+            hasActiveDay={hasActiveDay}
             onToggle={toggle}
             onRemove={remove}
             onSave={saveEdit}
@@ -301,6 +312,7 @@ export default function TodosTab() {
             title="No date"
             items={grouped.noDate}
             today={today}
+            hasActiveDay={hasActiveDay}
             onToggle={toggle}
             onRemove={remove}
             onSave={saveEdit}
@@ -311,6 +323,7 @@ export default function TodosTab() {
               <TodoList
                 items={grouped.done}
                 today={today}
+                hasActiveDay={hasActiveDay}
                 onToggle={toggle}
                 onRemove={remove}
                 onSave={saveEdit}
@@ -334,6 +347,7 @@ function GroupedList({
   title,
   items,
   today,
+  hasActiveDay,
   tone,
   onToggle,
   onRemove,
@@ -342,6 +356,7 @@ function GroupedList({
   title: string;
   items: Row[];
   today: string;
+  hasActiveDay: boolean;
   tone?: "overdue" | "today";
   onToggle: (r: Row) => void;
   onRemove: (r: Row) => void;
@@ -367,6 +382,7 @@ function GroupedList({
       <TodoList
         items={items}
         today={today}
+        hasActiveDay={hasActiveDay}
         onToggle={onToggle}
         onRemove={onRemove}
         onSave={onSave}
@@ -388,12 +404,14 @@ function SectionDivider({ label, count }: { label: string; count: number }) {
 function TodoList({
   items,
   today,
+  hasActiveDay,
   onToggle,
   onRemove,
   onSave,
 }: {
   items: Row[];
   today: string;
+  hasActiveDay: boolean;
   onToggle: (r: Row) => void;
   onRemove: (r: Row) => void;
   onSave: SaveFn;
@@ -406,6 +424,7 @@ function TodoList({
           key={row.id}
           row={row}
           today={today}
+          hasActiveDay={hasActiveDay}
           onToggle={onToggle}
           onRemove={onRemove}
           onSave={onSave}
@@ -418,12 +437,14 @@ function TodoList({
 function TodoRow({
   row,
   today,
+  hasActiveDay,
   onToggle,
   onRemove,
   onSave,
 }: {
   row: Row;
   today: string;
+  hasActiveDay: boolean;
   onToggle: (r: Row) => void;
   onRemove: (r: Row) => void;
   onSave: SaveFn;
@@ -534,6 +555,8 @@ function TodoRow({
         type="button"
         onClick={() => onToggle(row)}
         aria-label={row.data.done ? "Mark as not done" : "Mark as done"}
+        disabled={!hasActiveDay}
+        title={!hasActiveDay ? "Start your day before completing todos" : undefined}
         className="shrink-0"
       >
         {row.data.done ? (
@@ -543,8 +566,13 @@ function TodoRow({
         )}
       </button>
       <div
-        onClick={() => onToggle(row)}
-        className="min-w-0 flex-1 cursor-pointer"
+        onClick={() => {
+          if (hasActiveDay) onToggle(row);
+        }}
+        className={clsx(
+          "min-w-0 flex-1",
+          hasActiveDay ? "cursor-pointer" : "cursor-default",
+        )}
       >
         <div
           className={

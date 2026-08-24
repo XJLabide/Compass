@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { serverTimestamp, setDoc } from "firebase/firestore";
+import { deleteField, serverTimestamp, setDoc } from "firebase/firestore";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
 import { profilePath } from "@/lib/db/paths";
@@ -19,19 +19,15 @@ type ActiveDayContextValue = {
   activeDate: string;
   actualDate: string;
   timezone: string;
+  hasActiveDay: boolean;
   isCarriedOver: boolean;
+  startDay: () => Promise<void>;
   endDay: () => Promise<void>;
   saving: boolean;
   error: string | null;
 };
 
 const ActiveDayContext = createContext<ActiveDayContextValue | null>(null);
-
-function addDaysIso(localDate: string, delta: number): string {
-  const t = Date.parse(`${localDate}T00:00:00Z`);
-  if (Number.isNaN(t)) return localDate;
-  return new Date(t + delta * 86_400_000).toISOString().slice(0, 10);
-}
 
 export function ActiveDayProvider({ children }: { children: ReactNode }) {
   const { uid, profile, effectiveProfile } = useUserData();
@@ -47,18 +43,38 @@ export function ActiveDayProvider({ children }: { children: ReactNode }) {
 
   const actualDate = useMemo(() => computeLocalDate(now, timezone), [now, timezone]);
   const activeDate = profile?.activeDayDate || actualDate;
-  const isCarriedOver = activeDate < actualDate;
+  const hasActiveDay = Boolean(profile?.activeDayDate);
+  const isCarriedOver = hasActiveDay && activeDate < actualDate;
+
+  const startDay = useCallback(async () => {
+    if (!uid) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await setDoc(
+        profilePath(uid),
+        {
+          activeDayDate: actualDate,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start day.");
+    } finally {
+      setSaving(false);
+    }
+  }, [actualDate, uid]);
 
   const endDay = useCallback(async () => {
     if (!uid) return;
     setSaving(true);
     setError(null);
     try {
-      const nextDate = actualDate > activeDate ? actualDate : addDaysIso(activeDate, 1);
       await setDoc(
         profilePath(uid),
         {
-          activeDayDate: nextDate,
+          activeDayDate: deleteField(),
           updatedAt: serverTimestamp(),
         },
         { merge: true },
@@ -68,19 +84,21 @@ export function ActiveDayProvider({ children }: { children: ReactNode }) {
     } finally {
       setSaving(false);
     }
-  }, [activeDate, actualDate, uid]);
+  }, [uid]);
 
   const value = useMemo<ActiveDayContextValue>(
     () => ({
       activeDate,
       actualDate,
       timezone,
+      hasActiveDay,
       isCarriedOver,
+      startDay,
       endDay,
       saving,
       error,
     }),
-    [activeDate, actualDate, endDay, error, isCarriedOver, saving, timezone],
+    [activeDate, actualDate, endDay, error, hasActiveDay, isCarriedOver, saving, startDay, timezone],
   );
 
   return (

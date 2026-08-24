@@ -45,7 +45,7 @@ export default function SportsLoggerModal({
   useBodyScrollLock(open);
 
   const { user } = useAuth();
-  const { activeDate } = useActiveDay();
+  const { activeDate, hasActiveDay } = useActiveDay();
   const [selectedSport, setSelectedSport] = useState(initialSport);
   const [gameType, setGameType] = useState<"casual" | "match">("casual");
   const [matchOutcome, setMatchOutcome] = useState<MatchOutcome>("win");
@@ -68,6 +68,10 @@ export default function SportsLoggerModal({
     e.preventDefault();
     if (!user?.uid) {
       setError("You need to be signed in before logging a sports activity.");
+      return;
+    }
+    if (!hasActiveDay) {
+      setError("Start your day before logging a sports activity.");
       return;
     }
     const durMin = parseFloat(durationMinStr) || 0;
@@ -376,6 +380,16 @@ export default function SportsLoggerModal({
             />
           </div>
 
+          {!hasActiveDay ? (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+            >
+              Start your day before logging a sports activity.
+            </div>
+          ) : null}
+
           <div className="mt-2 flex items-center justify-end gap-2.5">
             <button
               type="button"
@@ -386,7 +400,7 @@ export default function SportsLoggerModal({
             </button>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !hasActiveDay}
               className="inline-flex h-10 items-center justify-center rounded-xl bg-purple-500 px-5 text-xs font-semibold text-neutral-950 transition-all hover:bg-purple-400 disabled:opacity-50"
             >
               {submitting ? "Logging..." : "Log Sport Activity"}

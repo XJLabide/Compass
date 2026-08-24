@@ -31,6 +31,7 @@ import {
 } from "@/lib/workout/units";
 
 import RatingChip from "./RatingChip";
+import StartDayPrompt from "@/components/day/StartDayPrompt";
 import DatePicker, {
   backfillMinDate,
   isWithinBackfillWindow,
@@ -153,7 +154,7 @@ export default function CheckInForm({
   showMealLogger = true,
 }: CheckInFormProps) {
   const { user } = useAuth();
-  const { activeDate } = useActiveDay();
+  const { activeDate, hasActiveDay } = useActiveDay();
 
   // ---- Local date anchor -----------------------------------------------------
   // `today` is the timezone-aware "now" anchor used as the upper bound of the
@@ -161,6 +162,7 @@ export default function CheckInForm({
   // and ensures a user who leaves the page open across midnight rolls over on
   // the next interaction.
   const today = activeDate;
+
   const minBackfill = useMemo(() => backfillMinDate(today), [today]);
 
   // Resolve the *active* localDate. We honor `initialLocalDate` only when it
@@ -385,6 +387,10 @@ export default function CheckInForm({
     : "g";
   // No persisted calorie target in v1, so just show the unit hint.
   const caloriesPlaceholder = "kcal";
+
+  if (!hasActiveDay) {
+    return <StartDayPrompt scope="daily check-ins" />;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="pb-32" noValidate>

@@ -37,6 +37,7 @@ import {
 } from "@/lib/db/paths";
 import type { BudgetDoc, ExpenseDoc } from "@/lib/db/types";
 import Skeleton from "@/components/ui/Skeleton";
+import StartDayPrompt from "@/components/day/StartDayPrompt";
 import RecurringFeesSection, {
   type RecurringSummary,
 } from "@/components/money/RecurringFeesSection";
@@ -88,7 +89,7 @@ function defaultBudgetName(mode: BudgetMode, startDate: string, endDate: string)
 
 export default function FinancePage() {
   const { uid, profile } = useUserData();
-  const { activeDate } = useActiveDay();
+  const { activeDate, hasActiveDay } = useActiveDay();
   const userCurrency = "PHP";
   const today = activeDate;
   const currentMonthStart = useMemo(() => monthStartFor(today), [today]);
@@ -600,7 +601,11 @@ export default function FinancePage() {
         <PortfolioTab uid={uid} userCurrency={userCurrency} hideAmounts={hideAmounts} />
       )}
 
-      {activeTab === "spending" && (
+      {activeTab === "spending" && !hasActiveDay ? (
+        <StartDayPrompt scope="spending entries" />
+      ) : null}
+
+      {activeTab === "spending" && hasActiveDay && (
         <div className="space-y-6">
           <div className="rounded-xl border border-border bg-neutral-900/40 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

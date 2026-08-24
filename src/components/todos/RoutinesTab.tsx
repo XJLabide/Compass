@@ -52,6 +52,7 @@ import {
 } from "@/lib/routines/helpers";
 import Skeleton from "@/components/ui/Skeleton";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import StartDayPrompt from "@/components/day/StartDayPrompt";
 import TimeBlockManager, {
   BlockIcon,
 } from "@/components/todos/TimeBlockManager";
@@ -62,7 +63,7 @@ const BACKFILL_DAYS = 3;
 
 export default function RoutinesTab() {
   const { uid, effectiveProfile } = useUserData();
-  const { activeDate: today } = useActiveDay();
+  const { activeDate: today, hasActiveDay } = useActiveDay();
   const todayDow = useMemo(() => dowOfIso(today), [today]);
 
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -172,6 +173,8 @@ export default function RoutinesTab() {
           Manage Blocks
         </button>
       </div>
+
+      {!hasActiveDay ? <StartDayPrompt scope="routine tracking" /> : null}
 
       {/* Add form */}
       <form
@@ -290,6 +293,7 @@ export default function RoutinesTab() {
               routines={blockRoutines}
               today={today}
               todayDow={todayDow}
+              hasActiveDay={hasActiveDay}
               timeBlocks={timeBlocks}
               collapsed={collapsed.has(block.id)}
               onToggleCollapse={() => toggleCollapse(block.id)}
@@ -312,6 +316,7 @@ interface TimeBlockGroupProps {
   routines: Row[];
   today: string;
   todayDow: number;
+  hasActiveDay: boolean;
   timeBlocks: RoutineTimeBlock[];
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -324,6 +329,7 @@ function TimeBlockGroup({
   routines,
   today,
   todayDow,
+  hasActiveDay,
   timeBlocks,
   collapsed,
   onToggleCollapse,
@@ -414,6 +420,7 @@ function TimeBlockGroup({
                   row={row}
                   today={today}
                   todayDow={todayDow}
+                  hasActiveDay={hasActiveDay}
                   timeBlocks={timeBlocks}
                   onError={onError}
                   idx={idx}
@@ -517,6 +524,7 @@ interface RoutineCardProps {
   row: Row;
   today: string;
   todayDow: number;
+  hasActiveDay: boolean;
   timeBlocks: RoutineTimeBlock[];
   onError: (msg: string) => void;
   idx?: number;
@@ -530,6 +538,7 @@ function RoutineCard({
   row,
   today,
   todayDow,
+  hasActiveDay,
   timeBlocks,
   onError,
   onMove,
@@ -564,6 +573,10 @@ function RoutineCard({
   const toggleDay = useCallback(
     async (date: string) => {
       // Backfill window: allow today and the prior BACKFILL_DAYS days only.
+      if (!hasActiveDay) {
+        onError("Start your day before marking routines done.");
+        return;
+      }
       const cutoff = addDaysIso(today, -BACKFILL_DAYS);
       if (date > today || date < cutoff) return;
       try {
@@ -581,7 +594,7 @@ function RoutineCard({
         onError(err instanceof Error ? err.message : "Failed to update");
       }
     },
-    [uid, id, data.done, today, onError],
+    [uid, id, data.done, today, hasActiveDay, onError],
   );
 
   const setActive = useCallback(
@@ -702,10 +715,12 @@ function RoutineCard({
             <button
               type="button"
               onClick={() => toggleDay(today)}
-              disabled={!scheduledToday || !data.active}
+              disabled={!hasActiveDay || !scheduledToday || !data.active}
               aria-pressed={doneToday}
               aria-label={
-                !scheduledToday
+                !hasActiveDay
+                  ? "Start your day before marking routines"
+                  : !scheduledToday
                   ? "Not scheduled today"
                   : doneToday
                     ? "Mark today not done"
@@ -713,7 +728,7 @@ function RoutineCard({
               }
               className={clsx(
                 "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 transition",
-                !scheduledToday || !data.active
+                !hasActiveDay || !scheduledToday || !data.active
                   ? "cursor-not-allowed border-border bg-neutral-900/40 text-muted"
                   : doneToday
                     ? "border-cyan-400 bg-cyan-400 text-neutral-900 shadow-[0_0_24px_-6px_rgba(34,211,238,0.6)]"
@@ -818,6 +833,7 @@ function RoutineCard({
                       : "bg-cyan-400/10 border border-cyan-400/30";
               const editable =
                 cell.scheduled &&
+                hasActiveDay &&
                 data.active &&
                 cell.date >= addDaysIso(today, -BACKFILL_DAYS) &&
                 cell.date <= today;

@@ -20,6 +20,7 @@ import DatePicker, {
 import { detectTimezone } from "@/components/settings/TimezoneSelect";
 import Skeleton from "@/components/ui/Skeleton";
 import CompassLoader from "@/components/ui/CompassLoader";
+import StartDayPrompt from "@/components/day/StartDayPrompt";
 
 const DATE_PARAM = "date";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -29,7 +30,7 @@ export default function NutritionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { effectiveProfile, profileLoaded } = useUserData();
-  const { activeDate: today } = useActiveDay();
+  const { activeDate: today, hasActiveDay } = useActiveDay();
 
   const [dailyDoc, setDailyDoc] = useState<DailyDoc | null>(null);
   const [dailyLoaded, setDailyLoaded] = useState(false);
@@ -137,6 +138,17 @@ export default function NutritionPage() {
       <section className="space-y-4">
         <h1 className="text-2xl font-semibold text-neutral-100">Nutrition</h1>
         <CompassLoader mode="card" size="lg" label="Loading Nutrition Console..." />
+      </section>
+    );
+  }
+
+  if (!hasActiveDay) {
+    return (
+      <section className="space-y-4 pb-12">
+        <header className="border-b border-border pb-3">
+          <h1 className="text-2xl font-semibold text-neutral-100">Nutrition & Diet</h1>
+        </header>
+        <StartDayPrompt scope="meals and nutrition" />
       </section>
     );
   }

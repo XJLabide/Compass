@@ -53,6 +53,7 @@ import EditPlannedExercisesDialog, {
   type PlannedExerciseSwap,
 } from "@/components/workout/EditPlannedExercisesDialog";
 import SaveSwapPrompt from "@/components/workout/SaveSwapPrompt";
+import StartDayPrompt from "@/components/day/StartDayPrompt";
 
 import WorkoutHero from "@/components/workout/landing/WorkoutHero";
 import NextUpCard from "@/components/workout/landing/NextUpCard";
@@ -112,7 +113,7 @@ function normalizeSessionName(name: string | undefined): string {
 export default function WorkoutPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { activeDate } = useActiveDay();
+  const { activeDate, hasActiveDay } = useActiveDay();
 
   const [program, setProgram] = useState<ProgramDoc | null>(null);
   const [programLoaded, setProgramLoaded] = useState(false);
@@ -457,6 +458,10 @@ export default function WorkoutPage() {
   // ---------------------------------------------------------------------------
   const handleStart = useCallback(async () => {
     if (!user?.uid || !rotation?.next) return;
+    if (!hasActiveDay) {
+      setStartError("Start your day before starting a workout.");
+      return;
+    }
     setStarting(true);
     setStartError(null);
     try {
@@ -484,7 +489,7 @@ export default function WorkoutPage() {
       setStartError(message);
       setStarting(false);
     }
-  }, [user?.uid, rotation, localDate, router, pendingOverride]);
+  }, [user?.uid, rotation, hasActiveDay, localDate, router, pendingOverride]);
 
   // ---------------------------------------------------------------------------
   // Edit + swap-save handlers (preserved from prior version).
@@ -652,6 +657,12 @@ export default function WorkoutPage() {
           className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
         >
           {loadError}
+        </div>
+      ) : null}
+
+      {!hasActiveDay ? (
+        <div className="mt-5">
+          <StartDayPrompt scope="workouts" />
         </div>
       ) : null}
 
