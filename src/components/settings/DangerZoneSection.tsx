@@ -48,7 +48,7 @@ export default function DangerZoneSection() {
   return (
     <div className="space-y-2">
       <p className="text-[11px] text-muted">
-        Permanently removes every todo, expense, routine, workout, check-in,
+        Permanently removes every todo, expense, routine, workout, Daily Log,
         and Nori thread under your account. You&apos;ll be signed out and the
         app will treat you as a brand-new user on next sign-in. This cannot
         be undone.
@@ -76,7 +76,7 @@ export default function DangerZoneSection() {
         open={open}
         tone="danger"
         title="Delete everything?"
-        description="Every todo, expense, routine, workout, check-in, and Nori chat will be permanently deleted. This can't be undone."
+        description="Every todo, expense, routine, workout, Daily Log, and Nori chat will be permanently deleted. This can't be undone."
         confirmLabel="Yes, delete it all"
         busy={busy}
         onConfirm={handleConfirm}

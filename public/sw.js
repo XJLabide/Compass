@@ -1,9 +1,10 @@
-const CACHE_VERSION = "compass-shell-v4";
+const CACHE_VERSION = "compass-shell-v5";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
   "/apple-touch-icon.png",
   "/icon-192.png",
   "/icon-512.png",
+  "/icon.png",
   "/favicon-32.png",
   "/logo-mark.svg",
   "/logo.svg",

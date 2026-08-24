@@ -157,7 +157,7 @@ export default function TodayCard({ uid, timezone }: TodayCardProps) {
         </span>
       </Link>
 
-      {/* Daily check-in CTA */}
+      {/* Daily log CTA */}
       <Link
         href="/check-in"
         className="mt-2 flex items-center gap-3 rounded-lg border border-border bg-neutral-900/60 px-3 py-3 active:bg-neutral-800/60"
@@ -165,7 +165,7 @@ export default function TodayCard({ uid, timezone }: TodayCardProps) {
         <ClipboardCheck aria-hidden className="h-5 w-5 text-accent" />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-neutral-100">
-            Daily check-in
+            Daily Log
           </div>
           <div className="mt-0.5 text-xs text-muted">
             {!dailyLoaded ? (
@@ -179,7 +179,7 @@ export default function TodayCard({ uid, timezone }: TodayCardProps) {
         </div>
         {dailyLoaded && checkedIn ? (
           <CheckCircle2
-            aria-label="Check-in complete"
+            aria-label="Daily log complete"
             className="h-5 w-5 text-emerald-400"
           />
         ) : (

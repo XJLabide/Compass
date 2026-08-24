@@ -389,7 +389,7 @@ export default function CheckInForm({
   const caloriesPlaceholder = "kcal";
 
   if (!hasActiveDay) {
-    return <StartDayPrompt scope="daily check-ins" />;
+    return <StartDayPrompt scope="daily logs" />;
   }
 
   return (
@@ -397,7 +397,7 @@ export default function CheckInForm({
       {!hideHeader && (
         <header className="flex items-baseline justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-neutral-100">Check-in</h1>
+            <h1 className="text-2xl font-semibold text-neutral-100">Daily Log</h1>
             <p className="mt-1 text-xs text-muted">
               {localDate === today ? "Today" : "Backfill"} · {localDate}
             </p>
@@ -566,8 +566,8 @@ export default function CheckInForm({
             : saveState === "saved"
               ? "Saved"
               : existing
-                ? "Update check-in"
-                : "Save check-in"}
+                ? "Update Daily Log"
+                : "Save Daily Log"}
         </button>
       </MobileSubmitFooter>
     </form>

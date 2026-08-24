@@ -9,7 +9,7 @@ import CompassLoader from "@/components/ui/CompassLoader";
  * Client-side auth gate for the protected `(app)` route group.
  *
  * Behavior:
- *  - while `loading`: render full-screen Spinning Compass Loader
+ *  - while `loading`: render the full-screen brand splash
  *  - signed-out: replace to `/login` and return null (prevents loader lockup)
  *  - signed-in: render app children
  */

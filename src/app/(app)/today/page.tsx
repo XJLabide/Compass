@@ -24,6 +24,7 @@ import {
   ClipboardCheck,
   Dumbbell,
   Flame,
+  CalendarDays,
   Sun,
   Sunset,
   Moon,
@@ -140,6 +141,7 @@ export default function TodayPage() {
 
   const [showHabitManager, setShowHabitManager] = useState(false);
   const [endDayOpen, setEndDayOpen] = useState(false);
+  const [showBackfillPicker, setShowBackfillPicker] = useState(false);
   const [activeTab, setActiveTab] = useState<"execution" | "nutrition" | "checkin">("execution");
 
   const rawDateParam = searchParams.get("date");
@@ -284,7 +286,7 @@ export default function TodayPage() {
       reminders.push("no meals logged");
     }
     if (dailyLoaded && !checkInHasAny) {
-      reminders.push("daily check-in is still empty");
+      reminders.push("Daily Log is still empty");
     }
     if (openTodos > 0) {
       reminders.push(
@@ -313,31 +315,33 @@ export default function TodayPage() {
 
   const dateLabel = (() => {
     try {
-      return new Intl.DateTimeFormat("en-US", {
+      const parts = new Intl.DateTimeFormat("en-US", {
         timeZone: tz,
         weekday: "long",
-        month: "long",
-        day: "numeric",
-      }).format(new Date(`${activeDate}T12:00:00Z`));
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+      })
+        .formatToParts(new Date(`${activeDate}T12:00:00Z`))
+        .reduce<Record<string, string>>((acc, part) => {
+          if (part.type !== "literal") acc[part.type] = part.value;
+          return acc;
+        }, {});
+      return `${parts.weekday} - ${parts.month} ${parts.day} ${parts.year}`;
     } catch {
       return activeDate;
     }
   })();
 
-  const dayTag =
-    scheduledSession.kind === "session"
-      ? scheduledSession.session.name
-      : "Rest day";
-
   return (
     <section className="space-y-6">
       <header className="space-y-3 border-b border-border pb-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted">
               {hasActiveDay ? (activeDate === today ? "Active Day" : "Backfill") : "Not Started"}
             </p>
-            <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-neutral-100">
+            <h1 className="mt-0.5 text-[clamp(1.5rem,6vw,2rem)] font-semibold tracking-tight text-neutral-100">
               {dateLabel}
             </h1>
             {hasActiveDay && isCarriedOver && activeDate === today ? (
@@ -349,22 +353,30 @@ export default function TodayPage() {
               <p className="mt-1 text-xs text-rose-300">{endDayError}</p>
             ) : null}
           </div>
-          <div className="flex items-center gap-3">
-            <DatePicker
-              value={activeDate}
-              today={today}
-              min={minBackfill}
-              onPick={handleDateChange}
-            />
-            <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent whitespace-nowrap">
-              {dayTag}
-            </span>
+          <div className="flex flex-wrap items-end gap-3">
+            <button
+              type="button"
+              onClick={() => setShowBackfillPicker((open) => !open)}
+              className="inline-flex h-11 items-center gap-2 rounded-md border border-border bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 transition hover:border-neutral-600"
+            >
+              <CalendarDays className="h-4 w-4 text-muted" />
+              {activeDate === today ? "Backfill" : "Change Date"}
+            </button>
+            {activeDate !== today ? (
+              <button
+                type="button"
+                onClick={() => handleDateChange(today)}
+                className="h-11 rounded-md border border-border bg-neutral-900 px-4 text-sm font-medium text-muted transition hover:border-neutral-600 hover:text-neutral-100"
+              >
+                Today
+              </button>
+            ) : null}
             {!hasActiveDay ? (
               <button
                 type="button"
                 onClick={() => void startDay()}
                 disabled={daySaving}
-                className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-11 rounded-md bg-accent px-5 text-sm font-semibold text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {daySaving ? "Starting..." : "Start My Day"}
               </button>
@@ -373,13 +385,23 @@ export default function TodayPage() {
                 type="button"
                 onClick={() => setEndDayOpen(true)}
                 disabled={daySaving}
-                className="rounded-lg border border-border bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 transition hover:border-neutral-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-11 rounded-md border border-amber-500/40 bg-amber-500/15 px-5 text-sm font-semibold text-amber-100 transition hover:border-amber-400/70 hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {daySaving ? "Ending..." : "End Day"}
               </button>
             ) : null}
           </div>
         </div>
+        {showBackfillPicker || activeDate !== today ? (
+          <div className="max-w-xs">
+              <DatePicker
+                value={activeDate}
+                today={today}
+                min={minBackfill}
+                onPick={handleDateChange}
+              />
+          </div>
+        ) : null}
       </header>
 
       {!hasActiveDay ? (
@@ -450,7 +472,7 @@ export default function TodayPage() {
           }`}
         >
           <ClipboardCheck className="h-4 w-4 text-cyan-400" />
-          <span>Check-in</span>
+          <span>Daily Log</span>
         </button>
       </div>
       ) : null}
@@ -503,7 +525,7 @@ export default function TodayPage() {
             <section className="rounded-xl border border-border bg-neutral-900/40 p-4 space-y-4">
               <SectionHeader
                 icon={ClipboardCheck}
-                title="Daily Check-in"
+                title="Daily Log"
               />
               <CheckInForm
                 profile={effectiveProfile}
@@ -654,9 +676,9 @@ function ProgressStrip({
         sub={routinesTotal === 0 ? "none today" : "scheduled today"}
       />
       <ProgressCell
-        label="Check-in"
-        value={checkInDone ? "Logged" : "Pending"}
-        sub={checkInDone ? "today" : "not yet"}
+        label="Daily Log"
+        value={checkInDone ? "Logged" : "Not Logged"}
+        sub={checkInDone ? "saved today" : "open"}
         tone={checkInDone ? "positive" : "neutral"}
       />
     </div>
@@ -1237,7 +1259,7 @@ function MoneyCell({
 }
 
 // ---------------------------------------------------------------------------
-// Quick check-in stub — weight / mood / water inline
+// Quick daily-log stub — weight / mood / water inline
 // ---------------------------------------------------------------------------
 function CheckInStub({
   uid,
@@ -1252,12 +1274,12 @@ function CheckInStub({
   loaded: boolean;
   unitImperial: boolean;
 }) {
-  if (!loaded) return <SectionSkeleton title="Check-in" />;
+  if (!loaded) return <SectionSkeleton title="Daily Log" />;
   return (
     <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
       <SectionHeader
         icon={ClipboardCheck}
-        title="Check-in"
+        title="Daily Log"
         right={
           <Link
             href="/check-in"

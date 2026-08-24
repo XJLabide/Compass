@@ -166,7 +166,7 @@ export default function StreakCard({ uid, timezone }: StreakCardProps) {
 
       {current === 0 ? (
         <p className="mt-3 text-xs text-muted">
-          Log a check-in today to start a streak.
+          Save your Daily Log today to start a streak.
         </p>
       ) : null}
     </section>

@@ -193,7 +193,7 @@ export default function ActivityHeatmap({
         <span className={cellClass(2)} />
         <span className={cellClass(3)} />
         <span>More</span>
-        <span className="ml-auto">check-in · workout · both</span>
+        <span className="ml-auto">daily log · workout · both</span>
       </div>
     </section>
   );

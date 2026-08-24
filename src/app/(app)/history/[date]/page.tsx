@@ -102,7 +102,7 @@ export default function HistoryDayPage({ params }: PageProps) {
 
       {doc === null ? (
         <p className="mt-6 text-sm text-muted">
-          No check-in recorded for this day.
+          No Daily Log recorded for this day.
         </p>
       ) : null}
 

@@ -1,29 +1,30 @@
 "use client";
 
+import Image from "next/image";
 import clsx from "clsx";
+import Skeleton from "@/components/ui/Skeleton";
 
 export interface CompassLoaderProps {
-  /** Size variant of the compass mark */
+  /** Size variant of the brand mark */
   size?: "sm" | "md" | "lg" | "xl";
   /** Layout mode: inline badge, card skeleton replacement, or fullscreen overlay */
   mode?: "inline" | "card" | "fullscreen";
-  /** Optional descriptive label displayed beneath the spinning compass */
+  /** Optional descriptive label displayed beneath the brand mark */
   label?: string;
   className?: string;
 }
 
 const SIZE_MAP = {
-  sm: "h-5 w-5",
-  md: "h-9 w-9",
-  lg: "h-14 w-14",
-  xl: "h-20 w-20",
+  sm: { width: 30, height: 20, className: "h-5 w-[30px]" },
+  md: { width: 54, height: 36, className: "h-9 w-[54px]" },
+  lg: { width: 84, height: 56, className: "h-14 w-[84px]" },
+  xl: { width: 132, height: 88, className: "h-[88px] w-[132px]" },
 };
 
 /**
- * Branded Spinning Compass Loader.
- *
- * Renders a vector compass mark with smooth outer ring rotation, magnetic
- * needle sway, glowing cyan gradients, and optional glassmorphic background modes.
+ * Branded loader.
+ * Fullscreen mode renders a PWA-style splash screen; smaller modes keep a calm
+ * static mark so loading states do not feel like a tool spinner.
  */
 export default function CompassLoader({
   size = "md",
@@ -31,104 +32,23 @@ export default function CompassLoader({
   label = "Navigating...",
   className,
 }: CompassLoaderProps) {
-  const compassSvg = (
-    <div className="relative inline-flex items-center justify-center">
-      {/* Outer ambient cyan aura */}
-      <div
-        className={clsx(
-          "absolute inset-0 rounded-full bg-cyan-400/20 blur-md animate-compass-glow",
-        )}
-      />
-
-      <svg
-        viewBox="0 0 512 512"
-        role="img"
-        aria-label="Loading..."
-        className={clsx("relative z-10 shrink-0", SIZE_MAP[size])}
-      >
-        <title>Loading...</title>
-        <defs>
-          {/* North-needle gradient */}
-          <linearGradient id="compass-loader-needle" x1="0.5" y1="0" x2="0.5" y2="1">
-            <stop offset="0%" stopColor="#a5f3fc" />
-            <stop offset="55%" stopColor="#22d3ee" />
-            <stop offset="100%" stopColor="#0891b2" />
-          </linearGradient>
-
-          {/* Outer ring gradient */}
-          <linearGradient id="compass-loader-ring" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.8" />
-            <stop offset="50%" stopColor="#0891b2" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.8" />
-          </linearGradient>
-
-          <filter id="compass-loader-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="12" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        {/* Outer Rotating Compass Ring with cardinal tick marks */}
-        <g className="animate-compass-rotate">
-          <circle
-            cx="256"
-            cy="256"
-            r="230"
-            fill="none"
-            stroke="url(#compass-loader-ring)"
-            strokeWidth="12"
-            strokeDasharray="60 15 120 15"
-          />
-          <circle
-            cx="256"
-            cy="256"
-            r="200"
-            fill="none"
-            stroke="#22d3ee"
-            strokeWidth="4"
-            strokeOpacity="0.25"
-          />
-          {/* Cardinal points ticks */}
-          <line x1="256" y1="26" x2="256" y2="46" stroke="#22d3ee" strokeWidth="8" strokeLinecap="round" />
-          <line x1="256" y1="466" x2="256" y2="486" stroke="#22d3ee" strokeWidth="8" strokeLinecap="round" />
-          <line x1="26" y1="256" x2="46" y2="256" stroke="#22d3ee" strokeWidth="8" strokeLinecap="round" />
-          <line x1="466" y1="256" x2="486" y2="256" stroke="#22d3ee" strokeWidth="8" strokeLinecap="round" />
-        </g>
-
-        {/* Oscillating Magnetic Needles (North + South) */}
-        <g className="animate-needle-sway">
-          {/* North Arrow (Glowing Cyan gradient) */}
-          <g filter="url(#compass-loader-glow)">
-            <polygon
-              points="256,58 310,234 256,256 202,234"
-              fill="url(#compass-loader-needle)"
-            />
-          </g>
-
-          {/* South Arrow (Subtle stroked outline) */}
-          <polygon
-            points="256,454 310,278 256,256 202,278"
-            fill="none"
-            stroke="#22d3ee"
-            strokeWidth="8"
-            strokeLinejoin="round"
-            opacity="0.6"
-          />
-
-          {/* Center Hub */}
-          <circle cx="256" cy="256" r="16" fill="#0a0a0b" stroke="#22d3ee" strokeWidth="4" />
-        </g>
-      </svg>
-    </div>
+  const sizeConfig = SIZE_MAP[size];
+  const mark = (
+    <Image
+      src="/logo.png"
+      alt="Compass"
+      width={sizeConfig.width}
+      height={sizeConfig.height}
+      priority={mode === "fullscreen"}
+      unoptimized
+      className={clsx("shrink-0 object-contain", sizeConfig.className)}
+    />
   );
 
   if (mode === "inline") {
     return (
       <span className={clsx("inline-flex items-center gap-2 text-xs text-muted", className)}>
-        {compassSvg}
+        {mark}
         {label && <span className="font-medium text-neutral-300">{label}</span>}
       </span>
     );
@@ -138,16 +58,19 @@ export default function CompassLoader({
     return (
       <div
         className={clsx(
-          "fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-neutral-950/80 backdrop-blur-md p-6 text-center",
+          "fixed inset-0 z-50 flex min-h-dvh flex-col items-center justify-center bg-black px-8 text-center",
           className,
         )}
       >
-        {compassSvg}
-        {label && (
-          <p className="animate-pulse text-xs font-semibold uppercase tracking-widest text-cyan-300/90">
-            {label}
-          </p>
-        )}
+        <div className="flex flex-1 items-center justify-center">
+          <div className="animate-splash-mark">{mark}</div>
+        </div>
+        <div className="pb-[calc(env(safe-area-inset-bottom)+2.25rem)] text-sm tracking-tight">
+          <span className="font-medium text-neutral-500">made by </span>
+          <span className="font-black uppercase tracking-[-0.02em] text-neutral-100">
+            Xander
+          </span>
+        </div>
       </div>
     );
   }
@@ -156,16 +79,28 @@ export default function CompassLoader({
   return (
     <div
       className={clsx(
-        "flex flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-neutral-900/40 p-8 text-center",
+        "rounded-lg border border-border/60 bg-neutral-900/40 p-4",
         className,
       )}
     >
-      {compassSvg}
-      {label && (
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted animate-pulse">
-          {label}
-        </span>
-      )}
+      <div className="flex items-center gap-3">
+        <Image
+          src="/logo.png"
+          alt=""
+          width={42}
+          height={28}
+          unoptimized
+          className="h-7 w-[42px] shrink-0 object-contain"
+        />
+        {label ? (
+          <span className="text-xs font-medium text-muted">{label}</span>
+        ) : null}
+      </div>
+      <div className="mt-4 space-y-2">
+        <Skeleton className="h-4 w-2/3 rounded-md" />
+        <Skeleton className="h-4 w-full rounded-md" />
+        <Skeleton className="h-4 w-5/6 rounded-md" />
+      </div>
     </div>
   );
 }

@@ -82,7 +82,7 @@ const READ_LABEL: Record<string, string> = {
   list_todos: "Reading todos",
   list_routines: "Reading routines",
   list_expenses: "Reading expenses",
-  get_check_in: "Reading check-in",
+  get_check_in: "Reading Daily Log",
   list_recent_workouts: "Reading workouts",
   summary: "Building summary",
 };

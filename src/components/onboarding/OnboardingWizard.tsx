@@ -280,7 +280,7 @@ function StepTimezone({
     <>
       <SectionHeading icon={Globe} title="Timezone" />
       <p className="text-xs text-muted">
-        Anchors which day a check-in counts toward. We detected{" "}
+        Anchors which day your Daily Log counts toward. We detected{" "}
         <span className="text-neutral-200">{detected}</span>.
       </p>
       <input

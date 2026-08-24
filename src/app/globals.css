@@ -235,43 +235,25 @@
   .demo-spark,
   .demo-todo--done .demo-check,
   .demo-todo--done .demo-text,
-  .animate-compass-rotate,
-  .animate-needle-sway,
-  .animate-compass-glow {
+  .animate-splash-mark {
     animation: none !important;
   }
 }
 
 /* ---------------------------------------------------------------------------
-   Spinning Compass Loader Animations
+   App Splash Loader
    --------------------------------------------------------------------------- */
-@keyframes compass-rotate-smooth {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+@keyframes splash-mark-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-@keyframes needle-sway-magnetic {
-  0% { transform: rotate(-32deg); }
-  25% { transform: rotate(24deg); }
-  50% { transform: rotate(-18deg); }
-  75% { transform: rotate(36deg); }
-  100% { transform: rotate(-32deg); }
-}
-
-@keyframes compass-pulse-glow {
-  0%, 100% { opacity: 0.6; filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.35)); }
-  50% { opacity: 1; filter: drop-shadow(0 0 16px rgba(34, 211, 238, 0.75)); }
-}
-
-.animate-compass-rotate {
-  animation: compass-rotate-smooth 10s linear infinite;
-}
-
-.animate-needle-sway {
-  animation: needle-sway-magnetic 3.5s ease-in-out infinite;
-  transform-origin: 256px 256px;
-}
-
-.animate-compass-glow {
-  animation: compass-pulse-glow 2.5s ease-in-out infinite;
+.animate-splash-mark {
+  animation: splash-mark-enter 420ms ease-out both;
 }

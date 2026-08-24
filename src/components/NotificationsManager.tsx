@@ -98,8 +98,8 @@ export default function NotificationsManager() {
       const lastFired = localStorage.getItem(LAST_FIRED_KEY);
       if (lastFired === today) return;
       try {
-        new Notification("Compass — daily check-in", {
-          body: "You haven't logged today yet. Two taps and you're done.",
+        new Notification("Compass — Daily Log", {
+          body: "You haven't saved today's log yet. Two taps and you're done.",
           icon: "/icon-192.png",
           tag: `compass-checkin-${today}`,
         });

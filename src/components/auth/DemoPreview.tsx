@@ -122,7 +122,7 @@ export default function DemoPreview() {
             </li>
             <li className="flex items-center gap-1.5 text-[10px]">
               <span className="h-3 w-3 shrink-0 rounded-full border border-white/20" />
-              <span className="text-neutral-100">Daily check-in</span>
+              <span className="text-neutral-100">Daily Log</span>
             </li>
           </ul>
         </div>

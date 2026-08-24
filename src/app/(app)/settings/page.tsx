@@ -246,7 +246,7 @@ export default function SettingsPage() {
       <SettingsGroup
         icon={Globe}
         title="Timezone"
-        subtitle={`Anchors which day a check-in counts toward.${detectedTz ? ` Detected: ${detectedTz}.` : ""}`}
+        subtitle={`Anchors which day your Daily Log counts toward.${detectedTz ? ` Detected: ${detectedTz}.` : ""}`}
       >
         <TimezoneSelect
           id="settings-timezone"
