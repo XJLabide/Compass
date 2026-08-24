@@ -478,6 +478,29 @@ export interface ExpenseDoc {
 }
 
 // ---------------------------------------------------------------------------
+// users/{uid}/budgets/{budgetId}
+// ---------------------------------------------------------------------------
+
+export type BudgetMode = "allowance" | "monthly";
+
+export interface BudgetDoc {
+  name: string;
+  mode: BudgetMode;
+  /** Budget amount in minor units of the currency (e.g. cents). */
+  amountMinor: number;
+  /** ISO 4217 currency code, e.g. "USD", "PHP". */
+  currency: string;
+  /** Client-computed `YYYY-MM-DD` start of this budget period. */
+  startDate: LocalDate;
+  /** Client-computed `YYYY-MM-DD` end of this budget period. */
+  endDate: LocalDate;
+  /** Only one active budget is used for the spending dashboard. */
+  active: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
 // users/{uid}/recurringFees/{feeId}
 // ---------------------------------------------------------------------------
 

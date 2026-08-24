@@ -159,6 +159,16 @@ service cloud.firestore {
         && (!('note' in data) || (data.note is string && data.note.size() <= 1000));
     }
 
+    function budgetValid(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.mode in ['allowance', 'monthly']
+        && data.amountMinor is int && data.amountMinor >= 0 && data.amountMinor <= 100000000
+        && data.currency is string && data.currency.size() == 3
+        && data.startDate is string
+        && data.endDate is string
+        && data.active is bool;
+    }
+
     function routineValid(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 200
         && data.weekdays is list && data.weekdays.size() >= 1 && data.weekdays.size() <= 7
@@ -220,6 +230,12 @@ service cloud.firestore {
       match /expenses/{expenseId} {
         allow read: if isOwner(uid);
         allow create, update: if isOwner(uid) && expenseValid(request.resource.data);
+        allow delete: if isOwner(uid);
+      }
+
+      match /budgets/{budgetId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && budgetValid(request.resource.data);
         allow delete: if isOwner(uid);
       }
 

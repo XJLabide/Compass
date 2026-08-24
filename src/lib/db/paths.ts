@@ -23,8 +23,10 @@ import {
   todoConverter,
   portfolioConverter,
   accountConverter,
+  budgetConverter,
 } from "./converters";
 import type {
+  BudgetDoc,
   DailyDoc,
   Exercise,
   ExpenseDoc,
@@ -219,6 +221,29 @@ export function expensePath(
 ): DocumentReference<ExpenseDoc> {
   return doc(userDoc(uid, db), "expenses", expenseId).withConverter(
     expenseConverter,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// budgets — users/{uid}/budgets/{budgetId}
+// ---------------------------------------------------------------------------
+
+export function budgetsPath(
+  uid: string,
+  db?: Firestore,
+): CollectionReference<BudgetDoc> {
+  return collection(userDoc(uid, db), "budgets").withConverter(
+    budgetConverter,
+  );
+}
+
+export function budgetPath(
+  uid: string,
+  budgetId: string,
+  db?: Firestore,
+): DocumentReference<BudgetDoc> {
+  return doc(userDoc(uid, db), "budgets", budgetId).withConverter(
+    budgetConverter,
   );
 }
 

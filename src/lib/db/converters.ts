@@ -6,6 +6,7 @@ import type {
 } from "firebase/firestore";
 
 import type {
+  BudgetDoc,
   DailyDoc,
   Exercise,
   ExpenseDoc,
@@ -71,6 +72,9 @@ export const todoConverter: FirestoreDataConverter<TodoDoc> =
 
 export const expenseConverter: FirestoreDataConverter<ExpenseDoc> =
   makePassthroughConverter<ExpenseDoc>();
+
+export const budgetConverter: FirestoreDataConverter<BudgetDoc> =
+  makePassthroughConverter<BudgetDoc>();
 
 export const recurringFeeConverter: FirestoreDataConverter<RecurringFeeDoc> =
   makePassthroughConverter<RecurringFeeDoc>();
