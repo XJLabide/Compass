@@ -43,6 +43,7 @@ import DatePicker, {
 import CheckInForm from "@/components/checkin/CheckInForm";
 import RoutinesTab from "@/components/todos/RoutinesTab";
 import CompassLoader from "@/components/ui/CompassLoader";
+import StartDayPrompt from "@/components/day/StartDayPrompt";
 import { useUserData } from "@/lib/data/UserDataProvider";
 import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import {
@@ -336,20 +337,7 @@ export default function TodayPage() {
       </header>
 
       {!hasActiveDay ? (
-        <section className="rounded-xl border border-border bg-neutral-900/40 p-5">
-          <h2 className="text-base font-semibold text-neutral-100">Start your day</h2>
-          <p className="mt-1 text-sm text-muted">
-            Daily logs, quick capture, workouts, routines, and spending will attach to {actualDate} after you start.
-          </p>
-          <button
-            type="button"
-            onClick={() => void startDay()}
-            disabled={daySaving}
-            className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {daySaving ? "Starting..." : "Start My Day"}
-          </button>
-        </section>
+        <StartDayPrompt scope="daily logs, workouts, routines, and spending" />
       ) : null}
 
       {/* Time-of-day banner */}
