@@ -34,6 +34,7 @@ import { getFirebaseDb } from "@/lib/firebase";
 import clsx from "clsx";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import { routinePath, routinesPath } from "@/lib/db/paths";
 import type { RoutineDoc, RoutineTimeBlock } from "@/lib/db/types";
 import {
@@ -49,7 +50,6 @@ import {
   groupRoutinesByBlock,
   resolveTimeBlocks,
 } from "@/lib/routines/helpers";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import TimeBlockManager, {
@@ -62,11 +62,7 @@ const BACKFILL_DAYS = 3;
 
 export default function RoutinesTab() {
   const { uid, effectiveProfile } = useUserData();
-  const tz = effectiveProfile?.timezone ?? "UTC";
-  const today = useMemo(
-    () => computeLocalDate(new Date(), tz),
-    [tz],
-  );
+  const { activeDate: today } = useActiveDay();
   const todayDow = useMemo(() => dowOfIso(today), [today]);
 
   const [rows, setRows] = useState<Row[] | null>(null);

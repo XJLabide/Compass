@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { addDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/lib/auth/useAuth";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import { sessionsPath } from "@/lib/db/paths";
 import type { MatchOutcome, SessionDoc } from "@/lib/db/types";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 import { X, Trophy } from "lucide-react";
 import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import clsx from "clsx";
@@ -39,13 +39,13 @@ function withoutUndefined<T extends Record<string, unknown>>(value: T): T {
 export default function SportsLoggerModal({
   open,
   onClose,
-  timezone = "UTC",
   initialSport = "Basketball",
   onSuccess,
 }: SportsLoggerModalProps) {
   useBodyScrollLock(open);
 
   const { user } = useAuth();
+  const { activeDate } = useActiveDay();
   const [selectedSport, setSelectedSport] = useState(initialSport);
   const [gameType, setGameType] = useState<"casual" | "match">("casual");
   const [matchOutcome, setMatchOutcome] = useState<MatchOutcome>("win");
@@ -80,11 +80,10 @@ export default function SportsLoggerModal({
     setError(null);
 
     try {
-      const todayLocalDate = computeLocalDate(new Date(), timezone);
       const cals = parseFloat(caloriesStr) || undefined;
 
       const payload = withoutUndefined<Partial<SessionDoc>>({
-        localDate: todayLocalDate,
+        localDate: activeDate,
         name: selectedSport,
         activityType: "sports",
         sportName: selectedSport,

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import {
   dailyPath,
@@ -35,7 +36,6 @@ import type {
   Profile,
   TodoDoc,
 } from "@/lib/db/types";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 import { lbToKg } from "@/lib/workout/units";
 import { listExpenseCategories } from "@/lib/money/categories";
 
@@ -60,8 +60,7 @@ const MOOD_LABELS: Record<number, string> = {
 
 export default function QuickCaptureFab() {
   const { uid, profile, effectiveProfile } = useUserData();
-  const tz = effectiveProfile?.timezone ?? "UTC";
-  const today = computeLocalDate(new Date(), tz);
+  const { activeDate: today, isCarriedOver } = useActiveDay();
 
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<CaptureKind>(null);
@@ -106,9 +105,14 @@ export default function QuickCaptureFab() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-border pb-2">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted">
-                {kind ? `Log ${kind}` : "Quick capture"}
-              </span>
+              <div>
+                <span className="text-xs font-medium uppercase tracking-wide text-muted">
+                  {kind ? `Log ${kind}` : "Quick capture"}
+                </span>
+                <p className="text-[11px] text-muted">
+                  {isCarriedOver ? `Still logging ${today}` : `Logging ${today}`}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={close}

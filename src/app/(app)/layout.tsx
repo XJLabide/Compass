@@ -5,6 +5,7 @@ import SeedErrorBanner from "@/components/SeedErrorBanner";
 import AuthGate from "@/components/auth/AuthGate";
 import { SidebarProvider } from "@/lib/ui/sidebar-state";
 import { UserDataProvider } from "@/lib/data/UserDataProvider";
+import { ActiveDayProvider } from "@/lib/day/ActiveDayProvider";
 import SidebarAwareMain from "@/components/SidebarAwareMain";
 import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
 import QuickCaptureFab from "@/components/QuickCaptureFab";
@@ -19,24 +20,26 @@ export default function AppShellLayout({
   return (
     <AuthGate>
       <UserDataProvider>
-        <SidebarProvider>
-          <div className="flex min-h-dvh flex-col">
-            <OfflineIndicator />
-            {/* Mobile bottom tab bar (md:hidden is handled inside the component) */}
-            <BottomTabBar />
-            {/* Desktop left sidebar (hidden below md inside the component) */}
-            <Sidebar />
-            {/* Main content: reads sidebar state to set left margin on md+ */}
-            <SidebarAwareMain>
-              <SeedErrorBanner />
-              {children}
-            </SidebarAwareMain>
-            <QuickCaptureFab />
-            <NoriPanel />
-            <OnboardingWizard />
-            <NotificationsManager />
-          </div>
-        </SidebarProvider>
+        <ActiveDayProvider>
+          <SidebarProvider>
+            <div className="flex min-h-dvh flex-col">
+              <OfflineIndicator />
+              {/* Mobile bottom tab bar (md:hidden is handled inside the component) */}
+              <BottomTabBar />
+              {/* Desktop left sidebar (hidden below md inside the component) */}
+              <Sidebar />
+              {/* Main content: reads sidebar state to set left margin on md+ */}
+              <SidebarAwareMain>
+                <SeedErrorBanner />
+                {children}
+              </SidebarAwareMain>
+              <QuickCaptureFab />
+              <NoriPanel />
+              <OnboardingWizard />
+              <NotificationsManager />
+            </div>
+          </SidebarProvider>
+        </ActiveDayProvider>
       </UserDataProvider>
     </AuthGate>
   );

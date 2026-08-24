@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { addDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/lib/auth/useAuth";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import { sessionsPath } from "@/lib/db/paths";
 import type { RunType, SessionDoc } from "@/lib/db/types";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 import { X, Timer, Navigation, Flame } from "lucide-react";
 import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import clsx from "clsx";
@@ -35,13 +35,13 @@ function withoutUndefined<T extends Record<string, unknown>>(value: T): T {
 export default function RunLoggerModal({
   open,
   onClose,
-  timezone = "UTC",
   initialRunType = "general",
   onSuccess,
 }: RunLoggerModalProps) {
   useBodyScrollLock(open);
 
   const { user } = useAuth();
+  const { activeDate } = useActiveDay();
   const [runType, setRunType] = useState<RunType>(initialRunType);
   const [distanceStr, setDistanceStr] = useState("");
   const [durationMinStr, setDurationMinStr] = useState("");
@@ -99,13 +99,12 @@ export default function RunLoggerModal({
     setError(null);
 
     try {
-      const todayLocalDate = computeLocalDate(new Date(), timezone);
       const cals = parseFloat(caloriesStr) || undefined;
       const presetObj = RUN_PRESETS.find((p) => p.type === runType);
       const sessionName = presetObj ? presetObj.label : "Run";
 
       const payload = withoutUndefined<Partial<SessionDoc>>({
-        localDate: todayLocalDate,
+        localDate: activeDate,
         name: sessionName,
         activityType: "running",
         runType: runType,

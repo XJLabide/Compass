@@ -18,6 +18,7 @@ import {
 import clsx from "clsx";
 
 import { useAuth } from "@/lib/auth/useAuth";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import { useSidebar } from "@/lib/ui/sidebar-state";
 import { dailyPath, profilePath } from "@/lib/db/paths";
 import type { DailyDoc, Profile, LoggedMealItem, FavoriteFood } from "@/lib/db/types";
@@ -28,7 +29,6 @@ import {
   roundDisplayWeight,
   weightUnitLabel,
 } from "@/lib/workout/units";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 
 import RatingChip from "./RatingChip";
 import DatePicker, {
@@ -153,16 +153,14 @@ export default function CheckInForm({
   showMealLogger = true,
 }: CheckInFormProps) {
   const { user } = useAuth();
+  const { activeDate } = useActiveDay();
 
   // ---- Local date anchor -----------------------------------------------------
   // `today` is the timezone-aware "now" anchor used as the upper bound of the
   // backfill window. It's cheap to recompute on every render (one Intl call)
   // and ensures a user who leaves the page open across midnight rolls over on
   // the next interaction.
-  const today = useMemo(
-    () => computeLocalDate(new Date(), profile.timezone),
-    [profile.timezone],
-  );
+  const today = activeDate;
   const minBackfill = useMemo(() => backfillMinDate(today), [today]);
 
   // Resolve the *active* localDate. We honor `initialLocalDate` only when it

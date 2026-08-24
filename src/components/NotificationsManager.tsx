@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { onSnapshot, orderBy, query, where } from "firebase/firestore";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import { dailyCollectionPath } from "@/lib/db/paths";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 
 /**
  * Local notification scheduler. Runs while the app tab is open.
@@ -46,6 +46,7 @@ function hasLoggedToday(daily: Record<string, unknown> | undefined): boolean {
 
 export default function NotificationsManager() {
   const { uid, profile, effectiveProfile } = useUserData();
+  const { activeDate: today } = useActiveDay();
   const enabled = profile?.notificationsEnabled === true;
   const reminderTime = profile?.reminderTime ?? "21:00";
   const tz = effectiveProfile?.timezone ?? "UTC";
@@ -59,7 +60,6 @@ export default function NotificationsManager() {
       setLoggedToday(null);
       return;
     }
-    const today = computeLocalDate(new Date(), tz);
     const q = query(
       dailyCollectionPath(uid),
       where("localDate", "==", today),
@@ -76,7 +76,7 @@ export default function NotificationsManager() {
       () => setLoggedToday(false),
     );
     return () => unsub();
-  }, [uid, enabled, tz]);
+  }, [uid, enabled, today]);
 
   // Minute-tick scheduler.
   useEffect(() => {
@@ -95,7 +95,6 @@ export default function NotificationsManager() {
         hour12: false,
       }).format(now);
       if (local !== reminderTime) return;
-      const today = computeLocalDate(now, tz);
       const lastFired = localStorage.getItem(LAST_FIRED_KEY);
       if (lastFired === today) return;
       try {
@@ -116,7 +115,7 @@ export default function NotificationsManager() {
     return () => {
       if (tickRef.current) clearInterval(tickRef.current);
     };
-  }, [enabled, reminderTime, tz, loggedToday]);
+  }, [enabled, reminderTime, tz, loggedToday, today]);
 
   return null;
 }

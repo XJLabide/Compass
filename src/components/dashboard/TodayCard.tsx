@@ -8,11 +8,9 @@ import { CheckCircle2, Circle, Dumbbell, ClipboardCheck } from "lucide-react";
 import Skeleton from "@/components/ui/Skeleton";
 import { dailyPath, programPath } from "@/lib/db/paths";
 import type { DailyDoc, ProgramDoc } from "@/lib/db/types";
-import {
-  computeLocalDate,
-  getLocalDayOfWeek,
-  getTodayScheduled,
-} from "@/lib/workout/scheduling";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
+import { dowOfIso } from "@/lib/routines/helpers";
+import { getTodayScheduled } from "@/lib/workout/scheduling";
 
 /**
  * Dashboard "Today" card — date header plus two CTAs:
@@ -53,22 +51,18 @@ function hasLoggedAnything(daily: DailyDoc | null): boolean {
 }
 
 export default function TodayCard({ uid, timezone }: TodayCardProps) {
+  const { activeDate } = useActiveDay();
   const [program, setProgram] = useState<ProgramDoc | null>(null);
   const [programLoaded, setProgramLoaded] = useState(false);
   const [daily, setDaily] = useState<DailyDoc | null>(null);
   const [dailyLoaded, setDailyLoaded] = useState(false);
 
-  // Compute today's localDate once per render. The Date constructor is cheap
-  // and stable enough — we don't need a ticker since the home screen is
-  // unmounted on tab switch.
   const today = useMemo(() => {
-    const now = new Date();
-    const tz = timezone || "UTC";
     return {
-      localDate: computeLocalDate(now, tz),
-      dow: getLocalDayOfWeek(now, tz),
+      localDate: activeDate,
+      dow: dowOfIso(activeDate),
     };
-  }, [timezone]);
+  }, [activeDate]);
 
   // Realtime listener: active program (for today's scheduled session).
   useEffect(() => {
@@ -117,7 +111,7 @@ export default function TodayCard({ uid, timezone }: TodayCardProps) {
         weekday: "short",
         month: "short",
         day: "numeric",
-      }).format(new Date());
+      }).format(new Date(`${today.localDate}T12:00:00Z`));
     } catch {
       return today.localDate;
     }

@@ -32,10 +32,10 @@ import {
 } from "lucide-react";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import { todoPath, todosPath } from "@/lib/db/paths";
 import type { TodoDoc, TodoRecurrence } from "@/lib/db/types";
 import Skeleton from "@/components/ui/Skeleton";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 
 type Row = { id: string; data: TodoDoc };
 
@@ -48,12 +48,8 @@ function addDaysIso(iso: string, delta: number): string {
 }
 
 export default function TodosTab() {
-  const { uid, effectiveProfile } = useUserData();
-  const tz = effectiveProfile?.timezone ?? "UTC";
-  const today = useMemo(
-    () => computeLocalDate(new Date(), tz),
-    [tz],
-  );
+  const { uid } = useUserData();
+  const { activeDate: today } = useActiveDay();
 
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);

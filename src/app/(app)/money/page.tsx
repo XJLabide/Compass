@@ -27,6 +27,7 @@ import {
 import clsx from "clsx";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import {
   budgetPath,
   budgetsPath,
@@ -35,7 +36,6 @@ import {
   profilePath,
 } from "@/lib/db/paths";
 import type { BudgetDoc, ExpenseDoc } from "@/lib/db/types";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
 import RecurringFeesSection, {
   type RecurringSummary,
@@ -87,10 +87,10 @@ function defaultBudgetName(mode: BudgetMode, startDate: string, endDate: string)
 }
 
 export default function FinancePage() {
-  const { uid, profile, effectiveProfile } = useUserData();
-  const tz = effectiveProfile?.timezone ?? "UTC";
+  const { uid, profile } = useUserData();
+  const { activeDate } = useActiveDay();
   const userCurrency = "PHP";
-  const today = useMemo(() => computeLocalDate(new Date(), tz), [tz]);
+  const today = activeDate;
   const currentMonthStart = useMemo(() => monthStartFor(today), [today]);
   const currentMonthEnd = useMemo(() => monthEndFor(today), [today]);
 

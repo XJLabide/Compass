@@ -8,9 +8,9 @@ import { ChevronRight, Flame } from "lucide-react";
 
 import { useAuth } from "@/lib/auth/useAuth";
 import { useUserData } from "@/lib/data/UserDataProvider";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import { dailyPath, profilePath } from "@/lib/db/paths";
 import type { DailyDoc, FavoriteFood, LoggedMealItem, Profile } from "@/lib/db/types";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 
 import MealLogger from "@/components/checkin/MealLogger";
 import DatePicker, {
@@ -29,14 +29,13 @@ export default function NutritionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { effectiveProfile, profileLoaded } = useUserData();
+  const { activeDate: today } = useActiveDay();
 
   const [dailyDoc, setDailyDoc] = useState<DailyDoc | null>(null);
   const [dailyLoaded, setDailyLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ---- Parse + validate the date param ----
-  const timezone = effectiveProfile?.timezone ?? "UTC";
-  const today = useMemo(() => computeLocalDate(new Date(), timezone), [timezone]);
   const minBackfill = useMemo(() => backfillMinDate(today), [today]);
 
   const rawDateParam = searchParams.get(DATE_PARAM);

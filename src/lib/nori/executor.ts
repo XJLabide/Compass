@@ -64,6 +64,7 @@ export interface ToolContext {
   uid: string;
   db: Firestore;
   timezone: string;
+  activeDate?: string;
   unitImperial: boolean;
   currency: string;
 }
@@ -85,6 +86,7 @@ function safeParseArgs(raw: string): ParsedArgs {
 }
 
 function today(ctx: ToolContext): string {
+  if (ctx.activeDate) return ctx.activeDate;
   return computeLocalDate(new Date(), ctx.timezone);
 }
 

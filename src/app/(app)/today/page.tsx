@@ -44,6 +44,7 @@ import CheckInForm from "@/components/checkin/CheckInForm";
 import RoutinesTab from "@/components/todos/RoutinesTab";
 import CompassLoader from "@/components/ui/CompassLoader";
 import { useUserData } from "@/lib/data/UserDataProvider";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import {
   dailyPath,
   expensesPath,
@@ -62,8 +63,6 @@ import type {
 } from "@/lib/db/types";
 import { getFirebaseDb } from "@/lib/firebase";
 import {
-  computeLocalDate,
-  getLocalDayOfWeek,
   getTodayScheduled,
 } from "@/lib/workout/scheduling";
 import {
@@ -97,6 +96,14 @@ function addDaysIso(iso: string, delta: number): string {
 
 export default function TodayPage() {
   const { uid, effectiveProfile, program } = useUserData();
+  const {
+    activeDate: today,
+    actualDate,
+    isCarriedOver,
+    endDay,
+    saving: endingDay,
+    error: endDayError,
+  } = useActiveDay();
   const tz = effectiveProfile?.timezone ?? "UTC";
   const unitSystem = effectiveProfile?.unitSystem ?? "imperial";
   const currency = effectiveProfile?.currency ?? DEFAULT_CURRENCY;
@@ -113,8 +120,7 @@ export default function TodayPage() {
     return () => clearInterval(id);
   }, []);
 
-  const today = useMemo(() => computeLocalDate(now, tz), [now, tz]);
-  const todayDow = useMemo(() => getLocalDayOfWeek(now, tz), [now, tz]);
+  const todayDow = useMemo(() => dowOfIso(today), [today]);
 
   const block = useMemo(() => getDayBlock(now, tz), [now, tz]);
   const awake = useMemo(
@@ -263,9 +269,9 @@ export default function TodayPage() {
         weekday: "long",
         month: "long",
         day: "numeric",
-      }).format(now);
+      }).format(new Date(`${activeDate}T12:00:00Z`));
     } catch {
-      return today;
+      return activeDate;
     }
   })();
 
@@ -280,11 +286,19 @@ export default function TodayPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted">
-              {activeDate === today ? "Today" : "Backfill"}
+              {activeDate === today ? "Active Day" : "Backfill"}
             </p>
             <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-neutral-100">
               {dateLabel}
             </h1>
+            {isCarriedOver && activeDate === today ? (
+              <p className="mt-1 text-xs text-amber-300">
+                Calendar is {actualDate}. Logs still go to {today} until you end the day.
+              </p>
+            ) : null}
+            {endDayError ? (
+              <p className="mt-1 text-xs text-rose-300">{endDayError}</p>
+            ) : null}
           </div>
           <div className="flex items-center gap-3">
             <DatePicker
@@ -296,6 +310,16 @@ export default function TodayPage() {
             <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent whitespace-nowrap">
               {dayTag}
             </span>
+            {activeDate === today ? (
+              <button
+                type="button"
+                onClick={() => void endDay()}
+                disabled={endingDay}
+                className="rounded-lg border border-border bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 transition hover:border-neutral-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {endingDay ? "Ending..." : "End Day"}
+              </button>
+            ) : null}
           </div>
         </div>
       </header>

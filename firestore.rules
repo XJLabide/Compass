@@ -101,6 +101,7 @@ service cloud.firestore {
         && (!('reminderTime' in data) || data.reminderTime is string)
         && (!('wakeTime' in data) || data.wakeTime is string)
         && (!('bedTime' in data) || data.bedTime is string)
+        && (!('activeDayDate' in data) || data.activeDayDate is string)
         && (!('routineTimeBlocks' in data) || (data.routineTimeBlocks is list && data.routineTimeBlocks.size() <= 20))
         && isIntOpt(data, 'calorieTargetKcal', 0, 100000)
         && isIntOpt(data, 'carbTargetG', 0, 100000)

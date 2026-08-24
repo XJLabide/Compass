@@ -8,13 +8,13 @@ import { ArrowRight, Repeat } from "lucide-react";
 import { routinesPath } from "@/lib/db/paths";
 import type { RoutineDoc } from "@/lib/db/types";
 import { useUserData } from "@/lib/data/UserDataProvider";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import {
   dowOfIso,
   groupRoutinesByBlock,
   resolveTimeBlocks,
 } from "@/lib/routines/helpers";
 import { BlockIcon } from "@/components/todos/TimeBlockManager";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
 
 export interface RoutinesSummaryProps {
@@ -30,12 +30,8 @@ type Row = { id: string; data: RoutineDoc };
  */
 export default function RoutinesSummary({
   uid,
-  timezone,
 }: RoutinesSummaryProps) {
-  const today = useMemo(
-    () => computeLocalDate(new Date(), timezone || "UTC"),
-    [timezone],
-  );
+  const { activeDate: today } = useActiveDay();
   const todayDow = useMemo(() => dowOfIso(today), [today]);
 
   const { effectiveProfile } = useUserData();

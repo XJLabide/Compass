@@ -6,9 +6,9 @@ import { onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { ArrowRight, Wallet } from "lucide-react";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import { expensesPath } from "@/lib/db/paths";
 import type { ExpenseDoc } from "@/lib/db/types";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
 
 export interface MoneySummaryProps {
@@ -38,12 +38,9 @@ function formatMoney(minor: number, currency: string): string {
  */
 export default function MoneySummary({ uid, timezone }: MoneySummaryProps) {
   const { profile } = useUserData();
+  const { activeDate: today } = useActiveDay();
   const [rows, setRows] = useState<ExpenseDoc[] | null>(null);
 
-  const today = useMemo(
-    () => computeLocalDate(new Date(), timezone || "UTC"),
-    [timezone],
-  );
   const monthStart = useMemo(() => `${today.slice(0, 7)}-01`, [today]);
 
   useEffect(() => {
@@ -106,7 +103,7 @@ export default function MoneySummary({ uid, timezone }: MoneySummaryProps) {
       return new Intl.DateTimeFormat("en-US", {
         timeZone: timezone || "UTC",
         month: "short",
-      }).format(new Date());
+      }).format(new Date(`${today}T12:00:00Z`));
     } catch {
       return today.slice(5, 7);
     }

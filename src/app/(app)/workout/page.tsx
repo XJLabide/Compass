@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 
 import { useAuth } from "@/lib/auth/useAuth";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import {
   exercisePath,
   exercisesPath,
@@ -30,10 +31,7 @@ import type {
   SessionDoc,
 } from "@/lib/db/types";
 import { EXERCISE_MASTER } from "@/lib/data/exerciseMaster";
-import {
-  computeLocalDate,
-  getRotationView,
-} from "@/lib/workout/scheduling";
+import { getRotationView } from "@/lib/workout/scheduling";
 import { checkAndAutoFinalize } from "@/lib/workout/recovery";
 import {
   heaviestSetByExercise,
@@ -114,6 +112,7 @@ function normalizeSessionName(name: string | undefined): string {
 export default function WorkoutPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { activeDate } = useActiveDay();
 
   const [program, setProgram] = useState<ProgramDoc | null>(null);
   const [programLoaded, setProgramLoaded] = useState(false);
@@ -399,10 +398,7 @@ export default function WorkoutPage() {
   // ---------------------------------------------------------------------------
   // Derived state.
   // ---------------------------------------------------------------------------
-  const localDate = useMemo(() => {
-    const tz = profile?.timezone || "UTC";
-    return computeLocalDate(new Date(), tz);
-  }, [profile?.timezone]);
+  const localDate = activeDate;
 
   // Most-recent COMPLETED session (the in-progress one is shown via ResumeBanner).
   const lastCompletedSession = useMemo<RecentRow | null>(() => {

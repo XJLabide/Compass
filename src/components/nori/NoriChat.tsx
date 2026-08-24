@@ -28,6 +28,7 @@ import clsx from "clsx";
 import CompassLoader from "@/components/ui/CompassLoader";
 
 import { useUserData } from "@/lib/data/UserDataProvider";
+import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import {
   noriMessagesPath,
   noriThreadPath,
@@ -43,7 +44,6 @@ import {
   statusForTool,
   STATUS_THINKING,
 } from "@/lib/nori/statusLabels";
-import { computeLocalDate } from "@/lib/workout/scheduling";
 import Skeleton from "@/components/ui/Skeleton";
 import NoriMarkdown from "@/components/nori/NoriMarkdown";
 
@@ -104,8 +104,8 @@ export default function NoriChat({
   threadId?: string;
 }) {
   const { uid, effectiveProfile } = useUserData();
+  const { activeDate: today } = useActiveDay();
   const tz = effectiveProfile?.timezone ?? "UTC";
-  const today = useMemo(() => computeLocalDate(new Date(), tz), [tz]);
   const currency = effectiveProfile?.currency ?? "USD";
   const unitImperial = effectiveProfile?.unitSystem !== "metric";
 
@@ -116,11 +116,12 @@ export default function NoriChat({
             uid,
             db: getFirebaseDb(),
             timezone: tz,
+            activeDate: today,
             unitImperial,
             currency,
           }
         : null,
-    [uid, tz, unitImperial, currency],
+    [uid, tz, today, unitImperial, currency],
   );
 
   const [messages, setMessages] = useState<UiMessage[] | null>(null);

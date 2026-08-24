@@ -99,6 +99,8 @@ export interface Profile {
   wakeTime?: string;
   /** "HH:MM" 24-hour local bedtime. Drives Today's awake-progress bar. Default "23:00". */
   bedTime?: string;
+  /** User-controlled active tracking day. Lets late-night logs stay attached until the user ends the day. */
+  activeDayDate?: LocalDate;
   calorieTargetKcal?: number;
   carbTargetG?: number;
   fatTargetG?: number;
