@@ -35,8 +35,8 @@ type Tab = {
  * being jumped straight to settings.
  */
 const PRIMARY_TABS: Tab[] = [
-  { href: "/", label: "Home", Icon: Home },
   { href: "/today", label: "Today", Icon: Sun },
+  { href: "/", label: "Home", Icon: Home },
   { href: "/nutrition", label: "Nutrition", Icon: Flame },
   { href: "/fitness", label: "Fitness", Icon: Activity },
 ];

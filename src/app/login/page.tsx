@@ -30,7 +30,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (loading || !user) return;
-    router.replace("/");
+    router.replace("/today");
   }, [loading, user, router]);
 
   useEffect(() => {
@@ -52,13 +52,13 @@ export default function LoginPage() {
           <section className="relative flex flex-col border-white/10 lg:border-r">
             <div className="flex items-center gap-2.5 border-b border-white/10 px-6 py-3.5">
               <Image
-                src="/logo-mark.svg"
+                src="/logo.png"
                 alt=""
-                width={22}
+                width={33}
                 height={22}
                 priority
                 unoptimized
-                className="h-[22px] w-[22px]"
+                className="h-[22px] w-[33px] object-contain"
               />
               <span className="text-[13px] font-semibold tracking-tight text-neutral-100">
                 Compass

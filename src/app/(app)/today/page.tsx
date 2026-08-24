@@ -139,6 +139,7 @@ export default function TodayPage() {
   const searchParams = useSearchParams();
 
   const [showHabitManager, setShowHabitManager] = useState(false);
+  const [endDayOpen, setEndDayOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"execution" | "nutrition" | "checkin">("execution");
 
   const rawDateParam = searchParams.get("date");
@@ -262,6 +263,51 @@ export default function TodayPage() {
     );
   }, [todayDaily]);
 
+  const endDayReminders = useMemo(() => {
+    const reminders: string[] = [];
+    const routinesLeft = scheduledRoutines.list.length - scheduledRoutines.done.length;
+    const openTodos = todayTodos.overdue.length + todayTodos.dueToday.length;
+    const mealsLogged =
+      (todayDaily?.loggedMeals?.length ?? 0) > 0 ||
+      todayDaily?.calories !== undefined ||
+      todayDaily?.proteinG !== undefined;
+
+    if (routinesLeft > 0) {
+      reminders.push(
+        `${routinesLeft} habit${routinesLeft === 1 ? "" : "s"} still open`,
+      );
+    }
+    if (todayExpenses !== null && todayExpenses.length === 0) {
+      reminders.push("no spending or income logged");
+    }
+    if (dailyLoaded && !mealsLogged) {
+      reminders.push("no meals logged");
+    }
+    if (dailyLoaded && !checkInHasAny) {
+      reminders.push("daily check-in is still empty");
+    }
+    if (openTodos > 0) {
+      reminders.push(
+        `${openTodos} dated todo${openTodos === 1 ? "" : "s"} still open`,
+      );
+    }
+    return reminders;
+  }, [
+    checkInHasAny,
+    dailyLoaded,
+    scheduledRoutines.done.length,
+    scheduledRoutines.list.length,
+    todayDaily,
+    todayExpenses,
+    todayTodos.dueToday.length,
+    todayTodos.overdue.length,
+  ]);
+
+  const handleEndDayConfirm = useCallback(async () => {
+    await endDay();
+    setEndDayOpen(false);
+  }, [endDay]);
+
   // --- Render -------------------------------------------------------------
   if (!uid) return null;
 
@@ -325,7 +371,7 @@ export default function TodayPage() {
             ) : activeDate === today ? (
               <button
                 type="button"
-                onClick={() => void endDay()}
+                onClick={() => setEndDayOpen(true)}
                 disabled={daySaving}
                 className="rounded-lg border border-border bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 transition hover:border-neutral-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -491,6 +537,43 @@ export default function TodayPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={endDayOpen}
+        title="End today's tracking?"
+        confirmLabel={endDayReminders.length > 0 ? "End Anyway" : "End Day"}
+        cancelLabel="Keep Tracking"
+        busy={daySaving}
+        onConfirm={() => void handleEndDayConfirm()}
+        onCancel={() => setEndDayOpen(false)}
+      >
+        <div className="space-y-3 text-xs leading-relaxed text-muted">
+          <p>
+            Your saved logs stay untouched. After ending, new daily logs pause until you start your next day.
+          </p>
+          {endDayReminders.length > 0 ? (
+            <div className="rounded-md border border-border bg-neutral-900/60 p-3">
+              <p className="font-medium text-neutral-200">
+                Before you close the day:
+              </p>
+              <ul className="mt-2 space-y-1.5">
+                {endDayReminders.map((item) => (
+                  <li key={item} className="flex gap-2">
+                    <span aria-hidden="true" className="text-accent">
+                      -
+                    </span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-neutral-300">
+              Looks like the main daily tracking areas have something logged.
+            </p>
+          )}
+        </div>
+      </ConfirmDialog>
     </section>
   );
 }

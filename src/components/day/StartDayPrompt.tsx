@@ -7,7 +7,19 @@ export default function StartDayPrompt({
 }: {
   scope?: string;
 }) {
-  const { actualDate, startDay, saving, error } = useActiveDay();
+  const { actualDate, timezone, startDay, saving, error } = useActiveDay();
+  const displayDate = (() => {
+    try {
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        month: "long",
+        day: "2-digit",
+        weekday: "long",
+      }).format(new Date(`${actualDate}T12:00:00Z`));
+    } catch {
+      return actualDate;
+    }
+  })();
 
   return (
     <div
@@ -18,10 +30,10 @@ export default function StartDayPrompt({
     >
       <section className="w-full max-w-sm rounded-lg border border-border bg-panel p-5">
         <h2 id="start-day-title" className="text-lg font-semibold text-neutral-100">
-          Start your day
+          Hey, welcome back.
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted">
-          Start {actualDate} before adding {scope}.
+          Ready to start tracking {displayDate}? I&apos;ll keep your {scope} tied to this day until you end it.
         </p>
         {error ? <p className="mt-3 text-xs text-rose-300">{error}</p> : null}
         <button

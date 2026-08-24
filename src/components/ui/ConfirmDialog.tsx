@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
 import clsx from "clsx";
 
@@ -18,6 +18,7 @@ export interface ConfirmDialogProps {
   open: boolean;
   title: string;
   description?: string;
+  children?: ReactNode;
   /** Default "Confirm". Use this for the affirmative action verb ("Delete", "Discard"). */
   confirmLabel?: string;
   cancelLabel?: string;
@@ -32,6 +33,7 @@ export default function ConfirmDialog({
   open,
   title,
   description,
+  children,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   tone = "default",
@@ -58,7 +60,7 @@ export default function ConfirmDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-title"
-      aria-describedby={description ? "confirm-desc" : undefined}
+      aria-describedby={description || children ? "confirm-desc" : undefined}
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 backdrop-blur p-4"
       onClick={busy ? undefined : onCancel}
     >
@@ -84,7 +86,11 @@ export default function ConfirmDialog({
             >
               {title}
             </h2>
-            {description ? (
+            {children ? (
+              <div id="confirm-desc" className="mt-2">
+                {children}
+              </div>
+            ) : description ? (
               <p
                 id="confirm-desc"
                 className="mt-1 text-xs leading-relaxed text-muted"

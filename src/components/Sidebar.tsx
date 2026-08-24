@@ -26,8 +26,8 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Home", Icon: Home },
   { href: "/today", label: "Today", Icon: Sun },
+  { href: "/", label: "Home", Icon: Home },
 ];
 
 const TRACKING_ITEMS: NavItem[] = [
@@ -75,13 +75,6 @@ function NavLink({
           : "text-muted hover:bg-neutral-900 hover:text-neutral-100",
       )}
     >
-      <span
-        aria-hidden="true"
-        className={clsx(
-          "absolute left-0 top-1.5 h-7 w-[3px] rounded-r-sm bg-accent transition-opacity",
-          active ? "opacity-100" : "opacity-0",
-        )}
-      />
       <Icon
         aria-hidden="true"
         className={clsx(
@@ -159,13 +152,13 @@ export default function Sidebar() {
         )}
       >
         <Image
-          src="/logo-mark.svg"
+          src="/logo.png"
           alt="Compass"
-          width={36}
-          height={36}
+          width={48}
+          height={32}
           priority
           unoptimized
-          className="h-8 w-8 shrink-0"
+          className="h-8 w-12 shrink-0 object-contain"
         />
         {!collapsed && (
           <span className="select-none text-base font-semibold tracking-tight text-neutral-100">
