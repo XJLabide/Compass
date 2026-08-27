@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   LineChart,
   Settings,
+  Target,
   X,
   Flame,
   Sparkles,
@@ -42,6 +43,7 @@ const PRIMARY_TABS: Tab[] = [
 ];
 
 const SECONDARY_LINKS: Tab[] = [
+  { href: "/goals", label: "Goals", Icon: Target },
   { href: "/todos", label: "Todos", Icon: CheckSquare },
   { href: "/money", label: "Finances", Icon: Wallet },
   { href: "/nori", label: "Nori", Icon: Sparkles },

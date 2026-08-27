@@ -334,18 +334,18 @@ export default function TodayPage() {
   })();
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-5">
       <header className="space-y-3 border-b border-border pb-3">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted">
+            <p className="text-xs font-medium text-muted">
               {hasActiveDay ? (activeDate === today ? "Active Day" : "Backfill") : "Not Started"}
             </p>
-            <h1 className="mt-0.5 text-[clamp(1.5rem,6vw,2rem)] font-semibold tracking-tight text-neutral-100">
+            <h1 className="mt-0.5 text-[clamp(1.375rem,5.4vw,1.875rem)] font-semibold tracking-tight text-neutral-100">
               {dateLabel}
             </h1>
             {hasActiveDay && isCarriedOver && activeDate === today ? (
-              <p className="mt-1 text-xs text-amber-300">
+              <p className="mt-1.5 max-w-prose text-xs leading-5 text-amber-300">
                 Calendar is {actualDate}. Logs still go to {today} until you end the day.
               </p>
             ) : null}
@@ -353,11 +353,11 @@ export default function TodayPage() {
               <p className="mt-1 text-xs text-rose-300">{endDayError}</p>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end">
             <button
               type="button"
               onClick={() => setShowBackfillPicker((open) => !open)}
-              className="inline-flex h-11 items-center gap-2 rounded-md border border-border bg-neutral-900 px-4 text-sm font-semibold text-neutral-100 transition hover:border-neutral-600"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-neutral-900 px-3 text-sm font-semibold text-neutral-100 transition hover:border-neutral-600 sm:h-11 sm:px-4"
             >
               <CalendarDays className="h-4 w-4 text-muted" />
               {activeDate === today ? "Backfill" : "Change Date"}
@@ -366,7 +366,7 @@ export default function TodayPage() {
               <button
                 type="button"
                 onClick={() => handleDateChange(today)}
-                className="h-11 rounded-md border border-border bg-neutral-900 px-4 text-sm font-medium text-muted transition hover:border-neutral-600 hover:text-neutral-100"
+                className="h-10 rounded-md border border-border bg-neutral-900 px-3 text-sm font-medium text-muted transition hover:border-neutral-600 hover:text-neutral-100 sm:h-11 sm:px-4"
               >
                 Today
               </button>
@@ -376,7 +376,7 @@ export default function TodayPage() {
                 type="button"
                 onClick={() => void startDay()}
                 disabled={daySaving}
-                className="h-11 rounded-md bg-accent px-5 text-sm font-semibold text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-10 rounded-md bg-accent px-3 text-sm font-semibold text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:px-5"
               >
                 {daySaving ? "Starting..." : "Start My Day"}
               </button>
@@ -385,7 +385,7 @@ export default function TodayPage() {
                 type="button"
                 onClick={() => setEndDayOpen(true)}
                 disabled={daySaving}
-                className="h-11 rounded-md border border-amber-500/40 bg-amber-500/15 px-5 text-sm font-semibold text-amber-100 transition hover:border-amber-400/70 hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-10 rounded-md border border-amber-500/40 bg-amber-500/15 px-3 text-sm font-semibold text-amber-100 transition hover:border-amber-400/70 hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:px-5"
               >
                 {daySaving ? "Ending..." : "End Day"}
               </button>
@@ -437,14 +437,14 @@ export default function TodayPage() {
 
       {/* 3 Smart Focus Tabs Switcher */}
       {hasActiveDay ? (
-      <div className="flex rounded-xl border border-border bg-neutral-900/60 p-1 gap-1">
+      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border bg-border p-px">
         <button
           type="button"
           onClick={() => setActiveTab("execution")}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold transition-all ${
+          className={`flex items-center justify-center gap-1.5 rounded-md py-2.5 text-xs font-semibold transition-colors ${
             activeTab === "execution"
-              ? "bg-accent/15 text-accent shadow-sm border border-accent/30"
-              : "text-muted hover:text-neutral-200"
+              ? "bg-neutral-800 text-accent"
+              : "bg-neutral-900/70 text-muted hover:text-neutral-200"
           }`}
         >
           <Zap className="h-4 w-4" />
@@ -453,10 +453,10 @@ export default function TodayPage() {
         <button
           type="button"
           onClick={() => setActiveTab("nutrition")}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold transition-all ${
+          className={`flex items-center justify-center gap-1.5 rounded-md py-2.5 text-xs font-semibold transition-colors ${
             activeTab === "nutrition"
-              ? "bg-accent/15 text-accent shadow-sm border border-accent/30"
-              : "text-muted hover:text-neutral-200"
+              ? "bg-neutral-800 text-accent"
+              : "bg-neutral-900/70 text-muted hover:text-neutral-200"
           }`}
         >
           <Flame className="h-4 w-4 text-amber-400" />
@@ -465,10 +465,10 @@ export default function TodayPage() {
         <button
           type="button"
           onClick={() => setActiveTab("checkin")}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold transition-all ${
+          className={`flex items-center justify-center gap-1.5 rounded-md py-2.5 text-xs font-semibold transition-colors ${
             activeTab === "checkin"
-              ? "bg-accent/15 text-accent shadow-sm border border-accent/30"
-              : "text-muted hover:text-neutral-200"
+              ? "bg-neutral-800 text-accent"
+              : "bg-neutral-900/70 text-muted hover:text-neutral-200"
           }`}
         >
           <ClipboardCheck className="h-4 w-4 text-cyan-400" />

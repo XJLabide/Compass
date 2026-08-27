@@ -170,6 +170,39 @@ service cloud.firestore {
         && data.active is bool;
     }
 
+    function goalMetricValid(metric) {
+      return metric is map
+        && metric.id is string
+        && metric.label is string
+        && metric.source in [
+          'manual',
+          'bodyweight',
+          'workouts_per_week',
+          'calories_avg',
+          'protein_avg',
+          'steps_avg',
+          'sleep_avg',
+          'routine_completion',
+          'budget_spend'
+        ]
+        && metric.direction in ['at_least', 'at_most', 'reach']
+        && metric.target is number
+        && (!('unit' in metric) || metric.unit is string);
+    }
+
+    function goalValid(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() <= 200
+        && data.area in ['fitness', 'nutrition', 'habits', 'money', 'personal']
+        && data.state in ['active', 'later', 'completed']
+        && data.status in ['on_track', 'ahead', 'behind', 'off_track', 'needs_data', 'blocked', 'done']
+        && data.priorityRank is int && data.priorityRank >= 0 && data.priorityRank <= 100
+        && (!('deadlineLocalDate' in data) || data.deadlineLocalDate is string)
+        && (!('note' in data) || (data.note is string && data.note.size() <= 2000))
+        && (!('primaryMetric' in data) || goalMetricValid(data.primaryMetric))
+        && data.supportingMetrics is list && data.supportingMetrics.size() <= 12
+        && data.milestones is list && data.milestones.size() <= 50;
+    }
+
     function routineValid(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 200
         && data.weekdays is list && data.weekdays.size() >= 1 && data.weekdays.size() <= 7
@@ -231,6 +264,12 @@ service cloud.firestore {
       match /expenses/{expenseId} {
         allow read: if isOwner(uid);
         allow create, update: if isOwner(uid) && expenseValid(request.resource.data);
+        allow delete: if isOwner(uid);
+      }
+
+      match /goals/{goalId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && goalValid(request.resource.data);
         allow delete: if isOwner(uid);
       }
 

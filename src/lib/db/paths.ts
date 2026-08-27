@@ -12,6 +12,7 @@ import {
   dailyConverter,
   exerciseConverter,
   expenseConverter,
+  goalConverter,
   noriMessageConverter,
   noriThreadConverter,
   prConverter,
@@ -30,6 +31,7 @@ import type {
   DailyDoc,
   Exercise,
   ExpenseDoc,
+  GoalDoc,
   LocalDate,
   NoriMessage,
   NoriThread,
@@ -222,6 +224,25 @@ export function expensePath(
   return doc(userDoc(uid, db), "expenses", expenseId).withConverter(
     expenseConverter,
   );
+}
+
+// ---------------------------------------------------------------------------
+// goals — users/{uid}/goals/{goalId}
+// ---------------------------------------------------------------------------
+
+export function goalsPath(
+  uid: string,
+  db?: Firestore,
+): CollectionReference<GoalDoc> {
+  return collection(userDoc(uid, db), "goals").withConverter(goalConverter);
+}
+
+export function goalPath(
+  uid: string,
+  goalId: string,
+  db?: Firestore,
+): DocumentReference<GoalDoc> {
+  return doc(userDoc(uid, db), "goals", goalId).withConverter(goalConverter);
 }
 
 // ---------------------------------------------------------------------------

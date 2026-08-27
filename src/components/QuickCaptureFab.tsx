@@ -97,23 +97,23 @@ export default function QuickCaptureFab() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Quick capture"
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-neutral-900 shadow-2xl shadow-accent/30 ring-2 ring-accent/30 transition hover:scale-105 active:scale-95 md:bottom-6 md:right-6"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] right-3 z-30 flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-panel text-accent shadow-md shadow-black/30 transition-colors hover:border-accent/50 hover:bg-neutral-900 active:bg-neutral-800 md:bottom-6 md:right-6"
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-5 w-5" />
       </button>
 
       {open ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur md:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm md:items-center"
           onClick={close}
         >
           <div
-            className="w-full max-w-md rounded-t-2xl border border-border bg-panel p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl md:rounded-2xl md:pb-4"
+            className="w-full max-w-md rounded-t-lg border border-border bg-panel p-3 pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.75rem))] shadow-lg md:rounded-lg md:p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-border pb-2">
               <div>
-                <span className="text-xs font-medium uppercase tracking-wide text-muted">
+                <span className="text-sm font-semibold text-neutral-200">
                   {kind ? `Log ${kind}` : "Quick capture"}
                 </span>
                 <p className="text-[11px] text-muted">

@@ -46,6 +46,68 @@ export type MuscleGroup =
   | "forearms"
   | "other";
 
+export type GoalLifeArea =
+  | "fitness"
+  | "nutrition"
+  | "habits"
+  | "money"
+  | "personal";
+
+export type GoalState = "active" | "later" | "completed";
+
+export type GoalStatus =
+  | "on_track"
+  | "ahead"
+  | "behind"
+  | "off_track"
+  | "needs_data"
+  | "blocked"
+  | "done";
+
+export type GoalMetricSource =
+  | "manual"
+  | "bodyweight"
+  | "workouts_per_week"
+  | "calories_avg"
+  | "protein_avg"
+  | "steps_avg"
+  | "sleep_avg"
+  | "routine_completion"
+  | "budget_spend";
+
+export type GoalMetricDirection = "at_least" | "at_most" | "reach";
+
+export interface GoalMetric {
+  id: string;
+  label: string;
+  source: GoalMetricSource;
+  direction: GoalMetricDirection;
+  target: number;
+  unit?: string;
+}
+
+export interface GoalMilestone {
+  id: string;
+  title: string;
+  done: boolean;
+  dueDate?: LocalDate;
+}
+
+export interface GoalDoc {
+  title: string;
+  area: GoalLifeArea;
+  state: GoalState;
+  status: GoalStatus;
+  priorityRank: number;
+  deadlineLocalDate?: LocalDate;
+  primaryMetric?: GoalMetric;
+  supportingMetrics: GoalMetric[];
+  milestones: GoalMilestone[];
+  note?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
 // ---------------------------------------------------------------------------
 export interface FavoriteFood {
   id: string;

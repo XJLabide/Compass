@@ -594,10 +594,10 @@ function MobileSubmitFooter({ children }: { children: React.ReactNode }) {
     <>
       {/* Mobile: fixed above the 56px tab bar + safe-area inset */}
       <div
-        className="fixed inset-x-0 z-30 mx-auto max-w-md px-4 pt-3 md:hidden"
+        className="fixed inset-x-0 z-30 mx-auto max-w-md px-3 pt-3 md:hidden"
         style={{ bottom: "calc(env(safe-area-inset-bottom) + 56px)" }}
       >
-        <div className="rounded-xl border border-border bg-panel/95 p-3 shadow-lg backdrop-blur">
+        <div className="rounded-lg border border-border bg-panel/95 p-3 shadow-md shadow-black/30 backdrop-blur">
           {children}
         </div>
       </div>
@@ -610,7 +610,7 @@ function MobileSubmitFooter({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="mx-auto max-w-3xl lg:max-w-5xl xl:max-w-6xl">
-          <div className="rounded-xl border border-border bg-panel/95 p-3 shadow-lg backdrop-blur">
+          <div className="rounded-lg border border-border bg-panel/95 p-3 shadow-md shadow-black/30 backdrop-blur">
             {children}
           </div>
         </div>

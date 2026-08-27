@@ -126,12 +126,12 @@ export default function SportsLoggerModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-t-3xl border border-border bg-neutral-950 p-5 shadow-2xl pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-2xl"
+        className="w-full max-w-md rounded-t-lg border border-border bg-neutral-950 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg sm:rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border/60 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-purple-500/10 text-purple-400">
               <Trophy className="h-5 w-5" />
             </div>
             <div>

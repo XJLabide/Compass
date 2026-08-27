@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckSquare,
+  Target,
   Sparkles,
   Wallet,
   Flame,
@@ -28,6 +29,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/today", label: "Today", Icon: Sun },
   { href: "/", label: "Home", Icon: Home },
+  { href: "/goals", label: "Goals", Icon: Target },
 ];
 
 const TRACKING_ITEMS: NavItem[] = [
