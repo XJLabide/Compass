@@ -25,9 +25,11 @@ import {
   portfolioConverter,
   accountConverter,
   budgetConverter,
+  calendarItemConverter,
 } from "./converters";
 import type {
   BudgetDoc,
+  CalendarItemDoc,
   DailyDoc,
   Exercise,
   ExpenseDoc,
@@ -243,6 +245,29 @@ export function goalPath(
   db?: Firestore,
 ): DocumentReference<GoalDoc> {
   return doc(userDoc(uid, db), "goals", goalId).withConverter(goalConverter);
+}
+
+// ---------------------------------------------------------------------------
+// calendarItems — users/{uid}/calendarItems/{itemId}
+// ---------------------------------------------------------------------------
+
+export function calendarItemsPath(
+  uid: string,
+  db?: Firestore,
+): CollectionReference<CalendarItemDoc> {
+  return collection(userDoc(uid, db), "calendarItems").withConverter(
+    calendarItemConverter,
+  );
+}
+
+export function calendarItemPath(
+  uid: string,
+  itemId: string,
+  db?: Firestore,
+): DocumentReference<CalendarItemDoc> {
+  return doc(userDoc(uid, db), "calendarItems", itemId).withConverter(
+    calendarItemConverter,
+  );
 }
 
 // ---------------------------------------------------------------------------

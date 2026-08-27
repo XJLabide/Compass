@@ -7,6 +7,7 @@ import type {
 
 import type {
   BudgetDoc,
+  CalendarItemDoc,
   DailyDoc,
   Exercise,
   ExpenseDoc,
@@ -76,6 +77,9 @@ export const expenseConverter: FirestoreDataConverter<ExpenseDoc> =
 
 export const goalConverter: FirestoreDataConverter<GoalDoc> =
   makePassthroughConverter<GoalDoc>();
+
+export const calendarItemConverter: FirestoreDataConverter<CalendarItemDoc> =
+  makePassthroughConverter<CalendarItemDoc>();
 
 export const budgetConverter: FirestoreDataConverter<BudgetDoc> =
   makePassthroughConverter<BudgetDoc>();

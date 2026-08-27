@@ -109,6 +109,45 @@ export interface GoalDoc {
 }
 
 // ---------------------------------------------------------------------------
+// users/{uid}/calendarItems/{itemId}
+// ---------------------------------------------------------------------------
+
+export type CalendarItemType = "class" | "event";
+
+export type CalendarItemRecurrence = "none" | "weekly";
+
+interface BaseCalendarItemDoc {
+  type: CalendarItemType;
+  title: string;
+  location?: string;
+  active: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface CalendarClassItemDoc extends BaseCalendarItemDoc {
+  type: "class";
+  /** 0 = Sunday ... 6 = Saturday. */
+  weekdays: number[];
+  startTime: string;
+  endTime: string;
+  startDate?: LocalDate;
+  endDate?: LocalDate;
+}
+
+export interface CalendarEventItemDoc extends BaseCalendarItemDoc {
+  type: "event";
+  date?: LocalDate;
+  /** 0 = Sunday ... 6 = Saturday. Used when recurrence === "weekly". */
+  weekdays?: number[];
+  recurrence: CalendarItemRecurrence;
+  startTime?: string;
+  endTime?: string;
+}
+
+export type CalendarItemDoc = CalendarClassItemDoc | CalendarEventItemDoc;
+
+// ---------------------------------------------------------------------------
 export interface FavoriteFood {
   id: string;
   name: string;
