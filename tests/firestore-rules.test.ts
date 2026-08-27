@@ -280,3 +280,66 @@ describe("prs validator", () => {
     );
   });
 });
+
+describe("google calendar integration rules", () => {
+  test("owner can read integration status but cannot write it directly", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(
+        doc(ctx.firestore(), "users/alice/integrations/google_calendar"),
+        {
+          provider: "google_calendar",
+          status: "connected",
+          selectedCalendarIds: ["primary"],
+          syncWindowPastDays: 30,
+          syncWindowFutureDays: 90,
+        },
+      );
+    });
+
+    const db = ownedDb("alice");
+    await assertSucceeds(
+      getDoc(doc(db, "users/alice/integrations/google_calendar")),
+    );
+    await assertFails(
+      setDoc(doc(db, "users/alice/integrations/google_calendar"), {
+        provider: "google_calendar",
+        status: "connected",
+        selectedCalendarIds: ["primary"],
+        syncWindowPastDays: 30,
+        syncWindowFutureDays: 90,
+      }),
+    );
+  });
+
+  test("clients cannot read or write integration secrets", async () => {
+    const db = ownedDb("alice");
+    await assertFails(getDoc(doc(db, "integrationSecrets/alice_google_calendar")));
+    await assertFails(
+      setDoc(doc(db, "integrationSecrets/alice_google_calendar"), {
+        refreshToken: "secret",
+      }),
+    );
+  });
+
+  test("external google calendar metadata is accepted on calendar items", async () => {
+    const db = ownedDb("alice");
+    await assertSucceeds(
+      setDoc(doc(db, "users/alice/calendarItems/gcal_abc"), {
+        type: "event",
+        title: "Google event",
+        active: true,
+        recurrence: "none",
+        date: "2026-05-13",
+        startTime: "09:00",
+        endTime: "10:00",
+        externalSource: "google_calendar",
+        externalCalendarId: "primary",
+        externalEventId: "evt",
+        externalInstanceId: "evt_20260513",
+        externalUrl: "https://calendar.google.com/calendar/event?eid=abc",
+        externalUpdatedAt: "2026-05-12T12:00:00.000Z",
+        externalSyncedAt: serverTimestamp(),
+      }),
+    );
+  });
+});

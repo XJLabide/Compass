@@ -121,6 +121,13 @@ interface BaseCalendarItemDoc {
   title: string;
   location?: string;
   active: boolean;
+  externalSource?: "google_calendar";
+  externalCalendarId?: string;
+  externalEventId?: string;
+  externalInstanceId?: string;
+  externalUrl?: string;
+  externalUpdatedAt?: string;
+  externalSyncedAt?: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -146,6 +153,24 @@ export interface CalendarEventItemDoc extends BaseCalendarItemDoc {
 }
 
 export type CalendarItemDoc = CalendarClassItemDoc | CalendarEventItemDoc;
+
+// ---------------------------------------------------------------------------
+// users/{uid}/integrations/{provider}
+// ---------------------------------------------------------------------------
+
+export interface GoogleCalendarIntegrationDoc {
+  provider: "google_calendar";
+  status: "connected" | "disconnected" | "error";
+  accountEmail?: string;
+  accountName?: string;
+  selectedCalendarIds: string[];
+  syncWindowPastDays: number;
+  syncWindowFutureDays: number;
+  lastSyncAt?: Timestamp;
+  lastSyncError?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
 
 // ---------------------------------------------------------------------------
 export interface FavoriteFood {

@@ -11,7 +11,7 @@ const config: Config = {
         panel: "#131316",
         panel2: "#1a1a1f",
         border: "#2a2a31",
-        accent: "#22d3ee",
+        accent: "rgb(var(--app-accent-rgb) / <alpha-value>)",
         accent2: "#a3e635",
         muted: "#8b8b96",
         // shadcn/ui CSS-variable-driven tokens

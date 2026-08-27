@@ -49,6 +49,7 @@ import { useUserData } from "@/lib/data/UserDataProvider";
 import { useActiveDay } from "@/lib/day/ActiveDayProvider";
 import {
   dailyPath,
+  calendarItemsPath,
   expensesPath,
   routinePath,
   routinesPath,
@@ -57,6 +58,7 @@ import {
 } from "@/lib/db/paths";
 import type {
   DailyDoc,
+  CalendarItemDoc,
   ExpenseDoc,
   Profile,
   RoutineDoc,
@@ -87,6 +89,37 @@ const DEFAULT_CURRENCY = "PHP";
 
 type TodoRow = { id: string; data: TodoDoc };
 type RoutineRow = { id: string; data: RoutineDoc };
+type CalendarRow = { id: string; data: CalendarItemDoc };
+
+function parseIsoDate(iso: string): Date {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function weekdayOf(iso: string): number {
+  return parseIsoDate(iso).getUTCDay();
+}
+
+function calendarItemOccursOn(item: CalendarItemDoc, iso: string): boolean {
+  if (!item.active) return false;
+  const dow = weekdayOf(iso);
+  if (item.type === "class") {
+    if (item.startDate && iso < item.startDate) return false;
+    if (item.endDate && iso > item.endDate) return false;
+    return item.weekdays.includes(dow);
+  }
+  if (item.recurrence === "weekly") {
+    return item.weekdays?.includes(dow) ?? false;
+  }
+  return item.date === iso;
+}
+
+function calendarTimeLabel(item: CalendarItemDoc): string {
+  if (item.type === "event" && !item.startTime && !item.endTime) return "All day";
+  if (item.startTime && item.endTime) return `${item.startTime} - ${item.endTime}`;
+  if (item.startTime) return item.startTime;
+  return "All day";
+}
 
 function addDaysIso(iso: string, delta: number): string {
   const t = Date.parse(`${iso}T00:00:00Z`);
@@ -167,6 +200,7 @@ export default function TodayPage() {
   // --- Subscriptions ------------------------------------------------------
   const [todos, setTodos] = useState<TodoRow[] | null>(null);
   const [routines, setRoutines] = useState<RoutineRow[] | null>(null);
+  const [calendarItems, setCalendarItems] = useState<CalendarRow[] | null>(null);
   const [todayDaily, setTodayDaily] = useState<DailyDoc | null>(null);
   const [dailyLoaded, setDailyLoaded] = useState(false);
   const [todayExpenses, setTodayExpenses] = useState<ExpenseDoc[] | null>(null);
@@ -189,6 +223,19 @@ export default function TodayPage() {
       (snap) =>
         setRoutines(snap.docs.map((d) => ({ id: d.id, data: d.data() }))),
       () => setRoutines([]),
+    );
+    return () => unsub();
+  }, [uid]);
+
+  useEffect(() => {
+    if (!uid) return;
+    const unsub = onSnapshot(
+      query(calendarItemsPath(uid), orderBy("createdAt", "desc")),
+      (snap) =>
+        setCalendarItems(
+          snap.docs.map((d) => ({ id: d.id, data: d.data() })),
+        ),
+      () => setCalendarItems([]),
     );
     return () => unsub();
   }, [uid]);
@@ -240,6 +287,18 @@ export default function TodayPage() {
     const done = list.filter((r) => r.data.done?.[today]);
     return { list, done };
   }, [routines, todayDow, today]);
+
+  const scheduledCalendarItems = useMemo(
+    () =>
+      (calendarItems ?? [])
+        .filter((row) => calendarItemOccursOn(row.data, activeDate))
+        .sort((a, b) =>
+          (a.data.startTime ?? "99:99").localeCompare(
+            b.data.startTime ?? "99:99",
+          ),
+        ),
+    [activeDate, calendarItems],
+  );
 
   const moneyTotals = useMemo(() => {
     let income = 0;
@@ -480,6 +539,10 @@ export default function TodayPage() {
       {/* TAB 1: EXECUTION */}
       {hasActiveDay && activeTab === "execution" && (
         <div className="space-y-6">
+          <CalendarSection
+            items={scheduledCalendarItems}
+            loaded={calendarItems !== null}
+          />
           <WorkoutSection scheduled={scheduledSession} />
           <RoutinesSection
             uid={uid}
@@ -707,6 +770,80 @@ function ProgressCell({
       </div>
       <div className="truncate text-[10px] text-muted">{sub}</div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Calendar
+// ---------------------------------------------------------------------------
+function CalendarSection({
+  items,
+  loaded,
+}: {
+  items: CalendarRow[];
+  loaded: boolean;
+}) {
+  if (!loaded) {
+    return (
+      <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
+        <Skeleton className="h-20" />
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-neutral-900/40 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-4 w-4 text-accent" />
+          <h2 className="text-xs font-medium uppercase tracking-wide text-muted">
+            Calendar
+          </h2>
+        </div>
+        <Link
+          href="/calendar"
+          className="inline-flex items-center gap-1 text-[10px] font-medium text-accent hover:underline"
+        >
+          Open
+          <ChevronRight className="h-3 w-3" />
+        </Link>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="mt-3 text-sm text-muted">No calendar events today.</p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {items.slice(0, 5).map((row) => (
+            <div
+              key={row.id}
+              className="rounded-md border border-border bg-neutral-950/50 px-3 py-2"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-neutral-100">
+                    {row.data.title}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted">
+                    {calendarTimeLabel(row.data)}
+                    {row.data.location ? ` · ${row.data.location}` : ""}
+                  </p>
+                </div>
+                {row.data.externalSource === "google_calendar" ? (
+                  <span className="shrink-0 text-xs font-medium text-accent">
+                    Google
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ))}
+          {items.length > 5 ? (
+            <p className="text-xs text-muted">
+              {items.length - 5} more in Calendar
+            </p>
+          ) : null}
+        </div>
+      )}
+    </section>
   );
 }
 

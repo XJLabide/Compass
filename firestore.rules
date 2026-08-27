@@ -211,8 +211,19 @@ service cloud.firestore {
         && (!('location' in data) || (data.location is string && data.location.size() <= 300));
     }
 
+    function calendarExternalValid(data) {
+      return (!('externalSource' in data) || data.externalSource == 'google_calendar')
+        && (!('externalCalendarId' in data) || data.externalCalendarId is string)
+        && (!('externalEventId' in data) || data.externalEventId is string)
+        && (!('externalInstanceId' in data) || data.externalInstanceId is string)
+        && (!('externalUrl' in data) || data.externalUrl is string)
+        && (!('externalUpdatedAt' in data) || data.externalUpdatedAt is string)
+        && (!('externalSyncedAt' in data) || data.externalSyncedAt is timestamp);
+    }
+
     function calendarClassValid(data) {
       return calendarTitleValid(data)
+        && calendarExternalValid(data)
         && data.type == 'class'
         && data.weekdays is list
         && data.weekdays.size() >= 1
@@ -225,6 +236,7 @@ service cloud.firestore {
 
     function calendarEventValid(data) {
       return calendarTitleValid(data)
+        && calendarExternalValid(data)
         && data.type == 'event'
         && data.recurrence in ['none', 'weekly']
         && (!('startTime' in data) || data.startTime is string)
@@ -251,6 +263,19 @@ service cloud.firestore {
         && (!('done' in data) || data.done is map)
         && (!('timeBlock' in data) || (data.timeBlock is string && data.timeBlock.size() <= 50))
         && (!('order' in data) || (data.order is int && data.order >= 0 && data.order <= 100));
+    }
+
+    function googleCalendarIntegrationValid(data) {
+      return data.provider == 'google_calendar'
+        && data.status in ['connected', 'disconnected', 'error']
+        && data.selectedCalendarIds is list
+        && data.selectedCalendarIds.size() <= 50
+        && data.syncWindowPastDays is int
+        && data.syncWindowFutureDays is int
+        && (!('accountEmail' in data) || data.accountEmail is string)
+        && (!('accountName' in data) || data.accountName is string)
+        && (!('lastSyncAt' in data) || data.lastSyncAt is timestamp)
+        && (!('lastSyncError' in data) || data.lastSyncError is string);
     }
 
     // -------------------------------------------------------------------
@@ -320,6 +345,11 @@ service cloud.firestore {
         allow delete: if isOwner(uid);
       }
 
+      match /integrations/{providerId} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+      }
+
       match /budgets/{budgetId} {
         allow read: if isOwner(uid);
         allow create, update: if isOwner(uid) && budgetValid(request.resource.data);
@@ -355,6 +385,14 @@ service cloud.firestore {
           allow read, write: if isOwner(uid);
         }
       }
+    }
+
+    match /integrationSecrets/{secretId} {
+      allow read, write: if false;
+    }
+
+    match /oauthStates/{stateId} {
+      allow read, write: if false;
     }
   }
 }

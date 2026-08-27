@@ -26,6 +26,7 @@ import {
   ChevronRight,
   Clock3,
   Edit3,
+  ExternalLink,
   GraduationCap,
   ListChecks,
   MapPin,
@@ -71,6 +72,7 @@ type DayPreview = {
   title: string;
   startTime?: string;
   done?: boolean;
+  externalSource?: "google_calendar";
 };
 
 const WEEKDAYS = [
@@ -234,6 +236,7 @@ function buildDayPreviews(
       kind: "event",
       title: row.data.title,
       startTime: row.data.startTime,
+      externalSource: row.data.externalSource,
     };
   });
 
@@ -602,8 +605,18 @@ export default function CalendarPage() {
                     title={row.data.title}
                     time={timeLabel(row.data.startTime, row.data.endTime)}
                     location={row.data.location}
-                    onEdit={() => setEditTarget({ kind: "event", row })}
-                    onDelete={() => setDeleteTarget({ kind: "event", row })}
+                    externalSource={row.data.externalSource}
+                    externalUrl={row.data.externalUrl}
+                    onEdit={
+                      row.data.externalSource
+                        ? undefined
+                        : () => setEditTarget({ kind: "event", row })
+                    }
+                    onDelete={
+                      row.data.externalSource
+                        ? undefined
+                        : () => setDeleteTarget({ kind: "event", row })
+                    }
                   />
                 ))}
               </AgendaGroup>
@@ -756,6 +769,9 @@ function DayPreviewChip({
       )}
     >
       <Icon className="h-3 w-3 shrink-0" />
+      {preview.externalSource === "google_calendar" ? (
+        <span className="shrink-0 text-[9px]">G</span>
+      ) : null}
       <span className="hidden min-w-0 truncate min-[390px]:inline">
         {preview.title}
       </span>
@@ -804,6 +820,8 @@ function AgendaItem({
   title,
   time,
   location,
+  externalSource,
+  externalUrl,
   onEdit,
   onDelete,
 }: {
@@ -811,8 +829,10 @@ function AgendaItem({
   title: string;
   time: string;
   location?: string;
-  onEdit: () => void;
-  onDelete: () => void;
+  externalSource?: "google_calendar";
+  externalUrl?: string;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const Icon = kind === "class" ? GraduationCap : CalendarDays;
   return (
@@ -830,6 +850,12 @@ function AgendaItem({
           {title}
         </p>
         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+          {externalSource === "google_calendar" ? (
+            <span className="inline-flex items-center gap-1 text-accent">
+              <CalendarDays className="h-3.5 w-3.5" />
+              Google
+            </span>
+          ) : null}
           <span className="inline-flex items-center gap-1">
             <Clock3 className="h-3.5 w-3.5" />
             {time}
@@ -842,7 +868,20 @@ function AgendaItem({
           ) : null}
         </div>
       </div>
-      <RowActions label={title} onEdit={onEdit} onDelete={onDelete} />
+      {externalUrl ? (
+        <a
+          href={externalUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Open ${title} in Google Calendar`}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted hover:bg-neutral-800 hover:text-neutral-100"
+        >
+          <ExternalLink className="h-4 w-4" />
+        </a>
+      ) : null}
+      {onEdit && onDelete ? (
+        <RowActions label={title} onEdit={onEdit} onDelete={onDelete} />
+      ) : null}
     </div>
   );
 }
@@ -1018,19 +1057,22 @@ function AddCalendarModal({
           } as unknown as CalendarItemDoc);
         }
       } else {
-        const payload: UpdateData<TodoDoc> = {
-          title: trimmedTitle,
-          dueDate: todoDueDate,
-          updatedAt: serverTimestamp(),
-        };
-        payload.priority = priority !== "none" ? priority : deleteField();
         if (editTarget?.kind === "todo") {
+          const payload: UpdateData<TodoDoc> = {
+            title: trimmedTitle,
+            dueDate: todoDueDate,
+            priority: priority !== "none" ? priority : deleteField(),
+            updatedAt: serverTimestamp(),
+          };
           write = updateDoc(todoPath(uid, editTarget.row.id), payload);
         } else {
           write = addDoc(todosPath(uid), {
-            ...payload,
+            title: trimmedTitle,
+            dueDate: todoDueDate,
+            ...(priority !== "none" ? { priority } : {}),
             done: false,
             createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
           } as unknown as TodoDoc);
         }
       }

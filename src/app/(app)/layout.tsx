@@ -10,6 +10,7 @@ import SidebarAwareMain from "@/components/SidebarAwareMain";
 import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
 import QuickCaptureFab from "@/components/QuickCaptureFab";
 import NotificationsManager from "@/components/NotificationsManager";
+import AppearanceRuntime from "@/components/settings/AppearanceRuntime";
 
 export default function AppShellLayout({
   children,
@@ -22,6 +23,7 @@ export default function AppShellLayout({
         <ActiveDayProvider>
           <SidebarProvider>
             <div className="flex min-h-dvh flex-col">
+              <AppearanceRuntime />
               <OfflineIndicator />
               {/* Mobile bottom tab bar (md:hidden is handled inside the component) */}
               <BottomTabBar />

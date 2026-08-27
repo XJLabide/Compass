@@ -15,7 +15,9 @@ import type { Profile, Timezone, UnitSystem } from "@/lib/db/types";
 
 import {
   AlertTriangle,
+  Brush,
   Bell,
+  CalendarDays,
   Clock,
   CreditCard,
   Globe,
@@ -27,10 +29,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { AppearanceSection } from "@/components/settings/AppearanceRuntime";
 import InstallPrompt from "@/components/InstallPrompt";
 import CustomCategoriesSection from "@/components/settings/CustomCategoriesSection";
 import DangerZoneSection from "@/components/settings/DangerZoneSection";
 import DayWindowSection from "@/components/settings/DayWindowSection";
+import GoogleCalendarIntegrationSection from "@/components/settings/GoogleCalendarIntegrationSection";
 import NotificationsSection from "@/components/settings/NotificationsSection";
 import RecurringFeesSection from "@/components/money/RecurringFeesSection";
 import TargetInput from "@/components/settings/TargetInput";
@@ -210,15 +214,46 @@ export default function SettingsPage() {
   // After loading, even a missing profile doc renders the form with sensible
   // defaults so the user can configure their preferences.
   const disabled = !profileLoaded;
+  const configuredTargets = [
+    profile?.calorieTargetKcal,
+    profile?.proteinTargetG,
+    profile?.carbTargetG,
+    profile?.fatTargetG,
+    profile?.weeklyGainLb,
+  ].filter((value) => typeof value === "number" && value !== 0).length;
+  const customCategoryCount = profile?.customCategories?.length ?? 0;
+  const navItems = [
+    { href: "#appearance", label: "Appearance" },
+    { href: "#preferences", label: "Preferences" },
+    { href: "#targets", label: "Targets" },
+    { href: "#schedule", label: "Schedule" },
+    { href: "#integrations", label: "Integrations" },
+    { href: "#money", label: "Money" },
+    { href: "#account", label: "Account" },
+  ];
 
   return (
-    <section className="space-y-6">
-      <div className="flex items-baseline justify-between gap-3 border-b border-border pb-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">
-          Settings
-        </h1>
-        <SaveIndicator state={saveState} />
-      </div>
+    <section className="mx-auto max-w-6xl space-y-6 pb-10">
+      <header className="border-b border-border pb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">
+              Settings
+            </h1>
+            <p className="mt-1 text-sm text-muted">
+              Tune how Compass looks, counts your day, and tracks your money.
+            </p>
+          </div>
+          <SaveIndicator state={saveState} />
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <StatusTile label="Account" value={user?.email ?? "Signed in"} />
+          <StatusTile label="Units" value={profile?.unitSystem ?? "imperial"} />
+          <StatusTile label="Timezone" value={settingsTz} />
+          <StatusTile label="Targets" value={`${configuredTargets}/5 set`} />
+        </div>
+      </header>
 
       {loadError ? (
         <div
@@ -230,101 +265,6 @@ export default function SettingsPage() {
         </div>
       ) : null}
 
-      {/* Preferences */}
-      <SettingsGroup
-        icon={Ruler}
-        title="Units"
-        subtitle="Display-only. Stored values are always canonical (kg / g)."
-      >
-        <UnitToggle
-          value={profile?.unitSystem ?? "imperial"}
-          onChange={handleUnitChange}
-          disabled={disabled}
-        />
-      </SettingsGroup>
-
-      <SettingsGroup
-        icon={Globe}
-        title="Timezone"
-        subtitle={`Anchors which day your Daily Log counts toward.${detectedTz ? ` Detected: ${detectedTz}.` : ""}`}
-      >
-        <TimezoneSelect
-          id="settings-timezone"
-          value={profile?.timezone ?? detectTimezone()}
-          onChange={handleTimezoneChange}
-          disabled={disabled}
-        />
-      </SettingsGroup>
-
-      {/* Targets */}
-      <SettingsGroup
-        icon={Target}
-        title="Targets"
-        subtitle="Numbers your dashboard widgets compare against."
-      >
-        <div className="space-y-4">
-          <TargetInput
-            id="settings-calories-target"
-            label="Daily calories"
-            value={profile?.calorieTargetKcal ?? 0}
-            onCommit={handleCalorieCommit}
-            unit="kcal / day"
-            min={0}
-            max={20000}
-            step={10}
-            disabled={disabled}
-          />
-
-          <TargetInput
-            id="settings-protein-target"
-            label="Daily protein"
-            value={profile?.proteinTargetG ?? 0}
-            onCommit={handleProteinCommit}
-            unit="g / day"
-            min={0}
-            max={500}
-            step={1}
-            disabled={disabled}
-          />
-
-          <TargetInput
-            id="settings-carbs-target"
-            label="Daily carbohydrates"
-            value={profile?.carbTargetG ?? 0}
-            onCommit={handleCarbCommit}
-            unit="g / day"
-            min={0}
-            max={1000}
-            step={5}
-            disabled={disabled}
-          />
-
-          <TargetInput
-            id="settings-fat-target"
-            label="Daily fat"
-            value={profile?.fatTargetG ?? 0}
-            onCommit={handleFatCommit}
-            unit="g / day"
-            min={0}
-            max={500}
-            step={1}
-            disabled={disabled}
-          />
-
-          <TargetInput
-            id="settings-weekly-gain"
-            label="Weekly bodyweight gain"
-            value={profile?.weeklyGainLb ?? 0}
-            onCommit={handleWeeklyGainCommit}
-            unit="lb / week"
-            min={-5}
-            max={5}
-            step={0.1}
-            disabled={disabled}
-          />
-        </div>
-      </SettingsGroup>
-
       {saveError ? (
         <div
           role="alert"
@@ -335,110 +275,320 @@ export default function SettingsPage() {
         </div>
       ) : null}
 
-      {/* Day window */}
-      <SettingsGroup
-        icon={Clock}
-        title="Day window"
-        subtitle="Wake and bed times drive Today's awake-progress bar."
-      >
-        <DayWindowSection />
-      </SettingsGroup>
-
-      {/* Expense categories */}
-      <SettingsGroup
-        icon={Tag}
-        title="Expense categories"
-        subtitle="Add your own categories to use in the Finances tracker."
-      >
-        <CustomCategoriesSection />
-      </SettingsGroup>
-
-      {user?.uid ? (
-        <SettingsGroup
-          icon={CreditCard}
-          title="Recurring fees"
-          subtitle="Subscriptions, rent, insurance, and other predictable charges."
+      <div className="grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
+        <nav
+          aria-label="Settings sections"
+          className="flex gap-1 overflow-x-auto border-b border-border pb-2 lg:sticky lg:top-4 lg:block lg:overflow-visible lg:border-b-0 lg:pb-0"
         >
-          <RecurringFeesSection
-            uid={user.uid}
-            profile={profile}
-            currency={currency}
-            today={today}
-            framed={false}
-          />
-        </SettingsGroup>
-      ) : null}
+          {navItems.map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="block shrink-0 rounded-md px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-neutral-900 hover:text-neutral-100 lg:w-full"
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
 
-      {/* Notifications */}
-      <SettingsGroup
-        icon={Bell}
-        title="Notifications"
-        subtitle="Daily nudge if you haven't logged anything yet."
-      >
-        <NotificationsSection />
-      </SettingsGroup>
-
-      <InstallPrompt />
-
-      {/* Account */}
-      <SettingsGroup icon={UserIcon} title="Account" subtitle={user?.email ?? ""}>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={signingOut}
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-neutral-900 px-4 text-sm font-medium text-neutral-100 transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <LogOut aria-hidden className="h-4 w-4" />
-          {signingOut ? "Signing out…" : "Sign out"}
-        </button>
-
-        {signOutError ? (
-          <div
-            role="alert"
-            aria-live="polite"
-            className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+        <div className="space-y-4">
+          <SettingsPanel
+            id="appearance"
+            icon={Brush}
+            title="Appearance"
+            subtitle="Local UI preferences for this device."
           >
-            {signOutError}
-          </div>
-        ) : null}
-      </SettingsGroup>
+            <AppearanceSection />
+          </SettingsPanel>
 
-      <SettingsGroup
-        icon={AlertTriangle}
-        title="Danger zone"
-        subtitle="Irreversible actions. Read carefully."
-      >
-        <DangerZoneSection />
-      </SettingsGroup>
+          <SettingsPanel
+            id="preferences"
+            icon={Ruler}
+            title="Preferences"
+            subtitle="Display units and the timezone used for daily logs."
+          >
+            <div className="grid gap-5 lg:grid-cols-2">
+              <SettingBlock
+                icon={Ruler}
+                title="Units"
+                detail="Stored values stay canonical."
+              >
+                <UnitToggle
+                  value={profile?.unitSystem ?? "imperial"}
+                  onChange={handleUnitChange}
+                  disabled={disabled}
+                />
+              </SettingBlock>
+              <SettingBlock
+                icon={Globe}
+                title="Timezone"
+                detail={detectedTz ? `Detected: ${detectedTz}` : undefined}
+              >
+                <TimezoneSelect
+                  id="settings-timezone"
+                  value={profile?.timezone ?? detectTimezone()}
+                  onChange={handleTimezoneChange}
+                  disabled={disabled}
+                />
+              </SettingBlock>
+            </div>
+          </SettingsPanel>
+
+          <SettingsPanel
+            id="targets"
+            icon={Target}
+            title="Targets"
+            subtitle="Nutrition and bodyweight numbers used by dashboard widgets."
+          >
+            <div className="grid gap-x-5 gap-y-4 md:grid-cols-2">
+              <TargetInput
+                id="settings-calories-target"
+                label="Daily calories"
+                value={profile?.calorieTargetKcal ?? 0}
+                onCommit={handleCalorieCommit}
+                unit="kcal / day"
+                min={0}
+                max={20000}
+                step={10}
+                disabled={disabled}
+              />
+
+              <TargetInput
+                id="settings-protein-target"
+                label="Daily protein"
+                value={profile?.proteinTargetG ?? 0}
+                onCommit={handleProteinCommit}
+                unit="g / day"
+                min={0}
+                max={500}
+                step={1}
+                disabled={disabled}
+              />
+
+              <TargetInput
+                id="settings-carbs-target"
+                label="Daily carbohydrates"
+                value={profile?.carbTargetG ?? 0}
+                onCommit={handleCarbCommit}
+                unit="g / day"
+                min={0}
+                max={1000}
+                step={5}
+                disabled={disabled}
+              />
+
+              <TargetInput
+                id="settings-fat-target"
+                label="Daily fat"
+                value={profile?.fatTargetG ?? 0}
+                onCommit={handleFatCommit}
+                unit="g / day"
+                min={0}
+                max={500}
+                step={1}
+                disabled={disabled}
+              />
+
+              <TargetInput
+                id="settings-weekly-gain"
+                label="Weekly bodyweight gain"
+                value={profile?.weeklyGainLb ?? 0}
+                onCommit={handleWeeklyGainCommit}
+                unit="lb / week"
+                min={-5}
+                max={5}
+                step={0.1}
+                disabled={disabled}
+              />
+            </div>
+          </SettingsPanel>
+
+          <SettingsPanel
+            id="schedule"
+            icon={Clock}
+            title="Schedule"
+            subtitle="Wake window and daily reminder behavior."
+          >
+            <div className="grid gap-5 lg:grid-cols-2">
+              <SettingBlock
+                icon={Clock}
+                title="Day window"
+                detail="Drives Today's awake progress."
+              >
+                <DayWindowSection />
+              </SettingBlock>
+              <SettingBlock
+                icon={Bell}
+                title="Notifications"
+                detail="Daily nudge when logging is quiet."
+              >
+                <NotificationsSection />
+              </SettingBlock>
+            </div>
+          </SettingsPanel>
+
+          <SettingsPanel
+            id="integrations"
+            icon={CalendarDays}
+            title="Integrations"
+            subtitle="External accounts that can import data into Compass."
+          >
+            <SettingBlock
+              icon={CalendarDays}
+              title="Calendar import"
+              detail="Google events stay read-only in Compass."
+            >
+              <GoogleCalendarIntegrationSection />
+            </SettingBlock>
+          </SettingsPanel>
+
+          <SettingsPanel
+            id="money"
+            icon={CreditCard}
+            title="Money"
+            subtitle={`${customCategoryCount} custom ${customCategoryCount === 1 ? "category" : "categories"} · recurring charges in ${currency}`}
+          >
+            <div className="space-y-5">
+              <SettingBlock
+                icon={Tag}
+                title="Expense categories"
+                detail="Extend the default money categories."
+              >
+                <CustomCategoriesSection />
+              </SettingBlock>
+
+              {user?.uid ? (
+                <SettingBlock
+                  icon={CreditCard}
+                  title="Recurring fees"
+                  detail="Subscriptions, rent, insurance, and predictable charges."
+                >
+                  <RecurringFeesSection
+                    uid={user.uid}
+                    profile={profile}
+                    currency={currency}
+                    today={today}
+                    framed={false}
+                  />
+                </SettingBlock>
+              ) : null}
+            </div>
+          </SettingsPanel>
+
+          <SettingsPanel
+            id="account"
+            icon={UserIcon}
+            title="Account"
+            subtitle={user?.email ?? "Signed in"}
+          >
+            <div className="space-y-5">
+              <InstallPrompt />
+
+              <SettingBlock icon={UserIcon} title="Session">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-neutral-950 px-4 text-sm font-medium text-neutral-100 transition-colors hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                >
+                  <LogOut aria-hidden className="h-4 w-4" />
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </button>
+
+                {signOutError ? (
+                  <div
+                    role="alert"
+                    aria-live="polite"
+                    className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+                  >
+                    {signOutError}
+                  </div>
+                ) : null}
+              </SettingBlock>
+
+              <SettingBlock
+                icon={AlertTriangle}
+                title="Danger zone"
+                detail="Irreversible account actions."
+              >
+                <DangerZoneSection />
+              </SettingBlock>
+            </div>
+          </SettingsPanel>
+        </div>
+      </div>
     </section>
   );
 }
 
-function SettingsGroup({
+function SettingsPanel({
+  id,
   icon: Icon,
   title,
   subtitle,
   children,
 }: {
+  id: string;
   icon: LucideIcon;
   title: string;
   subtitle?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-neutral-900/40 p-4">
-      <div className="flex items-center gap-2">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
+    <section
+      id={id}
+      className="scroll-mt-5 rounded-lg border border-border bg-neutral-900/35"
+    >
+      <div className="grid gap-4 p-4 md:grid-cols-[12rem_minmax(0,1fr)]">
+        <div className="flex min-w-0 items-start gap-2">
           <Icon aria-hidden className="h-4 w-4" />
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-neutral-100">{title}</h2>
+            {subtitle ? (
+              <p className="mt-1 text-xs leading-5 text-muted">{subtitle}</p>
+            ) : null}
+          </div>
         </div>
+        <div>{children}</div>
+      </div>
+    </section>
+  );
+}
+
+function SettingBlock({
+  icon: Icon,
+  title,
+  detail,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  detail?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-neutral-950 p-4">
+      <div className="mb-3 flex items-start gap-2">
+        <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-neutral-100">{title}</h2>
-          {subtitle ? (
-            <p className="text-[11px] text-muted break-all">{subtitle}</p>
+          <h3 className="text-sm font-semibold text-neutral-100">{title}</h3>
+          {detail ? (
+            <p className="mt-0.5 text-xs text-muted">{detail}</p>
           ) : null}
         </div>
       </div>
-      <div className="mt-3">{children}</div>
+      {children}
+    </div>
+  );
+}
+
+function StatusTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md border border-border bg-neutral-900/50 px-3 py-2">
+      <div className="text-xs text-muted">{label}</div>
+      <div className="mt-1 truncate text-sm font-medium text-neutral-100">
+        {value}
+      </div>
     </div>
   );
 }
