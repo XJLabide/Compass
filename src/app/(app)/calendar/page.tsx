@@ -314,7 +314,7 @@ export default function CalendarPage() {
         setTodos(
           snap.docs
             .map((doc) => ({ id: doc.id, data: doc.data() }))
-            .filter((row) => Boolean(row.data.dueDate)),
+            .filter((row) => Boolean(row.data.dueDate) && !row.data.done),
         );
       },
       (err) => setError(err.message),

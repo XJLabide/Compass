@@ -34,7 +34,7 @@ import InstallPrompt from "@/components/InstallPrompt";
 import CustomCategoriesSection from "@/components/settings/CustomCategoriesSection";
 import DangerZoneSection from "@/components/settings/DangerZoneSection";
 import DayWindowSection from "@/components/settings/DayWindowSection";
-import GoogleCalendarIntegrationSection from "@/components/settings/GoogleCalendarIntegrationSection";
+import IntegrationsSection from "@/components/settings/IntegrationsSection";
 import NotificationsSection from "@/components/settings/NotificationsSection";
 import RecurringFeesSection from "@/components/money/RecurringFeesSection";
 import TargetInput from "@/components/settings/TargetInput";
@@ -433,13 +433,7 @@ export default function SettingsPage() {
             title="Integrations"
             subtitle="External accounts that can import data into Compass."
           >
-            <SettingBlock
-              icon={CalendarDays}
-              title="Calendar import"
-              detail="Google events stay read-only in Compass."
-            >
-              <GoogleCalendarIntegrationSection />
-            </SettingBlock>
+            <IntegrationsSection />
           </SettingsPanel>
 
           <SettingsPanel

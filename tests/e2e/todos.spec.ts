@@ -10,6 +10,9 @@ test.beforeEach(async ({ page }) => {
   await signIn(page);
   await completeOnboarding(page);
   await page.goto("/todos");
+  await page.getByRole("dialog", { name: /welcome back/i })
+    .getByRole("button", { name: /start my day/i })
+    .click();
 });
 
 test("add a todo and see it in the list", async ({ page }) => {

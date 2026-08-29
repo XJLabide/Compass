@@ -58,10 +58,13 @@ test("loads from sidebar and manages calendar agenda items", async ({ page }) =>
 
   const todoToggle = page.getByTestId("calendar-todo-toggle-Submit homework");
   await todoToggle.click();
-  await expect(todoToggle).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("selected-day-agenda")).not.toContainText(
+    "Submit homework",
+  );
 
-  await page.getByTestId("calendar-edit-Submit homework").click();
-  dialog = page.getByRole("dialog", { name: /edit calendar item/i });
+  await page.getByTestId("calendar-add-button").click();
+  dialog = page.getByRole("dialog", { name: /add calendar item/i });
+  await dialog.getByRole("button", { name: /^todo$/i }).click();
   await dialog.getByLabel("Title").fill("Submit final homework");
   await dialog.getByLabel("Priority").selectOption("medium");
   await dialog.getByTestId("calendar-create-submit").click();

@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  finishGoogleCalendarConnection,
-  markGoogleCalendarSyncError,
-  syncGoogleCalendar,
-} from "@/lib/server/googleCalendar";
+import { finishGoogleCalendarConnection } from "@/lib/server/googleCalendar";
 
 export const dynamic = "force-dynamic";
 
@@ -28,15 +24,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const uid = await finishGoogleCalendarConnection(request, state, code);
-    try {
-      await syncGoogleCalendar(uid);
-    } catch (syncErr) {
-      await markGoogleCalendarSyncError(
-        uid,
-        syncErr instanceof Error ? syncErr.message : "sync_failed",
-      );
-    }
+    await finishGoogleCalendarConnection(request, state, code);
     redirect.searchParams.set("googleCalendar", "connected");
   } catch (err) {
     redirect.searchParams.set("googleCalendar", "error");

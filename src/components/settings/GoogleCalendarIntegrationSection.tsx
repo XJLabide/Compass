@@ -1,13 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CalendarDays,
-  Check,
-  ExternalLink,
-  RefreshCw,
-  Unplug,
-} from "lucide-react";
+import { Check, ExternalLink, RefreshCw, Unplug } from "lucide-react";
 import clsx from "clsx";
 
 import { getFirebaseAuth } from "@/lib/firebase";
@@ -174,22 +168,20 @@ export default function GoogleCalendarIntegrationSection() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-accent" />
-            <p className="text-sm font-semibold text-neutral-100">
-              Google Calendar
-            </p>
-          </div>
-          <p className="mt-1 text-xs leading-5 text-muted">
-            Read-only import for events and recurring instances.
-          </p>
           {connected ? (
-            <p className="mt-2 truncate text-xs text-neutral-300">
+            <p className="truncate text-sm font-medium text-neutral-100">
               {status?.accountEmail ?? status?.accountName ?? "Connected"}
             </p>
-          ) : null}
+          ) : (
+            <p className="text-sm font-medium text-neutral-100">Disconnected</p>
+          )}
+          <p className="mt-1 text-xs leading-5 text-muted">
+            {connected
+              ? "Choose calendars, then run Sync now when you want fresh events."
+              : "Connect an account to enable manual calendar imports."}
+          </p>
         </div>
 
         {connected ? (
