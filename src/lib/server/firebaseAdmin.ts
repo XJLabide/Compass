@@ -1,6 +1,20 @@
-import { getApps, initializeApp, cert, applicationDefault } from "firebase-admin/app";
+import {
+  applicationDefault,
+  cert,
+  getApps,
+  initializeApp,
+} from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+
+export class FirebaseAdminConfigError extends Error {
+  constructor() {
+    super(
+      "Firebase Admin credentials are not configured. Add FIREBASE_SERVICE_ACCOUNT_JSON in production.",
+    );
+    this.name = "FirebaseAdminConfigError";
+  }
+}
 
 function getAdminProjectId(): string | undefined {
   return (
@@ -19,6 +33,10 @@ function initAdminApp() {
       credential: cert(JSON.parse(serviceAccountJson)),
       projectId: getAdminProjectId(),
     });
+  }
+
+  if (process.env.VERCEL) {
+    throw new FirebaseAdminConfigError();
   }
 
   return initializeApp({
@@ -49,7 +67,26 @@ export async function requireUid(request: Request): Promise<string> {
   try {
     const decoded = await getAdminAuth().verifyIdToken(token);
     return decoded.uid;
-  } catch {
+  } catch (err) {
+    if (err instanceof FirebaseAdminConfigError) {
+      throw err;
+    }
     throw new Response("Invalid authorization token.", { status: 401 });
   }
+}
+
+export function isFirebaseAdminConfigError(
+  err: unknown,
+): err is FirebaseAdminConfigError {
+  return err instanceof FirebaseAdminConfigError;
+}
+
+export function googleCalendarSetupRequiredStatus() {
+  return {
+    provider: "google_calendar",
+    status: "disconnected",
+    setupRequired: true,
+    setupMessage:
+      "Firebase Admin credentials are missing in production. Add FIREBASE_SERVICE_ACCOUNT_JSON, then reconnect.",
+  } as const;
 }

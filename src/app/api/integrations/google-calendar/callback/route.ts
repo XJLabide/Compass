@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { isFirebaseAdminConfigError } from "@/lib/server/firebaseAdmin";
 import { finishGoogleCalendarConnection } from "@/lib/server/googleCalendar";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,11 @@ export async function GET(request: Request) {
     redirect.searchParams.set("googleCalendar", "error");
     redirect.searchParams.set(
       "message",
-      err instanceof Error ? err.message : "connection_failed",
+      isFirebaseAdminConfigError(err)
+        ? "server_setup_required"
+        : err instanceof Error
+          ? err.message
+          : "connection_failed",
     );
   }
 

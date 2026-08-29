@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { requireUid } from "@/lib/server/firebaseAdmin";
+import {
+  googleCalendarSetupRequiredStatus,
+  isFirebaseAdminConfigError,
+  requireUid,
+} from "@/lib/server/firebaseAdmin";
 import {
   disconnectGoogleCalendar,
   getGoogleCalendarStatus,
@@ -15,8 +19,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ status });
   } catch (err) {
     if (err instanceof Response) return err;
+    if (isFirebaseAdminConfigError(err)) {
+      return NextResponse.json({ status: googleCalendarSetupRequiredStatus() });
+    }
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to load Google Calendar status." },
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : "Failed to load Google Calendar status.",
+      },
       { status: 500 },
     );
   }
@@ -29,8 +41,19 @@ export async function DELETE(request: Request) {
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof Response) return err;
+    if (isFirebaseAdminConfigError(err)) {
+      return NextResponse.json(
+        { error: googleCalendarSetupRequiredStatus().setupMessage },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to disconnect Google Calendar." },
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : "Failed to disconnect Google Calendar.",
+      },
       { status: 500 },
     );
   }

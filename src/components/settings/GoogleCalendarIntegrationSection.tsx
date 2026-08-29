@@ -9,6 +9,8 @@ import { getFirebaseAuth } from "@/lib/firebase";
 type IntegrationStatus = {
   provider?: string;
   status?: "connected" | "disconnected" | "error";
+  setupRequired?: boolean;
+  setupMessage?: string | null;
   accountEmail?: string | null;
   accountName?: string | null;
   selectedCalendarIds?: string[];
@@ -23,6 +25,14 @@ type CalendarOption = {
 };
 
 type ApiError = { error?: string };
+
+function describeIntegrationError(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : fallback;
+  if (message.includes("Could not load the default credentials")) {
+    return "Firebase Admin credentials are missing in production. Add FIREBASE_SERVICE_ACCOUNT_JSON, then redeploy.";
+  }
+  return message;
+}
 
 async function authFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const user = getFirebaseAuth().currentUser;
@@ -60,6 +70,7 @@ export default function GoogleCalendarIntegrationSection() {
   const [error, setError] = useState<string | null>(null);
 
   const connected = status?.status === "connected" || status?.status === "error";
+  const setupRequired = Boolean(status?.setupRequired);
   const selected = useMemo(
     () => new Set(status?.selectedCalendarIds ?? ["primary"]),
     [status?.selectedCalendarIds],
@@ -82,7 +93,7 @@ export default function GoogleCalendarIntegrationSection() {
         setCalendars([]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load Google Calendar.");
+      setError(describeIntegrationError(err, "Failed to load Google Calendar."));
     } finally {
       setLoading(false);
     }
@@ -102,7 +113,7 @@ export default function GoogleCalendarIntegrationSection() {
       );
       window.location.assign(data.authUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start connection.");
+      setError(describeIntegrationError(err, "Failed to start connection."));
       setWorking(null);
     }
   };
@@ -119,7 +130,7 @@ export default function GoogleCalendarIntegrationSection() {
       setMessage(`Synced ${result.upserted} event${result.upserted === 1 ? "" : "s"}.`);
       await loadStatus();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sync failed.");
+      setError(describeIntegrationError(err, "Sync failed."));
     } finally {
       setWorking(null);
     }
@@ -137,7 +148,7 @@ export default function GoogleCalendarIntegrationSection() {
       setMessage("Google Calendar disconnected.");
       await loadStatus();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Disconnect failed.");
+      setError(describeIntegrationError(err, "Disconnect failed."));
     } finally {
       setWorking(null);
     }
@@ -157,7 +168,7 @@ export default function GoogleCalendarIntegrationSection() {
         body: JSON.stringify({ calendarIds }),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save calendars.");
+      setError(describeIntegrationError(err, "Failed to save calendars."));
       await loadStatus();
     }
   };
@@ -175,12 +186,16 @@ export default function GoogleCalendarIntegrationSection() {
               {status?.accountEmail ?? status?.accountName ?? "Connected"}
             </p>
           ) : (
-            <p className="text-sm font-medium text-neutral-100">Disconnected</p>
+            <p className="text-sm font-medium text-neutral-100">
+              {setupRequired ? "Setup required" : "Disconnected"}
+            </p>
           )}
           <p className="mt-1 text-xs leading-5 text-muted">
             {connected
               ? "Choose calendars, then run Sync now when you want fresh events."
-              : "Connect an account to enable manual calendar imports."}
+              : setupRequired
+                ? "Add the production Firebase Admin secret before connecting."
+                : "Connect an account to enable manual calendar imports."}
           </p>
         </div>
 
@@ -209,7 +224,7 @@ export default function GoogleCalendarIntegrationSection() {
           <button
             type="button"
             onClick={connect}
-            disabled={Boolean(working)}
+            disabled={setupRequired || Boolean(working)}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-neutral-100 px-3 text-xs font-semibold text-neutral-950 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             <ExternalLink className="h-3.5 w-3.5" />
@@ -266,6 +281,9 @@ export default function GoogleCalendarIntegrationSection() {
       ) : null}
 
       {message ? <p className="text-xs text-emerald-300">{message}</p> : null}
+      {setupRequired && status?.setupMessage ? (
+        <p className="text-xs leading-5 text-amber-300">{status.setupMessage}</p>
+      ) : null}
       {status?.lastSyncError ? (
         <p className="text-xs text-amber-300">{status.lastSyncError}</p>
       ) : null}

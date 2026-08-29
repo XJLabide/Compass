@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { requireUid } from "@/lib/server/firebaseAdmin";
+import {
+  googleCalendarSetupRequiredStatus,
+  isFirebaseAdminConfigError,
+  requireUid,
+} from "@/lib/server/firebaseAdmin";
 import {
   markGoogleCalendarSyncError,
   syncGoogleCalendar,
@@ -16,6 +20,12 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof Response) return err;
+    if (isFirebaseAdminConfigError(err)) {
+      return NextResponse.json(
+        { error: googleCalendarSetupRequiredStatus().setupMessage },
+        { status: 503 },
+      );
+    }
     const message =
       err instanceof Error ? err.message : "Failed to sync Google Calendar.";
     if (uid) await markGoogleCalendarSyncError(uid, message).catch(() => undefined);

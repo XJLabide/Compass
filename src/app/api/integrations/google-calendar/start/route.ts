@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { requireUid } from "@/lib/server/firebaseAdmin";
+import {
+  googleCalendarSetupRequiredStatus,
+  isFirebaseAdminConfigError,
+  requireUid,
+} from "@/lib/server/firebaseAdmin";
 import { createGoogleCalendarAuthUrl } from "@/lib/server/googleCalendar";
 
 export const dynamic = "force-dynamic";
@@ -12,8 +16,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ authUrl });
   } catch (err) {
     if (err instanceof Response) return err;
+    if (isFirebaseAdminConfigError(err)) {
+      return NextResponse.json(
+        { error: googleCalendarSetupRequiredStatus().setupMessage },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to start Google Calendar connection." },
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : "Failed to start Google Calendar connection.",
+      },
       { status: 500 },
     );
   }
