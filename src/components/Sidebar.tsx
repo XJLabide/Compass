@@ -73,9 +73,8 @@ function NavLink({
       aria-label={collapsed ? label : undefined}
       title={collapsed ? label : undefined}
       className={clsx(
-        "group relative flex h-10 items-center rounded-md text-sm transition-colors",
+        "ui-pressable group relative grid h-10 grid-cols-[2.5rem_minmax(0,1fr)] items-center rounded-md text-sm",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70",
-        collapsed ? "justify-center px-0" : "gap-3 px-3",
         active
           ? "bg-neutral-800/70 text-neutral-100"
           : "text-muted hover:bg-neutral-900 hover:text-neutral-100",
@@ -84,22 +83,29 @@ function NavLink({
       <Icon
         aria-hidden="true"
         className={clsx(
-          "h-[18px] w-[18px] shrink-0 transition-colors",
+          "mx-auto h-[18px] w-[18px] shrink-0 transition-colors duration-150",
           active ? "text-accent" : "text-muted group-hover:text-neutral-200",
         )}
       />
-      {!collapsed && (
-        <span className="min-w-0 truncate font-medium leading-none">
-          {label}
-        </span>
-      )}
+      <span
+        aria-hidden={collapsed}
+        className={clsx(
+          "min-w-0 overflow-hidden whitespace-nowrap font-medium leading-none",
+          "transition-[max-width,opacity,transform] duration-200 ease-out motion-reduce:transition-none",
+          collapsed
+            ? "max-w-0 -translate-x-1 opacity-0"
+            : "max-w-40 translate-x-0 opacity-100",
+        )}
+      >
+        {label}
+      </span>
 
       {collapsed && (
         <span
           className={clsx(
             "pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-md",
             "border border-border bg-neutral-900 px-2 py-1.5 text-xs font-medium text-neutral-100 shadow-lg",
-            "opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100",
+            "opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100",
           )}
         >
           {label}
@@ -145,16 +151,16 @@ export default function Sidebar() {
         // Hidden on mobile — only shown md+
         "hidden md:flex",
         "fixed left-0 top-0 z-40 h-dvh flex-col",
-        "border-r border-border bg-panel",
-        "transition-[width] duration-200 ease-in-out",
+        "overflow-visible border-r border-border bg-panel",
+        "transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none",
         collapsed ? "w-[4.5rem]" : "w-60",
       )}
     >
       {/* Brand mark */}
       <div
         className={clsx(
-          "flex h-14 shrink-0 items-center border-b border-border px-3",
-          collapsed ? "justify-center" : "gap-2.5 px-4",
+          "grid h-14 shrink-0 grid-cols-[3.5rem_minmax(0,1fr)] items-center border-b border-border px-2",
+          "transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
         )}
       >
         <Image
@@ -164,13 +170,20 @@ export default function Sidebar() {
           height={32}
           priority
           unoptimized
-          className="h-8 w-12 shrink-0 object-contain"
+          className="mx-auto h-8 w-12 shrink-0 object-contain"
         />
-        {!collapsed && (
-          <span className="select-none text-base font-semibold tracking-tight text-neutral-100">
-            Compass
-          </span>
-        )}
+        <span
+          aria-hidden={collapsed}
+          className={clsx(
+            "min-w-0 select-none overflow-hidden whitespace-nowrap text-base font-semibold tracking-tight text-neutral-100",
+            "transition-[max-width,opacity,transform] duration-200 ease-out motion-reduce:transition-none",
+            collapsed
+              ? "max-w-0 -translate-x-1 opacity-0"
+              : "max-w-32 translate-x-0 opacity-100",
+          )}
+        >
+          Compass
+        </span>
       </div>
 
       {/* Nav items */}
@@ -194,22 +207,28 @@ export default function Sidebar() {
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className={clsx(
-            "flex h-10 w-full items-center rounded-md text-muted",
-            "transition-colors hover:bg-neutral-900 hover:text-neutral-100",
+            "ui-pressable grid h-10 w-full grid-cols-[2.5rem_minmax(0,1fr)] items-center rounded-md text-muted",
+            "hover:bg-neutral-900 hover:text-neutral-100",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70",
-            collapsed ? "justify-center" : "gap-3 px-3",
           )}
         >
           {collapsed ? (
-            <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0" />
+            <ChevronRight aria-hidden="true" className="mx-auto h-4 w-4 shrink-0" />
           ) : (
-            <>
-              <ChevronLeft aria-hidden="true" className="h-4 w-4 shrink-0" />
-              <span className="text-sm font-medium leading-none">
-                Collapse
-              </span>
-            </>
+            <ChevronLeft aria-hidden="true" className="mx-auto h-4 w-4 shrink-0" />
           )}
+          <span
+            aria-hidden={collapsed}
+            className={clsx(
+              "min-w-0 overflow-hidden whitespace-nowrap text-sm font-medium leading-none",
+              "transition-[max-width,opacity,transform] duration-200 ease-out motion-reduce:transition-none",
+              collapsed
+                ? "max-w-0 -translate-x-1 opacity-0"
+                : "max-w-24 translate-x-0 opacity-100",
+            )}
+          >
+            Collapse
+          </span>
         </button>
       </div>
     </aside>

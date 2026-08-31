@@ -602,11 +602,11 @@ export default function ExerciseSwapPicker({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/65 backdrop-blur sm:items-center p-4"
+      className="ui-modal-backdrop fixed inset-0 z-[70] flex items-end justify-center bg-black/65 backdrop-blur sm:items-center p-4"
       onClick={onCancel}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border bg-panel shadow-2xl"
+        className="ui-bottom-sheet flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-lg border border-border bg-panel shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

@@ -126,11 +126,11 @@ export default function ExercisePicker({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur p-4"
+      className="ui-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur p-4"
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border bg-panel shadow-2xl"
+        className="ui-centered-panel flex w-full max-w-md flex-col overflow-hidden rounded-lg border border-border bg-panel shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-border px-4 py-3">

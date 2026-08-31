@@ -27,6 +27,7 @@ export default function SidebarAwareMain({ children }: { children: ReactNode }) 
         // Mobile: full width, bottom padding to clear fixed tab bar + iOS inset
         "min-h-dvh w-full min-w-0 flex-1 bg-bg px-3 pt-[max(3.5rem,calc(env(safe-area-inset-top)+0.875rem))]",
         "pb-[calc(env(safe-area-inset-bottom)+5rem)]",
+        "transition-[margin-left,width,padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[margin-left,width] motion-reduce:transition-none",
         // Desktop: shift right to clear sidebar AND subtract its width so we
         // don't overflow horizontally.
         collapsed

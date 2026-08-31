@@ -105,7 +105,7 @@ export default function BottomTabBar() {
                   href={href}
                   aria-current={active ? "page" : undefined}
                   className={clsx(
-                    "flex h-14 min-w-11 flex-col items-center justify-center gap-0.5 text-xs transition-colors",
+                    "ui-pressable flex h-14 min-w-11 flex-col items-center justify-center gap-0.5 text-xs",
                     active
                       ? "text-accent"
                       : "text-muted hover:text-neutral-200"
@@ -127,7 +127,7 @@ export default function BottomTabBar() {
               aria-expanded={moreOpen}
               aria-haspopup="dialog"
               className={clsx(
-                "flex h-14 w-full min-w-11 flex-col items-center justify-center gap-0.5 text-xs transition-colors",
+                "ui-pressable flex h-14 w-full min-w-11 flex-col items-center justify-center gap-0.5 text-xs",
                 moreActive || moreOpen
                   ? "text-accent"
                   : "text-muted hover:text-neutral-200",
@@ -175,11 +175,11 @@ function MoreSheet({
       role="dialog"
       aria-modal="true"
       aria-label="More navigation"
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 backdrop-blur md:hidden"
+      className="ui-modal-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/60 backdrop-blur md:hidden"
       onClick={onClose}
     >
       <div
-        className="w-full rounded-t-lg border-t border-border bg-panel pb-[env(safe-area-inset-bottom)] shadow-2xl"
+        className="ui-bottom-sheet w-full rounded-t-lg border-t border-border bg-panel pb-[env(safe-area-inset-bottom)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -190,7 +190,7 @@ function MoreSheet({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1.5 text-muted hover:bg-neutral-800 hover:text-neutral-200"
+            className="ui-icon-pressable rounded-md p-1.5 text-muted hover:bg-neutral-800 hover:text-neutral-200"
           >
             <X className="h-4 w-4" />
           </button>
@@ -206,7 +206,7 @@ function MoreSheet({
                   onClick={() => onPick(href)}
                   aria-current={active ? "page" : undefined}
                   className={clsx(
-                    "flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition-colors",
+                    "ui-pressable flex w-full items-center gap-3 rounded-md px-3 py-3 text-left",
                     active
                       ? "bg-accent/10 text-accent"
                       : "text-neutral-100 hover:bg-neutral-800/60",

@@ -140,11 +140,11 @@ export default function RunLoggerModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
+      className="ui-modal-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-t-lg border border-border bg-neutral-950 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg sm:rounded-lg"
+        className="ui-bottom-sheet w-full max-w-md rounded-t-lg border border-border bg-neutral-950 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg sm:rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border/60 pb-3">
@@ -163,7 +163,7 @@ export default function RunLoggerModal({
             type="button"
             onClick={onClose}
             aria-label="Close modal"
-            className="rounded-lg p-1.5 text-muted hover:bg-neutral-900 hover:text-neutral-200"
+            className="ui-icon-pressable rounded-lg p-1.5 text-muted hover:bg-neutral-900 hover:text-neutral-200"
           >
             <X className="h-4 w-4" />
           </button>

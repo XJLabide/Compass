@@ -1606,7 +1606,7 @@ function CreateProjectModal({
       role="dialog"
       aria-modal="true"
       aria-label="Create project"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4"
+      className="ui-modal-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4"
       onClick={onClose}
     >
       <form
@@ -1614,7 +1614,7 @@ function CreateProjectModal({
           event.preventDefault();
           onCreate();
         }}
-        className="max-h-[calc(100dvh-0.75rem)] w-full overflow-y-auto rounded-t-[26px] border border-border/80 bg-panel p-4 pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.75rem))] shadow-[0_-12px_36px_rgba(0,0,0,0.45)] md:max-w-2xl md:rounded-2xl md:pb-4 md:shadow-[0_18px_42px_rgba(0,0,0,0.34)]"
+        className="ui-bottom-sheet max-h-[calc(100dvh-0.75rem)] w-full overflow-y-auto rounded-t-lg border border-border/80 bg-panel p-4 pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.75rem))] shadow-[0_-12px_36px_rgba(0,0,0,0.45)] md:max-w-2xl md:rounded-lg md:pb-4 md:shadow-[0_18px_42px_rgba(0,0,0,0.34)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-700 md:hidden" />
@@ -2349,7 +2349,7 @@ function CardEditor({
       role="dialog"
       aria-modal="true"
       aria-label="Edit card"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4"
+      className="ui-modal-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4"
       onClick={onClose}
     >
       <form
@@ -2365,7 +2365,7 @@ function CardEditor({
             .catch((err) => setError(writeError(err, "Failed to save card")))
             .finally(() => setSaving(false));
         }}
-        className="w-full max-w-lg rounded-t-[26px] border border-border/80 bg-panel p-4 pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.75rem))] shadow-[0_-12px_36px_rgba(0,0,0,0.45)] md:rounded-2xl md:pb-4 md:shadow-[0_18px_42px_rgba(0,0,0,0.34)]"
+        className="ui-bottom-sheet w-full max-w-lg rounded-t-lg border border-border/80 bg-panel p-4 pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.75rem))] shadow-[0_-12px_36px_rgba(0,0,0,0.45)] md:rounded-lg md:pb-4 md:shadow-[0_18px_42px_rgba(0,0,0,0.34)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-700 md:hidden" />

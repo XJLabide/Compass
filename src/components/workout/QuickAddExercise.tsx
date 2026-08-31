@@ -190,14 +190,14 @@ export default function QuickAddExercise({
           aria-modal="true"
           aria-label="Add exercise"
           onKeyDown={onKey}
-          className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 sm:items-center"
+          className="ui-modal-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/60 sm:items-center"
           onClick={(e) => {
             // Click on the backdrop (but not the panel) closes.
             if (e.target === e.currentTarget) closePicker();
           }}
         >
           <div
-            className="flex max-h-[80vh] w-full max-w-md flex-col rounded-t-2xl border border-border bg-panel2 shadow-2xl sm:rounded-2xl"
+            className="ui-bottom-sheet flex max-h-[80vh] w-full max-w-md flex-col rounded-t-lg border border-border bg-panel2 shadow-2xl sm:rounded-lg"
             // As a bottom-sheet on mobile, reserve the iOS home-indicator
             // inset so the panel's last interactive row never sits under it.
             style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
@@ -210,7 +210,7 @@ export default function QuickAddExercise({
                 type="button"
                 onClick={closePicker}
                 aria-label="Close"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:text-neutral-100"
+                className="ui-icon-pressable inline-flex h-9 w-9 items-center justify-center rounded-md text-muted hover:text-neutral-100"
               >
                 <X aria-hidden="true" className="h-4 w-4" />
               </button>

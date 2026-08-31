@@ -97,18 +97,18 @@ export default function QuickCaptureFab() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Quick capture"
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] right-3 z-30 flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-panel text-accent shadow-md shadow-black/30 transition-colors hover:border-accent/50 hover:bg-neutral-900 active:bg-neutral-800 md:bottom-6 md:right-6"
+        className="ui-pressable fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] right-3 z-30 flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-panel text-accent shadow-md shadow-black/30 hover:border-accent/50 hover:bg-neutral-900 active:bg-neutral-800 md:bottom-6 md:right-6"
       >
         <Plus className="h-5 w-5" />
       </button>
 
       {open ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm md:items-center"
+          className="ui-modal-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm md:items-center"
           onClick={close}
         >
           <div
-            className="w-full max-w-md rounded-t-lg border border-border bg-panel p-3 pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.75rem))] shadow-lg md:rounded-lg md:p-4"
+            className="ui-bottom-sheet w-full max-w-md rounded-t-lg border border-border bg-panel p-3 pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.75rem))] shadow-lg md:rounded-lg md:p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-border pb-2">
@@ -128,7 +128,7 @@ export default function QuickCaptureFab() {
                 type="button"
                 onClick={close}
                 aria-label="Close"
-                className="rounded-md p-1.5 text-muted hover:bg-neutral-800 hover:text-neutral-200"
+                className="ui-icon-pressable rounded-md p-1.5 text-muted hover:bg-neutral-800 hover:text-neutral-200"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -145,7 +145,7 @@ export default function QuickCaptureFab() {
                     type="button"
                     onClick={() => void startDay()}
                     disabled={daySaving}
-                    className="h-11 w-full rounded-md bg-accent text-sm font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="ui-pressable h-11 w-full rounded-md bg-accent text-sm font-semibold text-neutral-900 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {daySaving ? "Starting..." : "Start My Day"}
                   </button>
@@ -202,7 +202,7 @@ function KindGrid({ onPick }: { onPick: (k: CaptureKind) => void }) {
           key={kind}
           type="button"
           onClick={() => onPick(kind)}
-          className="flex flex-col items-center gap-1.5 rounded-lg border border-border bg-neutral-900/60 px-3 py-4 text-xs font-medium text-neutral-100 transition hover:bg-neutral-800/60"
+          className="ui-pressable flex flex-col items-center gap-1.5 rounded-lg border border-border bg-neutral-900/60 px-3 py-4 text-xs font-medium text-neutral-100 hover:bg-neutral-800/60"
         >
           <Icon className={`h-5 w-5 ${color}`} />
           {label}
@@ -301,7 +301,7 @@ function MoodForm({
             type="button"
             onClick={() => pick(n)}
             disabled={saving}
-            className="flex h-16 flex-col items-center justify-center rounded-lg border border-border bg-neutral-900/60 text-xs font-medium text-neutral-100 transition hover:bg-neutral-800/60 disabled:opacity-50"
+            className="ui-pressable flex h-16 flex-col items-center justify-center rounded-lg border border-border bg-neutral-900/60 text-xs font-medium text-neutral-100 hover:bg-neutral-800/60 disabled:opacity-50"
           >
             <span className="text-lg">{MOOD_LABELS[n].split(" ")[0]}</span>
             <span className="text-[10px] text-muted">
@@ -363,7 +363,7 @@ function WaterForm({
             key={preset}
             type="button"
             onClick={() => setValue(String(preset))}
-            className="rounded-md border border-border bg-neutral-900 px-2 py-1 text-[10px] text-muted hover:text-neutral-200"
+            className="ui-pressable rounded-md border border-border bg-neutral-900 px-2 py-1 text-[10px] text-muted hover:text-neutral-200"
           >
             +{preset}ml
           </button>
@@ -438,7 +438,7 @@ function ExpenseForm({
               className={
                 category === c.id
                   ? "h-9 rounded-md bg-accent/20 text-xs font-medium text-accent"
-                  : "h-9 rounded-md border border-border bg-neutral-900 text-xs text-muted hover:text-neutral-200"
+                  : "ui-pressable h-9 rounded-md border border-border bg-neutral-900 text-xs text-muted hover:text-neutral-200"
               }
             >
               {c.label}
@@ -544,7 +544,7 @@ function SubmitBtn({ label, disabled }: { label: string; disabled?: boolean }) {
     <button
       type="submit"
       disabled={disabled}
-      className="h-11 w-full rounded-md bg-accent text-sm font-semibold text-neutral-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+      className="ui-pressable h-11 w-full rounded-md bg-accent text-sm font-semibold text-neutral-900 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {label}
     </button>

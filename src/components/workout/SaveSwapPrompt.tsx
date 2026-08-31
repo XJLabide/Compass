@@ -50,11 +50,11 @@ export default function SaveSwapPrompt({
       role="dialog"
       aria-modal="true"
       aria-labelledby="save-swap-title"
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/65 backdrop-blur p-4"
+      className="ui-modal-backdrop fixed inset-0 z-[80] flex items-center justify-center bg-black/65 backdrop-blur p-4"
       onClick={busy ? undefined : onNo}
     >
       <div
-        className="w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-panel shadow-2xl"
+        className="ui-centered-panel w-full max-w-sm overflow-hidden rounded-lg border border-border bg-panel shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 p-5">

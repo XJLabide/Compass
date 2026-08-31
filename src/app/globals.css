@@ -108,6 +108,302 @@
   }
 }
 
+@layer components {
+  .ui-pressable {
+    touch-action: manipulation;
+    transform: translate3d(0, 0, 0) scale(1);
+    transition:
+      transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease,
+      opacity 160ms ease,
+      filter 160ms ease,
+      box-shadow 160ms ease;
+    will-change: transform;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .ui-pressable:hover {
+      transform: translate3d(0, -1px, 0) scale(1.01);
+    }
+  }
+
+  .ui-pressable:active {
+    transform: translate3d(0, 0, 0) scale(0.985);
+    transition-duration: 90ms;
+  }
+
+  .ui-pressable:disabled,
+  .ui-pressable[aria-disabled="true"] {
+    transform: none;
+    will-change: auto;
+  }
+
+  .ui-icon-pressable {
+    touch-action: manipulation;
+    transform: translate3d(0, 0, 0) scale(1);
+    transition:
+      transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 140ms ease,
+      color 140ms ease,
+      border-color 140ms ease,
+      opacity 140ms ease;
+    will-change: transform;
+  }
+
+  .ui-icon-pressable:active {
+    transform: scale(0.92);
+    transition-duration: 80ms;
+  }
+
+  .ui-modal-backdrop {
+    animation: ui-backdrop-in 180ms ease-out both;
+  }
+
+  .ui-bottom-sheet {
+    animation: ui-sheet-up 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: transform, opacity;
+  }
+
+  .ui-centered-panel {
+    animation: ui-panel-in 210ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: transform, opacity;
+  }
+
+  .ui-popover-panel {
+    animation-duration: 160ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, opacity;
+  }
+
+  .ui-popover-panel[data-state="open"] {
+    animation-name: ui-popover-in;
+  }
+
+  .ui-popover-panel[data-state="closed"] {
+    animation-name: ui-popover-out;
+  }
+
+  .ui-radix-overlay {
+    animation-duration: 180ms;
+    animation-timing-function: ease-out;
+  }
+
+  .ui-radix-overlay[data-state="open"] {
+    animation-name: ui-backdrop-in;
+  }
+
+  .ui-radix-overlay[data-state="closed"] {
+    animation-name: ui-backdrop-out;
+  }
+
+  .ui-radix-dialog {
+    animation-duration: 210ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ui-radix-dialog[data-state="open"] {
+    animation-name: ui-dialog-in;
+  }
+
+  .ui-radix-dialog[data-state="closed"] {
+    animation-name: ui-dialog-out;
+  }
+
+  .ui-radix-sheet {
+    animation-duration: 240ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ui-radix-sheet[data-state="open"] {
+    animation-name: ui-sheet-up;
+  }
+
+  .ui-radix-sheet[data-state="closed"] {
+    animation-name: ui-sheet-down;
+  }
+
+  .ui-radix-sheet[data-side="right"][data-state="open"] {
+    animation-name: ui-sheet-right-in;
+  }
+
+  .ui-radix-sheet[data-side="right"][data-state="closed"] {
+    animation-name: ui-sheet-right-out;
+  }
+
+  .ui-radix-sheet[data-side="left"][data-state="open"] {
+    animation-name: ui-sheet-left-in;
+  }
+
+  .ui-radix-sheet[data-side="left"][data-state="closed"] {
+    animation-name: ui-sheet-left-out;
+  }
+}
+
+@keyframes ui-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ui-backdrop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-sheet-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes ui-sheet-down {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+}
+
+@keyframes ui-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-50%, calc(-50% + 8px), 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
+}
+
+@keyframes ui-dialog-out {
+  from {
+    opacity: 1;
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-50%, calc(-50% + 6px), 0) scale(0.98);
+  }
+}
+
+@media (min-width: 768px) {
+  .ui-bottom-sheet {
+    animation-name: ui-panel-in;
+    animation-duration: 210ms;
+  }
+}
+
+@keyframes ui-panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes ui-sheet-right-in {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes ui-sheet-right-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(12px, 0, 0);
+  }
+}
+
+@keyframes ui-sheet-left-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-18px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes ui-sheet-left-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-12px, 0, 0);
+  }
+}
+
+@keyframes ui-popover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ui-popover-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-pressable,
+  .ui-icon-pressable,
+  .ui-modal-backdrop,
+  .ui-bottom-sheet,
+  .ui-centered-panel,
+  .ui-radix-overlay,
+  .ui-radix-dialog,
+  .ui-radix-sheet,
+  .ui-popover-panel {
+    animation: none !important;
+    transform: none !important;
+    transition-duration: 1ms !important;
+    will-change: auto !important;
+  }
+}
+
 /* ---------------------------------------------------------------------------
    Login hero — animated gradient blobs. Pure CSS (no canvas/WebGL) so the
    login page stays light and renders without JS. Each blob is a soft radial

@@ -200,8 +200,8 @@ export default function BalancesTab({
 
       {/* Account Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-neutral-900 p-6 space-y-4 shadow-2xl">
+        <div className="ui-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="ui-centered-panel w-full max-w-md rounded-lg border border-border bg-neutral-900 p-6 space-y-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-neutral-100">
               {editAccount ? "Update Account Balance" : "Add Account"}
             </h3>

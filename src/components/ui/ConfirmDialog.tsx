@@ -61,11 +61,11 @@ export default function ConfirmDialog({
       aria-modal="true"
       aria-labelledby="confirm-title"
       aria-describedby={description || children ? "confirm-desc" : undefined}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 backdrop-blur p-4"
+      className="ui-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center bg-black/65 backdrop-blur p-4"
       onClick={busy ? undefined : onCancel}
     >
       <div
-        className="w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-panel shadow-2xl"
+        className="ui-centered-panel w-full max-w-sm overflow-hidden rounded-lg border border-border bg-panel shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 p-5">
@@ -106,7 +106,7 @@ export default function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="h-9 rounded-md border border-border bg-neutral-900 px-3 text-xs font-medium text-neutral-100 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="ui-pressable h-9 rounded-md border border-border bg-neutral-900 px-3 text-xs font-medium text-neutral-100 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {cancelLabel}
           </button>
@@ -116,7 +116,7 @@ export default function ConfirmDialog({
             disabled={busy}
             autoFocus
             className={clsx(
-              "h-9 rounded-md px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
+              "ui-pressable h-9 rounded-md px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50",
               tone === "danger"
                 ? "bg-red-500 text-white hover:brightness-110"
                 : "bg-accent text-neutral-900 hover:brightness-110",

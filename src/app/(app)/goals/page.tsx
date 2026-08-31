@@ -244,7 +244,7 @@ export default function GoalsPage() {
           <button
             type="button"
             onClick={() => setFormOpen((open) => !open)}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-accent px-3 text-sm font-semibold text-neutral-950 transition-colors hover:bg-accent/90"
+            className="ui-pressable inline-flex h-10 items-center justify-center gap-2 rounded-md bg-accent px-3 text-sm font-semibold text-neutral-950 hover:bg-accent/90"
           >
             <Plus className="h-4 w-4" />
             New goal
@@ -416,11 +416,11 @@ function NewGoalWizard({
       role="dialog"
       aria-modal="true"
       aria-labelledby="new-goal-title"
-      className="fixed inset-0 z-50 bg-neutral-950/80 md:flex md:items-center md:justify-center md:p-6"
+      className="ui-modal-backdrop fixed inset-0 z-50 bg-neutral-950/80 md:flex md:items-center md:justify-center md:p-6"
     >
       <form
         onSubmit={(event) => event.preventDefault()}
-        className="flex h-dvh w-full flex-col bg-panel md:h-auto md:max-h-[min(760px,calc(100dvh-3rem))] md:max-w-2xl md:rounded-lg md:border md:border-border"
+        className="ui-bottom-sheet flex h-dvh w-full flex-col bg-panel md:h-auto md:max-h-[min(760px,calc(100dvh-3rem))] md:max-w-2xl md:rounded-lg md:border md:border-border"
       >
         <header className="shrink-0 border-b border-border px-4 pb-3 pt-[max(1rem,calc(env(safe-area-inset-top)+0.75rem))] md:px-5 md:pt-4">
           <div className="flex items-start justify-between gap-3">
@@ -439,7 +439,7 @@ function NewGoalWizard({
               type="button"
               onClick={onClose}
               aria-label="Close new goal"
-              className="rounded-md p-2 text-muted transition-colors hover:bg-neutral-900 hover:text-neutral-100"
+              className="ui-icon-pressable rounded-md p-2 text-muted hover:bg-neutral-900 hover:text-neutral-100"
             >
               <X className="h-5 w-5" />
             </button>
@@ -470,7 +470,7 @@ function NewGoalWizard({
                     type="button"
                     onClick={() => setArea(id)}
                     className={clsx(
-                      "flex items-start gap-3 rounded-md border p-3 text-left transition-colors",
+                      "ui-pressable flex items-start gap-3 rounded-md border p-3 text-left",
                       area === id
                         ? "border-accent/60 bg-accent/10"
                         : "border-border bg-neutral-900/50 hover:bg-neutral-900",
@@ -612,7 +612,7 @@ function NewGoalWizard({
               type="button"
               onClick={() => setStep((current) => Math.max(0, current - 1))}
               disabled={step === 0 || saving}
-              className="h-10 rounded-md border border-border px-4 text-sm font-medium text-neutral-100 transition-colors hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
+              className="ui-pressable h-10 rounded-md border border-border px-4 text-sm font-medium text-neutral-100 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Back
             </button>
@@ -620,7 +620,7 @@ function NewGoalWizard({
               <button
                 type="button"
                 onClick={goNext}
-                className="h-10 rounded-md bg-accent px-5 text-sm font-semibold text-neutral-950 transition hover:bg-accent/90"
+                className="ui-pressable h-10 rounded-md bg-accent px-5 text-sm font-semibold text-neutral-950 hover:bg-accent/90"
               >
                 Next
               </button>
@@ -630,7 +630,7 @@ function NewGoalWizard({
                 data-testid="create-goal-submit"
                 disabled={saving}
                 onClick={() => void createGoal()}
-                className="h-10 rounded-md bg-accent px-5 text-sm font-semibold text-neutral-950 transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="ui-pressable h-10 rounded-md bg-accent px-5 text-sm font-semibold text-neutral-950 hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? "Creating..." : "Create goal"}
               </button>
@@ -790,7 +790,7 @@ function LifeAreaCard({
         </div>
         <Link
           href={area.actionHref}
-          className="rounded-md p-2 text-muted transition-colors hover:bg-neutral-900 hover:text-neutral-100"
+          className="ui-icon-pressable rounded-md p-2 text-muted hover:bg-neutral-900 hover:text-neutral-100"
           aria-label={`Open ${area.name}`}
         >
           <ArrowRight className="h-4 w-4" />
@@ -809,7 +809,7 @@ function LifeAreaCard({
           <button
             type="button"
             onClick={onCreate}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-border bg-neutral-900/40 px-3 py-4 text-sm font-medium text-muted transition-colors hover:border-neutral-600 hover:text-neutral-100"
+            className="ui-pressable flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-border bg-neutral-900/40 px-3 py-4 text-sm font-medium text-muted hover:border-neutral-600 hover:text-neutral-100"
           >
             <Plus className="h-4 w-4" />
             Add {area.name.toLowerCase()} priority
@@ -897,7 +897,7 @@ function GoalCard({
           disabled={saving}
           onClick={() => void deleteDoc(goalPath(uid, id))}
           aria-label={`Delete ${data.title}`}
-          className="rounded-md p-1.5 text-muted transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
+          className="ui-icon-pressable rounded-md p-1.5 text-muted hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
         >
           <Trash2 className="h-4 w-4" />
         </button>
@@ -930,7 +930,7 @@ function GoalCard({
                   key={milestone.id}
                   type="button"
                   onClick={() => void toggleMilestone(milestone.id)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-neutral-200 transition-colors hover:bg-neutral-800/70"
+                  className="ui-pressable flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-neutral-200 hover:bg-neutral-800/70"
                 >
                   <span
                     className={clsx(
@@ -1241,7 +1241,7 @@ function EmptyGoals({ onCreate }: { onCreate: () => void }) {
         <button
           type="button"
           onClick={onCreate}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-accent px-3 text-sm font-semibold text-neutral-950 transition-colors hover:bg-accent/90"
+          className="ui-pressable inline-flex h-10 items-center justify-center gap-2 rounded-md bg-accent px-3 text-sm font-semibold text-neutral-950 hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           New goal

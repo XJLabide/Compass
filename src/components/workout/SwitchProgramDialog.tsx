@@ -94,11 +94,11 @@ export default function SwitchProgramDialog({ uid, onClose, onApplied }: Props) 
         role="dialog"
         aria-modal="true"
         aria-label="Switch program"
-        className="fixed inset-0 z-50 flex items-end justify-center bg-black/65 backdrop-blur sm:items-center p-4"
+        className="ui-modal-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/65 backdrop-blur sm:items-center p-4"
         onClick={busy ? undefined : onClose}
       >
         <div
-          className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-panel shadow-2xl"
+          className="ui-bottom-sheet w-full max-w-md overflow-hidden rounded-lg border border-border bg-panel shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}

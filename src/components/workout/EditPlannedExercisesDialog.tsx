@@ -509,11 +509,11 @@ export default function EditPlannedExercisesDialog({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="fixed inset-0 z-[60] flex items-end justify-center bg-black/65 backdrop-blur sm:items-center p-4"
+        className="ui-modal-backdrop fixed inset-0 z-[60] flex items-end justify-center bg-black/65 backdrop-blur sm:items-center p-4"
         onClick={onCancel}
       >
         <div
-          className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-panel shadow-2xl"
+          className="ui-bottom-sheet flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-border bg-panel shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -524,7 +524,7 @@ export default function EditPlannedExercisesDialog({
               type="button"
               onClick={onCancel}
               aria-label="Close"
-              className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-neutral-800 hover:text-neutral-100"
+              className="ui-icon-pressable ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-neutral-800 hover:text-neutral-100"
             >
               <X aria-hidden="true" className="h-4 w-4" />
             </button>

@@ -110,11 +110,11 @@ export default function FoodLibraryModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 backdrop-blur p-4"
+      className="ui-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center bg-black/65 backdrop-blur p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-panel shadow-2xl flex flex-col max-h-[85vh]"
+        className="ui-centered-panel flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-lg border border-border bg-panel shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

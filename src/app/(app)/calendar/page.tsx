@@ -577,14 +577,14 @@ export default function CalendarPage() {
               type="button"
               onClick={() => moveCalendar(-1)}
               aria-label={`Previous ${view}`}
-              className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-neutral-950 text-muted hover:text-neutral-100"
+              className="ui-icon-pressable flex h-10 w-10 items-center justify-center rounded-md border border-border bg-neutral-950 text-muted hover:text-neutral-100"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={goToToday}
-              className="h-10 rounded-md border border-border bg-neutral-950 px-3 text-sm font-semibold text-neutral-200 hover:text-neutral-100 sm:px-4"
+              className="ui-pressable h-10 rounded-md border border-border bg-neutral-950 px-3 text-sm font-semibold text-neutral-200 hover:text-neutral-100 sm:px-4"
             >
               Today
             </button>
@@ -592,7 +592,7 @@ export default function CalendarPage() {
               type="button"
               onClick={() => moveCalendar(1)}
               aria-label={`Next ${view}`}
-              className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-neutral-950 text-muted hover:text-neutral-100"
+              className="ui-icon-pressable flex h-10 w-10 items-center justify-center rounded-md border border-border bg-neutral-950 text-muted hover:text-neutral-100"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -600,7 +600,7 @@ export default function CalendarPage() {
               type="button"
               data-testid="calendar-add-button"
               onClick={() => setModalOpen(true)}
-              className="ml-0 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-accent px-3 text-sm font-bold text-black hover:bg-accent/90 sm:ml-2 sm:px-4"
+              className="ui-pressable ml-0 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-accent px-3 text-sm font-bold text-black hover:bg-accent/90 sm:ml-2 sm:px-4"
             >
               <Plus className="h-4 w-4" />
               Add
@@ -665,7 +665,7 @@ export default function CalendarPage() {
                 onClick={() => selectDate(iso)}
                 aria-pressed={selected}
                 className={clsx(
-                  "flex h-[5.75rem] min-w-0 flex-col rounded-md border p-1.5 text-left transition sm:h-[6.75rem] sm:p-2 md:h-[7.75rem] lg:h-[8.5rem]",
+                  "ui-pressable flex h-[5.75rem] min-w-0 flex-col rounded-md border p-1.5 text-left sm:h-[6.75rem] sm:p-2 md:h-[7.75rem] lg:h-[8.5rem]",
                   selected
                     ? "border-accent bg-accent/10"
                     : "border-border bg-neutral-950/45 hover:border-neutral-600 hover:bg-neutral-900/70",
@@ -724,7 +724,7 @@ export default function CalendarPage() {
           <button
             type="button"
             onClick={() => setModalOpen(true)}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-accent/50 bg-accent/10 px-4 text-sm font-semibold text-accent hover:bg-accent/15"
+            className="ui-pressable inline-flex h-10 items-center justify-center gap-2 rounded-md border border-accent/50 bg-accent/10 px-4 text-sm font-semibold text-accent hover:bg-accent/15"
           >
             <Plus className="h-4 w-4" />
             Add to day
@@ -746,7 +746,7 @@ export default function CalendarPage() {
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="mt-4 inline-flex h-10 items-center gap-2 rounded-md bg-accent px-4 text-sm font-bold text-black"
+              className="ui-pressable mt-4 inline-flex h-10 items-center gap-2 rounded-md bg-accent px-4 text-sm font-bold text-black"
             >
               <Plus className="h-4 w-4" />
               Add
@@ -810,7 +810,7 @@ export default function CalendarPage() {
                       aria-pressed={row.data.done}
                       onClick={() => void toggleTodo(row)}
                       className={clsx(
-                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border",
+                        "ui-icon-pressable flex h-6 w-6 shrink-0 items-center justify-center rounded-full border",
                         row.data.done
                           ? "border-accent bg-accent text-black"
                           : "border-neutral-600 text-transparent",
@@ -946,7 +946,7 @@ function ViewSwitcher({
             aria-pressed={active}
             onClick={() => onChange(option.value)}
             className={clsx(
-              "inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded px-1 text-xs font-semibold transition-colors sm:h-10 sm:px-3",
+              "ui-pressable inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded px-1 text-xs font-semibold sm:h-10 sm:px-3",
               active
                 ? "bg-neutral-800 text-neutral-100 shadow-sm ring-1 ring-neutral-700"
                 : "text-muted hover:bg-neutral-900/70 hover:text-neutral-100",
@@ -995,7 +995,7 @@ function DayScheduleView({
         <button
           type="button"
           onClick={onAdd}
-          className="hidden h-10 items-center justify-center gap-2 rounded-md border border-accent/50 bg-accent/10 px-3 text-sm font-semibold text-accent hover:bg-accent/15 sm:inline-flex"
+          className="ui-pressable hidden h-10 items-center justify-center gap-2 rounded-md border border-accent/50 bg-accent/10 px-3 text-sm font-semibold text-accent hover:bg-accent/15 sm:inline-flex"
         >
           <Plus className="h-4 w-4" />
           Add
@@ -1094,7 +1094,7 @@ function WeekScheduleView({
                 onClick={() => onSelectDate(day)}
                 aria-pressed={active}
                 className={clsx(
-                  "border-b border-r border-border px-2 py-3 text-left transition-colors",
+                  "ui-pressable border-b border-r border-border px-2 py-3 text-left",
                   active ? "bg-accent/10" : "bg-neutral-950/40 hover:bg-neutral-900/70",
                 )}
               >
@@ -1212,7 +1212,7 @@ function WeekDayStrip({
               onClick={() => onSelectDate(day)}
               aria-pressed={active}
               className={clsx(
-                "w-16 rounded-md border px-2 py-2 text-center transition-colors",
+                "ui-pressable w-16 rounded-md border px-2 py-2 text-center",
                 active
                   ? "border-accent bg-accent/10 text-neutral-100"
                   : "border-border bg-neutral-950 text-muted",
@@ -1273,7 +1273,7 @@ function AgendaView({
         <button
           type="button"
           onClick={onAdd}
-          className="hidden h-10 items-center justify-center gap-2 rounded-md border border-accent/50 bg-accent/10 px-3 text-sm font-semibold text-accent hover:bg-accent/15 sm:inline-flex"
+          className="ui-pressable hidden h-10 items-center justify-center gap-2 rounded-md border border-accent/50 bg-accent/10 px-3 text-sm font-semibold text-accent hover:bg-accent/15 sm:inline-flex"
         >
           <Plus className="h-4 w-4" />
           Add
@@ -1292,7 +1292,7 @@ function AgendaView({
               <button
                 type="button"
                 onClick={() => onSelectDate(group.day)}
-                className="text-left"
+                className="ui-pressable rounded-md text-left"
               >
                 <span className="block text-sm font-bold text-neutral-100">
                   {formatDayLabel(group.day)}
@@ -1334,7 +1334,7 @@ function EmptySchedule({ onAdd }: { onAdd: () => void }) {
       <button
         type="button"
         onClick={onAdd}
-        className="mt-4 inline-flex h-10 items-center gap-2 rounded-md bg-accent px-4 text-sm font-bold text-black"
+        className="ui-pressable mt-4 inline-flex h-10 items-center gap-2 rounded-md bg-accent px-4 text-sm font-bold text-black"
       >
         <Plus className="h-4 w-4" />
         Add
@@ -1447,7 +1447,7 @@ function TimelineBlock({
             target="_blank"
             rel="noreferrer"
             aria-label={`Open ${item.title} in Google Calendar`}
-            className="shrink-0 rounded text-current opacity-80 hover:opacity-100"
+            className="ui-icon-pressable shrink-0 rounded text-current opacity-80 hover:opacity-100"
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
@@ -1457,7 +1457,7 @@ function TimelineBlock({
               type="button"
               aria-label={`Edit ${item.title}`}
               onClick={() => editScheduleItem(item, onEdit)}
-              className="rounded text-current opacity-70 hover:opacity-100"
+              className="ui-icon-pressable rounded text-current opacity-70 hover:opacity-100"
             >
               <Edit3 className="h-3.5 w-3.5" />
             </button>
@@ -1466,7 +1466,7 @@ function TimelineBlock({
                 type="button"
                 aria-label={`Delete ${item.title}`}
                 onClick={() => deleteScheduleItem(item, onDelete)}
-                className="rounded text-current opacity-70 hover:opacity-100"
+                className="ui-icon-pressable rounded text-current opacity-70 hover:opacity-100"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -1496,7 +1496,7 @@ function SchedulePill({
           : editScheduleItem(item, onEdit)
       }
       className={clsx(
-        "flex h-6 w-full min-w-0 items-center gap-1 rounded px-1.5 text-left text-[11px] font-semibold",
+        "ui-pressable flex h-6 w-full min-w-0 items-center gap-1 rounded px-1.5 text-left text-[11px] font-semibold",
         item.kind === "class" && "bg-sky-500/20 text-sky-200",
         item.kind === "event" && "bg-amber-500/20 text-amber-200",
         item.kind === "todo" && "bg-emerald-500/20 text-emerald-200",
@@ -1527,7 +1527,7 @@ function ScheduleListItem({
           aria-label={`Toggle ${row.data.title}`}
           aria-pressed={row.data.done}
           onClick={() => void onToggleTodo(row)}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-neutral-600 text-transparent"
+          className="ui-icon-pressable flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-neutral-600 text-transparent"
         >
           <Check className="h-3.5 w-3.5" />
         </button>
@@ -1763,7 +1763,7 @@ function AgendaItem({
           target="_blank"
           rel="noreferrer"
           aria-label={`Open ${title} in Google Calendar`}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted hover:bg-neutral-800 hover:text-neutral-100"
+          className="ui-icon-pressable flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted hover:bg-neutral-800 hover:text-neutral-100"
         >
           <ExternalLink className="h-4 w-4" />
         </a>
@@ -1791,7 +1791,7 @@ function RowActions({
         aria-label={`Edit ${label}`}
         data-testid={`calendar-edit-${label}`}
         onClick={onEdit}
-        className="flex h-9 w-9 items-center justify-center rounded-md text-muted hover:bg-neutral-800 hover:text-neutral-100"
+        className="ui-icon-pressable flex h-9 w-9 items-center justify-center rounded-md text-muted hover:bg-neutral-800 hover:text-neutral-100"
       >
         <Edit3 className="h-4 w-4" />
       </button>
@@ -1800,7 +1800,7 @@ function RowActions({
         aria-label={`Delete ${label}`}
         data-testid={`calendar-delete-${label}`}
         onClick={onDelete}
-        className="flex h-9 w-9 items-center justify-center rounded-md text-muted hover:bg-red-500/10 hover:text-red-300"
+        className="ui-icon-pressable flex h-9 w-9 items-center justify-center rounded-md text-muted hover:bg-red-500/10 hover:text-red-300"
       >
         <Trash2 className="h-4 w-4" />
       </button>
@@ -1984,12 +1984,12 @@ function AddCalendarModal({
       aria-modal="true"
       aria-label={isEditing ? "Edit calendar item" : "Add calendar item"}
       data-testid="calendar-add-modal"
-      className="fixed inset-0 z-50 flex items-end bg-black/70 backdrop-blur-sm md:items-center md:justify-center md:p-6"
+      className="ui-modal-backdrop fixed inset-0 z-50 flex items-end bg-black/70 backdrop-blur-sm md:items-center md:justify-center md:p-6"
       onClick={onClose}
     >
       <form
         onSubmit={handleSubmit}
-        className="flex h-dvh w-full flex-col border-border bg-panel shadow-2xl md:h-auto md:max-h-[88vh] md:max-w-xl md:rounded-lg md:border"
+        className="ui-bottom-sheet flex h-dvh w-full flex-col border-border bg-panel shadow-2xl md:h-auto md:max-h-[88vh] md:max-w-xl md:rounded-lg md:border"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-border px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] md:px-5 md:pt-5">
@@ -2005,7 +2005,7 @@ function AddCalendarModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted hover:bg-neutral-800 hover:text-neutral-100"
+            className="ui-icon-pressable flex h-9 w-9 items-center justify-center rounded-md text-muted hover:bg-neutral-800 hover:text-neutral-100"
           >
             <X className="h-5 w-5" />
           </button>
@@ -2022,7 +2022,7 @@ function AddCalendarModal({
                 }}
                 disabled={isEditing && kind !== value}
                 className={clsx(
-                  "h-10 rounded text-sm font-semibold capitalize transition",
+                  "ui-pressable h-10 rounded text-sm font-semibold capitalize",
                   kind === value
                     ? "bg-accent text-black"
                     : "text-muted hover:bg-neutral-800 hover:text-neutral-100",
@@ -2171,7 +2171,7 @@ function AddCalendarModal({
             type="submit"
             data-testid="calendar-create-submit"
             disabled={saving || !title.trim()}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-accent text-base font-bold text-black transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="ui-pressable flex h-12 w-full items-center justify-center gap-2 rounded-md bg-accent text-base font-bold text-black hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? "Saving..." : isEditing ? "Save changes" : "Add"}
           </button>
@@ -2206,7 +2206,7 @@ function WeekdayPicker({
               aria-label={day.long}
               onClick={() => onChange(toggleWeekday(days, day.value))}
               className={clsx(
-                "h-10 rounded-md border text-xs font-bold transition",
+                "ui-pressable h-10 rounded-md border text-xs font-bold",
                 active
                   ? "border-accent bg-accent/15 text-accent"
                   : "border-border bg-neutral-950 text-muted hover:text-neutral-100",
