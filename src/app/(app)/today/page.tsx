@@ -43,6 +43,7 @@ import DatePicker, {
 } from "@/components/checkin/DatePicker";
 import CheckInForm from "@/components/checkin/CheckInForm";
 import RoutinesTab from "@/components/todos/RoutinesTab";
+import ProjectFocusSection from "@/components/today/ProjectFocusSection";
 import CompassLoader from "@/components/ui/CompassLoader";
 import StartDayPrompt from "@/components/day/StartDayPrompt";
 import { useUserData } from "@/lib/data/UserDataProvider";
@@ -51,6 +52,7 @@ import {
   dailyPath,
   calendarItemsPath,
   expensesPath,
+  projectsPath,
   routinePath,
   routinesPath,
   todoPath,
@@ -61,6 +63,7 @@ import type {
   CalendarItemDoc,
   ExpenseDoc,
   Profile,
+  ProjectDoc,
   RoutineDoc,
   RoutineTimeBlock,
   TodoDoc,
@@ -88,6 +91,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 const DEFAULT_CURRENCY = "PHP";
 
 type TodoRow = { id: string; data: TodoDoc };
+type ProjectRow = { id: string; data: ProjectDoc };
 type RoutineRow = { id: string; data: RoutineDoc };
 type CalendarRow = { id: string; data: CalendarItemDoc };
 
@@ -199,6 +203,7 @@ export default function TodayPage() {
 
   // --- Subscriptions ------------------------------------------------------
   const [todos, setTodos] = useState<TodoRow[] | null>(null);
+  const [projects, setProjects] = useState<ProjectRow[] | null>(null);
   const [routines, setRoutines] = useState<RoutineRow[] | null>(null);
   const [calendarItems, setCalendarItems] = useState<CalendarRow[] | null>(null);
   const [todayDaily, setTodayDaily] = useState<DailyDoc | null>(null);
@@ -212,6 +217,17 @@ export default function TodayPage() {
       (snap) =>
         setTodos(snap.docs.map((d) => ({ id: d.id, data: d.data() }))),
       () => setTodos([]),
+    );
+    return () => unsub();
+  }, [uid]);
+
+  useEffect(() => {
+    if (!uid) return;
+    const unsub = onSnapshot(
+      query(projectsPath(uid), orderBy("createdAt", "desc")),
+      (snap) =>
+        setProjects(snap.docs.map((d) => ({ id: d.id, data: d.data() }))),
+      () => setProjects([]),
     );
     return () => unsub();
   }, [uid]);
@@ -279,6 +295,15 @@ export default function TodayPage() {
     const noDate = open.filter((r) => !r.data.dueDate);
     return { open, overdue, dueToday, noDate };
   }, [todos, today]);
+
+  const nonProjectTodayTodos = useMemo(
+    () => ({
+      overdue: todayTodos.overdue.filter((r) => !r.data.projectId),
+      dueToday: todayTodos.dueToday.filter((r) => !r.data.projectId),
+      noDate: todayTodos.noDate.filter((r) => !r.data.projectId),
+    }),
+    [todayTodos],
+  );
 
   const scheduledRoutines = useMemo(() => {
     const list = (routines ?? []).filter(
@@ -552,11 +577,17 @@ export default function TodayPage() {
             loaded={routines !== null}
             onManage={() => setShowHabitManager(true)}
           />
+          <ProjectFocusSection
+            uid={uid}
+            activeDate={activeDate}
+            todos={todos}
+            projects={projects}
+          />
           <TodosSection
             uid={uid}
-            overdue={todayTodos.overdue}
-            dueToday={todayTodos.dueToday}
-            noDate={todayTodos.noDate}
+            overdue={nonProjectTodayTodos.overdue}
+            dueToday={nonProjectTodayTodos.dueToday}
+            noDate={nonProjectTodayTodos.noDate}
             today={today}
             loaded={todos !== null}
           />

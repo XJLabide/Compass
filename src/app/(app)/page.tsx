@@ -15,6 +15,7 @@ import ActivityHeatmap from "@/components/dashboard/ActivityHeatmap";
 import VolumeByMuscle from "@/components/dashboard/VolumeByMuscle";
 import ConsistencyCard from "@/components/dashboard/ConsistencyCard";
 import TodoSummary from "@/components/dashboard/TodoSummary";
+import ProjectSummary from "@/components/dashboard/ProjectSummary";
 import MoneySummary from "@/components/dashboard/MoneySummary";
 import RoutinesSummary from "@/components/dashboard/RoutinesSummary";
 import EmptyState from "@/components/dashboard/EmptyState";
@@ -105,10 +106,11 @@ export default function HomePage() {
         </div>
       </DashboardSection>
 
-      {/* DAILY (todos + routines + money) ------------------------------- */}
+      {/* DAILY (todos + projects + routines + money) --------------------- */}
       <DashboardSection title="Daily">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <TodoSummary uid={uid} />
+          <ProjectSummary uid={uid} />
           <RoutinesSummary uid={uid} timezone={tz} />
           <MoneySummary uid={uid} timezone={tz} />
         </div>
