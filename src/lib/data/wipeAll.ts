@@ -16,8 +16,8 @@ import { getFirebaseDb } from "@/lib/firebase";
  * Wipes (in order, leaf-first so subcollections die before parents):
  *  1. Nori thread messages (subcollections under each thread)
  *  2. Nori threads
- *  3. Each top-level subcollection: todos, expenses, routines, sessions,
- *     daily, exercises, prs, program, profile
+ *  3. Each top-level subcollection: todos, projects, expenses, routines,
+ *     sessions, daily, exercises, prs, program, profile
  *
  * Uses writeBatch (capped at 500 ops) and chunks to stay safe with large
  * collections. Returns once Firestore acknowledges all writes.
@@ -28,6 +28,7 @@ import { getFirebaseDb } from "@/lib/firebase";
  */
 const TOP_LEVEL_COLLECTIONS = [
   "todos",
+  "projects",
   "expenses",
   "recurringFees",
   "routines",

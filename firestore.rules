@@ -135,7 +135,22 @@ service cloud.firestore {
         && (!('note' in data) || (data.note is string && data.note.size() <= 5000))
         && (!('priority' in data) || data.priority in ['low', 'medium', 'high'])
         && (!('dueDate' in data) || data.dueDate is string)
-        && (!('recurrence' in data) || data.recurrence in ['none', 'daily', 'weekly']);
+        && (!('recurrence' in data) || data.recurrence in ['none', 'daily', 'weekly'])
+        && (!('projectId' in data) || data.projectId is string)
+        && (!('projectColumnId' in data) || data.projectColumnId is string)
+        && (!('projectOrder' in data) || data.projectOrder is number)
+        && (!('projectCompletedColumnId' in data) || data.projectCompletedColumnId is string);
+    }
+
+    function projectValid(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 160
+        && (!('description' in data) || (data.description is string && data.description.size() <= 1000))
+        && (!('repositoryUrl' in data) || (data.repositoryUrl is string && data.repositoryUrl.size() <= 500))
+        && (!('techStack' in data) || (data.techStack is list && data.techStack.size() <= 24))
+        && data.columns is list
+        && data.columns.size() > 0
+        && data.columns.size() <= 12
+        && data.archived is bool;
     }
 
     function expenseValid(data) {
@@ -324,6 +339,12 @@ service cloud.firestore {
       match /todos/{todoId} {
         allow read: if isOwner(uid);
         allow create, update: if isOwner(uid) && todoValid(request.resource.data);
+        allow delete: if isOwner(uid);
+      }
+
+      match /projects/{projectId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && projectValid(request.resource.data);
         allow delete: if isOwner(uid);
       }
 

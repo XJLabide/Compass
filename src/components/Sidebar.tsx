@@ -13,6 +13,7 @@ import {
   ChevronRight,
   CheckSquare,
   CalendarDays,
+  KanbanSquare,
   Target,
   Sparkles,
   Wallet,
@@ -31,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/today", label: "Today", Icon: Sun },
   { href: "/", label: "Home", Icon: Home },
   { href: "/calendar", label: "Calendar", Icon: CalendarDays },
+  { href: "/projects", label: "Projects", Icon: KanbanSquare },
   { href: "/goals", label: "Goals", Icon: Target },
 ];
 

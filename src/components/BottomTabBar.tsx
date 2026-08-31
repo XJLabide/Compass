@@ -14,6 +14,7 @@ import {
   Wallet,
   MoreHorizontal,
   CalendarDays,
+  KanbanSquare,
   Settings,
   Target,
   X,
@@ -44,6 +45,7 @@ const PRIMARY_TABS: Tab[] = [
 const SECONDARY_LINKS: Tab[] = [
   { href: "/goals", label: "Goals", Icon: Target },
   { href: "/calendar", label: "Calendar", Icon: CalendarDays },
+  { href: "/projects", label: "Projects", Icon: KanbanSquare },
   { href: "/todos", label: "Todos", Icon: CheckSquare },
   { href: "/money", label: "Finances", Icon: Wallet },
   { href: "/nori", label: "Nori", Icon: Sparkles },

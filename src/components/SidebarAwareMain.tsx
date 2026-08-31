@@ -2,6 +2,7 @@
 
 import { useSidebar } from "@/lib/ui/sidebar-state";
 import clsx from "clsx";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 /**
@@ -17,6 +18,8 @@ import type { ReactNode } from "react";
  */
 export default function SidebarAwareMain({ children }: { children: ReactNode }) {
   const { collapsed } = useSidebar();
+  const pathname = usePathname() ?? "/";
+  const fullWidth = pathname === "/projects" || pathname.startsWith("/projects/");
 
   return (
     <main
@@ -29,11 +32,18 @@ export default function SidebarAwareMain({ children }: { children: ReactNode }) 
         collapsed
           ? "md:ml-[4.5rem] md:w-[calc(100%-4.5rem)]"
           : "md:ml-60 md:w-[calc(100%-15rem)]",
-        "md:pb-12 md:px-6 md:pt-7 lg:px-8",
+        fullWidth
+          ? "md:h-dvh md:overflow-hidden md:px-4 md:pb-4 md:pt-4 lg:px-5"
+          : "md:pb-12 md:px-6 md:pt-7 lg:px-8",
         // No max-w on the outer element — inner div handles that
       )}
     >
-      <div className="mx-auto w-full min-w-0 max-w-7xl">
+      <div
+        className={clsx(
+          "mx-auto w-full min-w-0",
+          fullWidth ? "max-w-none md:h-full md:min-h-0" : "max-w-7xl",
+        )}
+      >
         {children}
       </div>
     </main>

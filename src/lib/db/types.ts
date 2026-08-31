@@ -470,6 +470,33 @@ export interface TodoDoc {
   completedAt?: Timestamp;
   /** If set, completion auto-creates the next instance with bumped dueDate. */
   recurrence?: TodoRecurrence;
+  /** Optional project board membership. */
+  projectId?: string;
+  projectColumnId?: string;
+  projectOrder?: number;
+  /** Column to move into when completed, if the project defines one. */
+  projectCompletedColumnId?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// users/{uid}/projects/{projectId}
+// ---------------------------------------------------------------------------
+
+export interface ProjectColumn {
+  id: string;
+  name: string;
+  order: number;
+}
+
+export interface ProjectDoc {
+  name: string;
+  description?: string;
+  repositoryUrl?: string;
+  techStack?: string[];
+  columns: ProjectColumn[];
+  archived: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

@@ -17,6 +17,7 @@ import {
   noriThreadConverter,
   prConverter,
   profileConverter,
+  projectConverter,
   programConverter,
   recurringFeeConverter,
   routineConverter,
@@ -39,6 +40,7 @@ import type {
   NoriThread,
   PRDoc,
   Profile,
+  ProjectDoc,
   ProgramDoc,
   RecurringFeeDoc,
   RoutineDoc,
@@ -203,6 +205,29 @@ export function todoPath(
   db?: Firestore,
 ): DocumentReference<TodoDoc> {
   return doc(userDoc(uid, db), "todos", todoId).withConverter(todoConverter);
+}
+
+// ---------------------------------------------------------------------------
+// projects — users/{uid}/projects/{projectId}
+// ---------------------------------------------------------------------------
+
+export function projectsPath(
+  uid: string,
+  db?: Firestore,
+): CollectionReference<ProjectDoc> {
+  return collection(userDoc(uid, db), "projects").withConverter(
+    projectConverter,
+  );
+}
+
+export function projectPath(
+  uid: string,
+  projectId: string,
+  db?: Firestore,
+): DocumentReference<ProjectDoc> {
+  return doc(userDoc(uid, db), "projects", projectId).withConverter(
+    projectConverter,
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ import type {
   NoriThread,
   PRDoc,
   Profile,
+  ProjectDoc,
   ProgramDoc,
   RecurringFeeDoc,
   RoutineDoc,
@@ -71,6 +72,9 @@ export const prConverter: FirestoreDataConverter<PRDoc> =
 
 export const todoConverter: FirestoreDataConverter<TodoDoc> =
   makePassthroughConverter<TodoDoc>();
+
+export const projectConverter: FirestoreDataConverter<ProjectDoc> =
+  makePassthroughConverter<ProjectDoc>();
 
 export const expenseConverter: FirestoreDataConverter<ExpenseDoc> =
   makePassthroughConverter<ExpenseDoc>();

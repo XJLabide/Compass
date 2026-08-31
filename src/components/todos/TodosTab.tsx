@@ -24,6 +24,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Circle,
+  KanbanSquare,
   Pencil,
   Plus,
   Repeat,
@@ -34,12 +35,13 @@ import {
 
 import { useUserData } from "@/lib/data/UserDataProvider";
 import { useActiveDay } from "@/lib/day/ActiveDayProvider";
-import { todoPath, todosPath } from "@/lib/db/paths";
-import type { TodoDoc, TodoRecurrence } from "@/lib/db/types";
+import { projectsPath, todoPath, todosPath } from "@/lib/db/paths";
+import type { ProjectDoc, TodoDoc, TodoRecurrence } from "@/lib/db/types";
 import Skeleton from "@/components/ui/Skeleton";
 import StartDayPrompt from "@/components/day/StartDayPrompt";
 
 type Row = { id: string; data: TodoDoc };
+type ProjectRow = { id: string; data: ProjectDoc };
 
 function addDaysIso(iso: string, delta: number): string {
   const t = Date.parse(`${iso}T00:00:00Z`);
@@ -54,6 +56,7 @@ export default function TodosTab() {
   const { activeDate: today, hasActiveDay } = useActiveDay();
 
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
@@ -75,6 +78,24 @@ export default function TodosTab() {
     );
     return () => unsub();
   }, [uid]);
+
+  useEffect(() => {
+    if (!uid) return;
+    const unsub = onSnapshot(
+      query(projectsPath(uid), orderBy("createdAt", "desc")),
+      (snap) => {
+        setProjects(snap.docs.map((d) => ({ id: d.id, data: d.data() })));
+      },
+      () => setProjects([]),
+    );
+    return () => unsub();
+  }, [uid]);
+
+  const projectNames = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const project of projects) names.set(project.id, project.data.name);
+    return names;
+  }, [projects]);
 
   const grouped = useMemo(() => {
     const open: Row[] = [];
@@ -285,6 +306,7 @@ export default function TodosTab() {
             items={grouped.overdue}
             today={today}
             hasActiveDay={hasActiveDay}
+            projectNames={projectNames}
             onToggle={toggle}
             onRemove={remove}
             onSave={saveEdit}
@@ -295,6 +317,7 @@ export default function TodosTab() {
             items={grouped.todayItems}
             today={today}
             hasActiveDay={hasActiveDay}
+            projectNames={projectNames}
             onToggle={toggle}
             onRemove={remove}
             onSave={saveEdit}
@@ -304,6 +327,7 @@ export default function TodosTab() {
             items={grouped.upcoming}
             today={today}
             hasActiveDay={hasActiveDay}
+            projectNames={projectNames}
             onToggle={toggle}
             onRemove={remove}
             onSave={saveEdit}
@@ -313,6 +337,7 @@ export default function TodosTab() {
             items={grouped.noDate}
             today={today}
             hasActiveDay={hasActiveDay}
+            projectNames={projectNames}
             onToggle={toggle}
             onRemove={remove}
             onSave={saveEdit}
@@ -324,6 +349,7 @@ export default function TodosTab() {
                 items={grouped.done}
                 today={today}
                 hasActiveDay={hasActiveDay}
+                projectNames={projectNames}
                 onToggle={toggle}
                 onRemove={remove}
                 onSave={saveEdit}
@@ -348,6 +374,7 @@ function GroupedList({
   items,
   today,
   hasActiveDay,
+  projectNames,
   tone,
   onToggle,
   onRemove,
@@ -357,6 +384,7 @@ function GroupedList({
   items: Row[];
   today: string;
   hasActiveDay: boolean;
+  projectNames: Map<string, string>;
   tone?: "overdue" | "today";
   onToggle: (r: Row) => void;
   onRemove: (r: Row) => void;
@@ -383,6 +411,7 @@ function GroupedList({
         items={items}
         today={today}
         hasActiveDay={hasActiveDay}
+        projectNames={projectNames}
         onToggle={onToggle}
         onRemove={onRemove}
         onSave={onSave}
@@ -405,6 +434,7 @@ function TodoList({
   items,
   today,
   hasActiveDay,
+  projectNames,
   onToggle,
   onRemove,
   onSave,
@@ -412,6 +442,7 @@ function TodoList({
   items: Row[];
   today: string;
   hasActiveDay: boolean;
+  projectNames: Map<string, string>;
   onToggle: (r: Row) => void;
   onRemove: (r: Row) => void;
   onSave: SaveFn;
@@ -425,6 +456,9 @@ function TodoList({
           row={row}
           today={today}
           hasActiveDay={hasActiveDay}
+          projectName={
+            row.data.projectId ? projectNames.get(row.data.projectId) : undefined
+          }
           onToggle={onToggle}
           onRemove={onRemove}
           onSave={onSave}
@@ -438,6 +472,7 @@ function TodoRow({
   row,
   today,
   hasActiveDay,
+  projectName,
   onToggle,
   onRemove,
   onSave,
@@ -445,6 +480,7 @@ function TodoRow({
   row: Row;
   today: string;
   hasActiveDay: boolean;
+  projectName?: string;
   onToggle: (r: Row) => void;
   onRemove: (r: Row) => void;
   onSave: SaveFn;
@@ -583,8 +619,14 @@ function TodoRow({
         >
           {row.data.title}
         </div>
-        {(row.data.dueDate || row.data.recurrence) ? (
+        {(row.data.dueDate || row.data.recurrence || projectName) ? (
           <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted">
+            {projectName ? (
+              <span className="inline-flex min-w-0 items-center gap-1">
+                <KanbanSquare className="h-3 w-3 shrink-0" />
+                <span className="truncate">{projectName}</span>
+              </span>
+            ) : null}
             {row.data.dueDate ? (
               <span
                 className={
