@@ -29,11 +29,14 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
 import {
+  Archive,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Circle,
+  Clapperboard,
+  Code2,
   ExternalLink,
   GripVertical,
   KanbanSquare,
@@ -41,6 +44,7 @@ import {
   Pencil,
   Plus,
   Save,
+  Search,
   SlidersHorizontal,
   Trash2,
   X,
@@ -64,7 +68,9 @@ import { projectPath, projectsPath, todoPath, todosPath } from "@/lib/db/paths";
 import type {
   LocalDate,
   ProjectColumn,
+  ProjectContentPlatform,
   ProjectDoc,
+  ProjectType,
   TodoDoc,
   TodoPriority,
   TodoRecurrence,
@@ -79,6 +85,15 @@ import {
   orderedColumns,
   sortProjectTodos,
 } from "@/lib/projects/kanban";
+import {
+  GithubLogo,
+  PlatformChip,
+  PlatformLogo,
+  TechStackChip,
+  platformLabel,
+  projectTypeLabel,
+  repositoryLabel,
+} from "@/components/projects/ProjectBranding";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import Skeleton from "@/components/ui/Skeleton";
 
@@ -93,9 +108,12 @@ type CardDraft = {
 };
 type ProjectDraft = {
   name: string;
+  type: ProjectType;
   description: string;
   repositoryUrl: string;
   techStackInput: string;
+  topic: string;
+  contentPlatforms: ProjectContentPlatform[];
   columns: ProjectColumn[];
 };
 type ProjectStats = {
@@ -103,6 +121,12 @@ type ProjectStats = {
   completedCards: number;
   openCards: number;
   progressPercent: number;
+};
+type ProjectMilestone = {
+  id: string;
+  title: string;
+  dueDate?: LocalDate;
+  priority?: TodoPriority;
 };
 
 const EMPTY_CARD: CardDraft = {
@@ -112,13 +136,30 @@ const EMPTY_CARD: CardDraft = {
   priority: "none",
   recurrence: "none",
 };
+const PROJECT_TYPE_FILTERS: Array<{ value: "all" | ProjectType; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "dev", label: "Dev" },
+  { value: "content", label: "Content" },
+];
+const CONTENT_PLATFORM_OPTIONS: ProjectContentPlatform[] = [
+  "youtube",
+  "tiktok",
+  "instagram",
+  "x",
+  "blog",
+  "newsletter",
+  "podcast",
+];
 
 function newProjectDraft(): ProjectDraft {
   return {
     name: "",
+    type: "dev",
     description: "",
     repositoryUrl: "",
     techStackInput: "",
+    topic: "",
+    contentPlatforms: [],
     columns: DEFAULT_PROJECT_COLUMNS.map((column) => ({ ...column })),
   };
 }
@@ -157,6 +198,40 @@ function parseTechStack(input?: string): string[] {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 24);
+}
+
+function normalizedProjectType(project: ProjectDoc): ProjectType {
+  return project.type === "content" ? "content" : "dev";
+}
+
+function nextMilestoneFromRows(rows: TodoRow[]): ProjectMilestone | null {
+  const openRows = rows.filter((row) => !row.data.done);
+  if (openRows.length === 0) return null;
+  const withDueDate = openRows
+    .filter((row) => row.data.dueDate)
+    .sort((a, b) => {
+      const byDate = a.data.dueDate!.localeCompare(b.data.dueDate!);
+      if (byDate !== 0) return byDate;
+      return a.data.title.localeCompare(b.data.title);
+    });
+  const priorityRank: Record<TodoPriority, number> = {
+    high: 0,
+    medium: 1,
+    low: 2,
+  };
+  const fallback = [...openRows].sort((a, b) => {
+    const aRank = a.data.priority ? priorityRank[a.data.priority] : 3;
+    const bRank = b.data.priority ? priorityRank[b.data.priority] : 3;
+    if (aRank !== bRank) return aRank - bRank;
+    return a.data.title.localeCompare(b.data.title);
+  });
+  const row = withDueDate[0] ?? fallback[0];
+  return {
+    id: row.id,
+    title: row.data.title,
+    dueDate: row.data.dueDate,
+    priority: row.data.priority,
+  };
 }
 
 function statsFromRows(rows: TodoRow[]): ProjectStats {
@@ -316,6 +391,7 @@ export default function ProjectsPage() {
     try {
       const payload: Record<string, unknown> = {
         name,
+        type: projectDraft.type,
         columns,
         archived: false,
         createdAt: serverTimestamp(),
@@ -324,9 +400,17 @@ export default function ProjectsPage() {
       const description = projectDraft.description.trim();
       const repositoryUrl = projectDraft.repositoryUrl.trim();
       const techStack = parseTechStack(projectDraft.techStackInput);
+      const topic = projectDraft.topic.trim();
       if (description) payload.description = description;
-      if (repositoryUrl) payload.repositoryUrl = repositoryUrl;
-      if (techStack.length) payload.techStack = techStack;
+      if (projectDraft.type === "content") {
+        if (topic) payload.topic = topic;
+        if (projectDraft.contentPlatforms.length) {
+          payload.contentPlatforms = projectDraft.contentPlatforms;
+        }
+      } else {
+        if (repositoryUrl) payload.repositoryUrl = repositoryUrl;
+        if (techStack.length) payload.techStack = techStack;
+      }
       const ref = await addDoc(projectsPath(uid), payload as unknown as ProjectDoc);
       setProjectDraft(newProjectDraft());
       setCreateOpen(false);
@@ -354,6 +438,22 @@ export default function ProjectsPage() {
       setError(writeError(err, "Failed to rename project"));
     }
   }, [activeProject, editingProjectName, uid]);
+
+  const saveProjectType = useCallback(
+    async (type: ProjectType) => {
+      if (!uid || !activeProject) return;
+      try {
+        await updateDoc(projectPath(uid, activeProject.id), {
+          type,
+          updatedAt: serverTimestamp(),
+        });
+        setError(null);
+      } catch (err) {
+        setError(writeError(err, "Failed to update project type"));
+      }
+    },
+    [activeProject, uid],
+  );
 
   const archiveProject = useCallback(async () => {
     if (!uid || !archiveTarget) return;
@@ -762,14 +862,27 @@ export default function ProjectsPage() {
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
                 <div className="rounded-2xl border border-border/80 bg-panel/85 p-3 shadow-[0_6px_18px_rgba(0,0,0,0.16)] md:rounded-lg md:shadow-none">
                   <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                    <div className="flex items-center gap-2">
-                      <KanbanSquare className="h-5 w-5 shrink-0 text-accent" />
-                      <input
-                        value={editingProjectName}
-                        onChange={(event) => setEditingProjectName(event.target.value)}
-                        onBlur={() => void saveProjectName()}
-                        className="h-9 min-w-0 flex-1 rounded-xl border border-transparent bg-transparent px-2 text-lg font-semibold text-neutral-100 focus:border-border focus:bg-neutral-950 focus:outline-none md:rounded-md"
-                      />
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <KanbanSquare className="h-5 w-5 shrink-0 text-accent" />
+                        <input
+                          value={editingProjectName}
+                          onChange={(event) => setEditingProjectName(event.target.value)}
+                          onBlur={() => void saveProjectName()}
+                          className="h-9 min-w-0 flex-1 rounded-xl border border-transparent bg-transparent px-2 text-lg font-semibold text-neutral-100 focus:border-border focus:bg-neutral-950 focus:outline-none md:rounded-md"
+                        />
+                      </div>
+                      <select
+                        value={normalizedProjectType(activeProject.data)}
+                        onChange={(event) =>
+                          void saveProjectType(event.target.value as ProjectType)
+                        }
+                        className="h-9 rounded-xl border border-border bg-neutral-950 px-3 text-sm font-semibold text-neutral-200 focus:border-accent focus:outline-none md:rounded-md"
+                        aria-label="Project type"
+                      >
+                        <option value="dev">Dev project</option>
+                        <option value="content">Content creation</option>
+                      </select>
                     </div>
                     <div className="flex items-center gap-2">
                       <form onSubmit={addColumn} className="flex min-w-0 flex-1 items-center gap-2 md:flex-none">
@@ -787,27 +900,20 @@ export default function ProjectsPage() {
                           Add
                         </button>
                       </form>
-                      <button
-                        type="button"
-                        onClick={() => setArchiveTarget(activeProject)}
-                        disabled={activeProject.data.archived}
-                        className="h-9 rounded-xl border border-border px-3 text-sm font-semibold text-muted hover:bg-neutral-900 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 md:rounded-md"
-                      >
-                        Archive
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(activeProject)}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-red-500/40 px-3 text-sm font-semibold text-red-300 hover:bg-red-500/10 md:rounded-md"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </button>
+                      <ProjectActionsMenu
+                        archived={activeProject.data.archived}
+                        onArchive={() => setArchiveTarget(activeProject)}
+                        onDelete={() => setDeleteTarget(activeProject)}
+                      />
                     </div>
                   </div>
                 </div>
 
-                <ProjectDetailSummary project={activeProject} stats={activeProjectStats} />
+                <ProjectDetailSummary
+                  project={activeProject}
+                  stats={activeProjectStats}
+                  milestone={nextMilestoneFromRows(projectTodos)}
+                />
 
                 <form
                   onSubmit={addCard}
@@ -994,6 +1100,7 @@ export default function ProjectsPage() {
       ) : (
         <ProjectsOverview
           projects={visibleProjects}
+          todos={todos ?? []}
           projectStats={projectStats}
           onOpenProject={setActiveProjectId}
         />
@@ -1064,13 +1171,17 @@ export default function ProjectsPage() {
 
 function ProjectsOverview({
   projects,
+  todos,
   projectStats,
   onOpenProject,
 }: {
   projects: ProjectRow[];
+  todos: TodoRow[];
   projectStats: Map<string, ProjectStats>;
   onOpenProject: (id: string) => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | ProjectType>("all");
   const totals = projects.reduce(
     (current, project) => {
       const stats = projectStats.get(project.id) ?? statsFromRows([]);
@@ -1084,6 +1195,27 @@ function ProjectsOverview({
   const totalProgress = totals.totalCards
     ? Math.round((totals.completedCards / totals.totalCards) * 100)
     : 0;
+  const filteredProjects = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    return projects.filter((project) => {
+      const type = normalizedProjectType(project.data);
+      if (typeFilter !== "all" && type !== typeFilter) return false;
+      if (!term) return true;
+      const searchable = [
+        project.data.name,
+        project.data.description ?? "",
+        project.data.repositoryUrl ?? "",
+        project.data.topic ?? "",
+        ...(project.data.techStack ?? []),
+        ...(project.data.contentPlatforms ?? []).map(platformLabel),
+        projectTypeLabel(type),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return searchable.includes(term);
+    });
+  }, [projects, searchQuery, typeFilter]);
+
   return (
     <main className="min-h-0 flex-1 space-y-4 overflow-x-hidden pb-2 md:overflow-y-auto">
       <div className="border-b border-border pb-4">
@@ -1092,7 +1224,7 @@ function ProjectsOverview({
             Current projects
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Track active development work with repository context, stack, progress, and project todos.
+            Track active dev and content work with project context, progress, and Kanban todos.
           </p>
         </div>
       </div>
@@ -1104,23 +1236,64 @@ function ProjectsOverview({
         <OverviewStat label="Progress" value={`${totalProgress}%`} />
       </div>
 
+      <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <label className="relative block min-w-0">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search projects"
+            className="h-10 w-full rounded-xl border border-border bg-neutral-950 pl-9 pr-3 text-sm text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none md:rounded-md"
+          />
+        </label>
+        <div className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-neutral-950 p-1 md:w-[22rem] md:rounded-md">
+          {PROJECT_TYPE_FILTERS.map((filter) => (
+            <button
+              key={filter.value}
+              type="button"
+              onClick={() => setTypeFilter(filter.value)}
+              aria-pressed={typeFilter === filter.value}
+              className={clsx(
+                "h-8 rounded-lg px-2 text-xs font-semibold transition-colors md:rounded",
+                typeFilter === filter.value
+                  ? "bg-neutral-800 text-neutral-100"
+                  : "text-muted hover:bg-neutral-900 hover:text-neutral-100",
+              )}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {projects.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/80 bg-panel/75 p-5 shadow-[0_6px_18px_rgba(0,0,0,0.16)] md:rounded-lg md:shadow-none">
           <h3 className="text-base font-semibold text-neutral-100">No current projects</h3>
           <p className="mt-1 text-sm text-muted">
-            Create a project to track its board, repository, tech stack, and todo progress.
+            Create a project to track its board, type, milestones, and todo progress.
           </p>
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-          {projects.map((project) => (
+          {filteredProjects.map((project) => {
+            const projectRows = todos.filter(
+              (row) => row.data.projectId === project.id,
+            );
+            return (
             <ProjectOverviewItem
               key={project.id}
               project={project}
               stats={projectStats.get(project.id) ?? statsFromRows([])}
+              milestone={nextMilestoneFromRows(projectRows)}
               onOpen={() => onOpenProject(project.id)}
             />
-          ))}
+            );
+          })}
+          {filteredProjects.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border/80 bg-panel/75 p-5 text-sm text-muted shadow-[0_6px_18px_rgba(0,0,0,0.16)] md:col-span-2 md:rounded-lg md:shadow-none 2xl:col-span-3">
+              No projects match that search.
+            </div>
+          ) : null}
         </div>
       )}
     </main>
@@ -1130,43 +1303,74 @@ function ProjectsOverview({
 function ProjectDetailSummary({
   project,
   stats,
+  milestone,
 }: {
   project: ProjectRow;
   stats: ProjectStats;
+  milestone: ProjectMilestone | null;
 }) {
   const techStack = project.data.techStack ?? [];
+  const platforms = project.data.contentPlatforms ?? [];
+  const type = normalizedProjectType(project.data);
   return (
     <section className="grid gap-3 rounded-2xl border border-border/80 bg-panel/85 p-3 shadow-[0_6px_18px_rgba(0,0,0,0.16)] md:rounded-lg md:shadow-none lg:grid-cols-[minmax(0,1fr)_18rem]">
       <div className="min-w-0">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <ProjectTypeBadge type={type} />
+          {type === "dev" ? (
+            <RepositoryStatus url={project.data.repositoryUrl} compact />
+          ) : null}
+        </div>
         <p className="line-clamp-2 text-sm leading-5 text-muted">
           {project.data.description || "No description set for this project."}
         </p>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {techStack.length ? (
-            techStack.map((item) => (
-              <span
-                key={item}
-                className="rounded-lg border border-border bg-neutral-950 px-2 py-1 text-xs text-neutral-300 md:rounded"
-              >
-                {item}
-              </span>
-            ))
+        {type === "content" ? (
+          <div className="mt-3 rounded-xl border border-border/70 bg-neutral-950/40 px-3 py-2 md:rounded-md">
+            <div className="text-[10px] font-semibold text-muted">Topic</div>
+            <div className="mt-1 truncate text-sm font-semibold text-neutral-100">
+              {project.data.topic || "No topic set."}
+            </div>
+          </div>
+        ) : null}
+        <div className="mt-3 rounded-xl border border-border/70 bg-neutral-950/40 px-3 py-2 md:rounded-md">
+          <div className="text-[10px] font-semibold text-muted">
+            Next milestone
+          </div>
+          {milestone ? (
+            <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
+              <div className="min-w-0 truncate text-sm font-semibold text-neutral-100">
+                {milestone.title}
+              </div>
+              {milestone.dueDate ? (
+                <span className="shrink-0 text-xs text-muted">
+                  {formatDate(milestone.dueDate)}
+                </span>
+              ) : null}
+            </div>
           ) : (
-            <span className="text-xs text-muted">No tech stack set</span>
+            <div className="mt-1 text-sm text-muted">No open Kanban todo.</div>
           )}
         </div>
-        {project.data.repositoryUrl ? (
-          <a
-            href={project.data.repositoryUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-flex max-w-full items-center gap-1 text-xs text-neutral-300 hover:text-neutral-100"
-          >
-            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{project.data.repositoryUrl}</span>
-          </a>
+        {type === "content" ? (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {platforms.length ? (
+              platforms.map((platform) => (
+                <PlatformChip key={platform} platform={platform} />
+              ))
+            ) : (
+              <span className="text-xs text-muted">No platforms selected.</span>
+            )}
+          </div>
         ) : (
-          <div className="mt-3 text-xs text-muted">No repository link</div>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {techStack.length ? (
+            techStack.map((item) => (
+              <TechStackChip key={item} name={item} />
+            ))
+            ) : (
+              <span className="text-xs text-muted">No tech stack set</span>
+            )}
+          </div>
         )}
       </div>
       <div className="grid grid-cols-4 divide-x divide-border/80 rounded-2xl border border-border/80 bg-neutral-950 lg:grid-cols-2 lg:divide-x-0 lg:divide-y md:rounded-lg">
@@ -1191,22 +1395,32 @@ function OverviewStat({ label, value }: { label: string; value: string | number 
 function ProjectOverviewItem({
   project,
   stats,
+  milestone,
   onOpen,
 }: {
   project: ProjectRow;
   stats: ProjectStats;
+  milestone: ProjectMilestone | null;
   onOpen: () => void;
 }) {
   const techStack = project.data.techStack ?? [];
+  const platforms = project.data.contentPlatforms ?? [];
+  const type = normalizedProjectType(project.data);
   return (
-    <article className="rounded-2xl border border-border/80 bg-panel/85 p-4 shadow-[0_6px_18px_rgba(0,0,0,0.16)] md:rounded-lg md:shadow-none">
+    <article className="rounded-2xl border border-border/80 bg-panel/85 p-4 shadow-[0_6px_18px_rgba(0,0,0,0.16)] transition-colors hover:border-neutral-700 md:rounded-lg md:shadow-none">
       <div className="flex min-w-0 items-start justify-between gap-3">
         <button
           type="button"
           onClick={onOpen}
-          className="min-w-0 text-left"
+          className="min-w-0 flex-1 text-left"
         >
-          <h3 className="truncate text-base font-semibold text-neutral-100">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <ProjectTypeBadge type={type} />
+            {type === "dev" ? (
+              <RepositoryStatus url={project.data.repositoryUrl} compact />
+            ) : null}
+          </div>
+          <h3 className="truncate text-lg font-semibold text-neutral-100">
             {project.data.name}
           </h3>
           <p className="mt-1 line-clamp-2 text-sm leading-5 text-muted">
@@ -1236,37 +1450,108 @@ function ProjectOverviewItem({
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted">
-        {project.data.repositoryUrl ? (
-          <a
-            href={project.data.repositoryUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex max-w-full items-center gap-1 truncate text-neutral-300 hover:text-neutral-100"
-          >
-            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{project.data.repositoryUrl}</span>
-          </a>
-        ) : (
-          <span>No repository link</span>
-        )}
+      <div className="mt-4 rounded-xl border border-border/70 bg-neutral-950/40 px-3 py-2 md:rounded-md">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-[10px] font-semibold text-muted">
+              Next milestone
+            </div>
+            {milestone ? (
+              <div className="mt-1 truncate text-sm font-semibold text-neutral-100">
+                {milestone.title}
+              </div>
+            ) : (
+              <div className="mt-1 text-sm text-muted">No open Kanban todo.</div>
+            )}
+          </div>
+          {milestone?.dueDate ? (
+            <span className="shrink-0 text-xs text-muted">
+              {formatDate(milestone.dueDate)}
+            </span>
+          ) : milestone?.priority ? (
+            <span className="shrink-0 text-xs capitalize text-muted">
+              {milestone.priority}
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      {techStack.length ? (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {techStack.map((item) => (
-            <span
-              key={item}
-              className="rounded-lg border border-border bg-neutral-950 px-2 py-1 text-xs text-neutral-300 md:rounded"
-            >
-              {item}
-            </span>
-          ))}
+      {type === "content" ? (
+        <div className="mt-3 space-y-3">
+          <div className="rounded-xl border border-border/70 bg-neutral-950/40 px-3 py-2 md:rounded-md">
+            <div className="text-[10px] font-semibold text-muted">Topic</div>
+            <div className="mt-1 truncate text-sm font-semibold text-neutral-100">
+              {project.data.topic || "No topic set."}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {platforms.length ? (
+              platforms.map((platform) => (
+                <PlatformChip key={platform} platform={platform} />
+              ))
+            ) : (
+              <span className="text-xs text-muted">No platforms selected.</span>
+            )}
+          </div>
         </div>
       ) : (
-        <div className="mt-3 text-xs text-muted">No tech stack set</div>
+        <>
+          <div className="mt-3">
+            <RepositoryStatus url={project.data.repositoryUrl} />
+          </div>
+          {techStack.length ? (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {techStack.map((item) => (
+                <TechStackChip key={item} name={item} />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 text-xs text-muted">No tech stack set.</div>
+          )}
+        </>
       )}
     </article>
+  );
+}
+
+function ProjectTypeBadge({ type }: { type: ProjectType }) {
+  const Icon = type === "content" ? Clapperboard : Code2;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-neutral-950 px-2 py-1 text-xs font-medium text-neutral-300 md:rounded">
+      <Icon className="h-3.5 w-3.5 text-muted" />
+      {projectTypeLabel(type)}
+    </span>
+  );
+}
+
+function RepositoryStatus({
+  url,
+  compact,
+}: {
+  url?: string;
+  compact?: boolean;
+}) {
+  const label = repositoryLabel(url);
+  const className = clsx(
+    "inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border border-border bg-neutral-950 px-2 py-1 text-xs md:rounded",
+    url && !compact ? "text-neutral-300 hover:text-neutral-100" : "text-muted",
+  );
+  const content = (
+    <>
+      <GithubLogo className="h-4 w-4 shrink-0" />
+      <span className="truncate">{compact && url ? "GitHub" : label}</span>
+      {url && !compact ? <ExternalLink className="h-3 w-3 shrink-0" /> : null}
+    </>
+  );
+
+  if (!url || compact) {
+    return <div className={className}>{content}</div>;
+  }
+
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className={className}>
+      {content}
+    </a>
   );
 }
 
@@ -1307,6 +1592,13 @@ function CreateProjectModal({
     const [column] = columns.splice(index, 1);
     columns.splice(nextIndex, 0, column);
     update({ columns: columns.map((item, order) => ({ ...item, order })) });
+  };
+  const togglePlatform = (platform: ProjectContentPlatform) => {
+    update({
+      contentPlatforms: draft.contentPlatforms.includes(platform)
+        ? draft.contentPlatforms.filter((item) => item !== platform)
+        : [...draft.contentPlatforms, platform],
+    });
   };
 
   return (
@@ -1357,6 +1649,35 @@ function CreateProjectModal({
             />
           </label>
 
+          <div>
+            <div className="text-xs font-semibold text-muted">Project type</div>
+            <div className="mt-1 grid grid-cols-2 gap-1 rounded-xl border border-border bg-neutral-950 p-1 md:rounded-md">
+              {PROJECT_TYPE_FILTERS.filter((item) => item.value !== "all").map(
+                (item) => {
+                  const value = item.value as ProjectType;
+                  const Icon = value === "content" ? Clapperboard : Code2;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => update({ type: value })}
+                      aria-pressed={draft.type === value}
+                      className={clsx(
+                        "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-2 text-sm font-semibold transition-colors md:rounded",
+                        draft.type === value
+                          ? "bg-neutral-800 text-neutral-100"
+                          : "text-muted hover:bg-neutral-900 hover:text-neutral-100",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.label === "Dev" ? "Dev project" : "Content creation"}
+                    </button>
+                  );
+                },
+              )}
+            </div>
+          </div>
+
           <label className="block">
             <span className="text-xs font-semibold text-muted">Description</span>
             <textarea
@@ -1368,39 +1689,80 @@ function CreateProjectModal({
             />
           </label>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="block">
-              <span className="text-xs font-semibold text-muted">Repository link</span>
-              <input
-                value={draft.repositoryUrl}
-                onChange={(event) => update({ repositoryUrl: event.target.value })}
-                className="mt-1 h-10 w-full rounded-xl border border-border bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none md:rounded-md"
-                placeholder="https://github.com/..."
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs font-semibold text-muted">Tech stack</span>
-              <input
-                value={draft.techStackInput}
-                onChange={(event) => update({ techStackInput: event.target.value })}
-                className="mt-1 h-10 w-full rounded-xl border border-border bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none md:rounded-md"
-                placeholder="Next.js, Firebase, Tailwind"
-              />
-            </label>
-          </div>
-
-          {parseTechStack(draft.techStackInput).length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {parseTechStack(draft.techStackInput).map((item) => (
-                <span
-                  key={item}
-                  className="rounded-lg border border-border bg-neutral-950 px-2 py-1 text-xs text-neutral-300 md:rounded"
-                >
-                  {item}
-                </span>
-              ))}
+          {draft.type === "content" ? (
+            <div className="grid gap-3">
+              <label className="block">
+                <span className="text-xs font-semibold text-muted">Topic</span>
+                <input
+                  value={draft.topic}
+                  onChange={(event) => update({ topic: event.target.value })}
+                  className="mt-1 h-10 w-full rounded-xl border border-border bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none md:rounded-md"
+                  placeholder="Productivity, school, devlog"
+                />
+              </label>
+              <div>
+                <div className="text-xs font-semibold text-muted">
+                  Platforms
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {CONTENT_PLATFORM_OPTIONS.map((platform) => {
+                    const selected = draft.contentPlatforms.includes(platform);
+                    return (
+                      <button
+                        key={platform}
+                        type="button"
+                        onClick={() => togglePlatform(platform)}
+                        aria-pressed={selected}
+                        className={clsx(
+                          "rounded-lg border px-2 py-1 text-xs font-medium transition-colors md:rounded",
+                          selected
+                            ? "border-accent/70 bg-accent/10 text-neutral-100"
+                            : "border-border bg-neutral-950 text-muted hover:text-neutral-200",
+                        )}
+                      >
+                        <PlatformLogo
+                          platform={platform}
+                          className="flex h-4 w-4 shrink-0 items-center justify-center"
+                        />
+                        {platformLabel(platform)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          ) : null}
+          ) : (
+            <>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="block">
+                  <span className="text-xs font-semibold text-muted">Repository link</span>
+                  <input
+                    value={draft.repositoryUrl}
+                    onChange={(event) => update({ repositoryUrl: event.target.value })}
+                    className="mt-1 h-10 w-full rounded-xl border border-border bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none md:rounded-md"
+                    placeholder="https://github.com/..."
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold text-muted">Tech stack</span>
+                  <input
+                    value={draft.techStackInput}
+                    onChange={(event) => update({ techStackInput: event.target.value })}
+                    className="mt-1 h-10 w-full rounded-xl border border-border bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-muted focus:border-accent focus:outline-none md:rounded-md"
+                    placeholder="Next.js, Firebase, Tailwind"
+                  />
+                </label>
+              </div>
+
+              {parseTechStack(draft.techStackInput).length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {parseTechStack(draft.techStackInput).map((item) => (
+                    <TechStackChip key={item} name={item} />
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
 
           <div>
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -1674,6 +2036,58 @@ function KanbanColumn({
         </div>
       </SortableContext>
     </section>
+  );
+}
+
+function ProjectActionsMenu({
+  archived,
+  onArchive,
+  onDelete,
+}: {
+  archived: boolean;
+  onArchive: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Project actions"
+        className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted hover:bg-neutral-900 hover:text-neutral-100 md:rounded-md"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 top-10 z-30 w-44 overflow-hidden rounded-xl border border-border bg-neutral-950 shadow-[0_10px_24px_rgba(0,0,0,0.32)] md:rounded-md"
+        >
+          <MenuButton
+            onClick={() => {
+              setOpen(false);
+              onArchive();
+            }}
+            label="Archive"
+            disabled={archived}
+            icon={<Archive className="h-4 w-4" />}
+          />
+          <MenuButton
+            onClick={() => {
+              setOpen(false);
+              onDelete();
+            }}
+            label="Delete"
+            icon={<Trash2 className="h-4 w-4" />}
+            danger
+          />
+        </div>
+      ) : null}
+    </div>
   );
 }
 

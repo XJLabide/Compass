@@ -144,9 +144,12 @@ service cloud.firestore {
 
     function projectValid(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 160
+        && (!('type' in data) || data.type in ['dev', 'content'])
         && (!('description' in data) || (data.description is string && data.description.size() <= 1000))
         && (!('repositoryUrl' in data) || (data.repositoryUrl is string && data.repositoryUrl.size() <= 500))
         && (!('techStack' in data) || (data.techStack is list && data.techStack.size() <= 24))
+        && (!('topic' in data) || (data.topic is string && data.topic.size() <= 160))
+        && (!('contentPlatforms' in data) || (data.contentPlatforms is list && data.contentPlatforms.size() <= 12))
         && data.columns is list
         && data.columns.size() > 0
         && data.columns.size() <= 12

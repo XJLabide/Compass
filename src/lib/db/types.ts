@@ -490,11 +490,24 @@ export interface ProjectColumn {
   order: number;
 }
 
+export type ProjectType = "dev" | "content";
+export type ProjectContentPlatform =
+  | "youtube"
+  | "tiktok"
+  | "instagram"
+  | "x"
+  | "blog"
+  | "newsletter"
+  | "podcast";
+
 export interface ProjectDoc {
   name: string;
+  type?: ProjectType;
   description?: string;
   repositoryUrl?: string;
   techStack?: string[];
+  topic?: string;
+  contentPlatforms?: ProjectContentPlatform[];
   columns: ProjectColumn[];
   archived: boolean;
   createdAt: Timestamp;
