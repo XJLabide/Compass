@@ -36,6 +36,7 @@ export default function OnboardingWizard() {
 
   const [step, setStep] = useState<Step>(1);
   const [saving, setSaving] = useState(false);
+  const [completed, setCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const initial = useMemo<WizardData>(
@@ -53,9 +54,13 @@ export default function OnboardingWizard() {
   );
   const [data, setData] = useState<WizardData>(initial);
 
-  const shouldShow = profileLoaded && Boolean(user) && profile?.onboarded !== true;
+  const onboarded =
+    completed || (profile?.onboarded === true && !saving && !error);
+  const shouldShow = profileLoaded && Boolean(user) && !onboarded;
   useBodyScrollLock(shouldShow);
-  if (!profileLoaded || !user || profile?.onboarded === true) return null;
+  // Wait for first-run seeding to create the full profile before allowing the
+  // owner to complete onboarding. Otherwise a partial merge could win the race.
+  if (!profileLoaded || !user || !profile || onboarded) return null;
 
   const update = (patch: Partial<WizardData>) =>
     setData((current) => ({ ...current, ...patch }));
@@ -80,8 +85,10 @@ export default function OnboardingWizard() {
         updatedAt: serverTimestamp(),
       };
       await setDoc(profilePath(user.uid), payload, { merge: true });
+      setCompleted(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save your profile.");
+    } finally {
       setSaving(false);
     }
   };

@@ -1,5 +1,9 @@
 import type { User } from "firebase/auth";
-import { serverTimestamp, setDoc, type Firestore } from "firebase/firestore";
+import {
+  runTransaction,
+  serverTimestamp,
+  type Firestore,
+} from "firebase/firestore";
 
 import { getFirebaseDb } from "@/lib/firebase";
 import { DEFAULT_TIME_BLOCKS } from "@/lib/routines/helpers";
@@ -37,7 +41,9 @@ function deriveDisplayName(user: User): string {
 /**
  * Create only the owner's profile for a new account. Existing records are not
  * imported or migrated, and workout programs remain an explicit user choice.
- * The caller checks the realtime profile snapshot before invoking this.
+ * The caller checks the realtime profile snapshot before invoking this. The
+ * transaction rechecks atomically so concurrent tabs cannot seed over profile
+ * preferences saved during onboarding.
  */
 export async function ensureSeeded(
   user: User,
@@ -52,5 +58,10 @@ export async function ensureSeeded(
     updatedAt: now as unknown as Profile["updatedAt"],
   };
 
-  await setDoc(profilePath(user.uid, db), profile);
+  const profileRef = profilePath(user.uid, db);
+  await runTransaction(db, async (transaction) => {
+    const existingProfile = await transaction.get(profileRef);
+    if (existingProfile.exists()) return;
+    transaction.set(profileRef, profile);
+  });
 }

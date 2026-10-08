@@ -8,6 +8,29 @@ export const TEST_EMAIL = "test@compass.test";
 export const TEST_PASSWORD = "test-password-123";
 
 const PROJECT_ID = "personal-tracker-32b2a";
+const OWNER_TOKEN_HEADER = { Authorization: "Bearer owner" };
+
+export async function readFirestoreFields(
+  page: Page,
+  documentPath: string,
+): Promise<Record<string, Record<string, unknown>> | null> {
+  const url =
+    `http://127.0.0.1:8181/v1/projects/${PROJECT_ID}/databases/p-tracker/documents/` +
+    documentPath;
+  const response = await page.request.get(url, {
+    headers: OWNER_TOKEN_HEADER,
+  });
+  if (response.status() === 404) return null;
+  if (!response.ok()) {
+    throw new Error(
+      `Firestore document read failed (${response.status()}): ${await response.text()}`,
+    );
+  }
+  const document = (await response.json()) as {
+    fields?: Record<string, Record<string, unknown>>;
+  };
+  return document.fields ?? {};
+}
 
 /**
  * Wipe all auth users + firestore docs between tests. The emulator exposes
