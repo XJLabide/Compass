@@ -3,8 +3,25 @@
  * Supports privacy mode (masking amounts when hidden).
  */
 
+export const REPORTING_CURRENCY_OPTIONS = [
+  "USD",
+  "EUR",
+  "GBP",
+  "JPY",
+  "CAD",
+  "AUD",
+  "PHP",
+  "SGD",
+  "HKD",
+  "INR",
+  "MXN",
+  "BRL",
+  "CHF",
+] as const;
+
 export function getCurrencySymbol(currency: string = "PHP"): string {
-  if (!currency || currency === "PHP" || currency === "USD") return "₱";
+  if (!currency || currency === "PHP") return "₱";
+  if (currency === "USD") return "$";
   if (currency === "EUR") return "€";
   if (currency === "GBP") return "£";
   return currency;

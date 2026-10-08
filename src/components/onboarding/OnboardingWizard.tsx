@@ -19,6 +19,7 @@ import { profilePath } from "@/lib/db/paths";
 import { useBodyScrollLock } from "@/lib/ui/useBodyScrollLock";
 import type { Profile, UnitSystem } from "@/lib/db/types";
 import { detectTimezone } from "@/components/settings/TimezoneSelect";
+import { REPORTING_CURRENCY_OPTIONS } from "@/lib/money/currency";
 
 type Step = 1 | 2 | 3;
 
@@ -28,22 +29,6 @@ interface WizardData {
   timezone: string;
   currency: string;
 }
-
-const COMMON_CURRENCIES = [
-  "USD",
-  "EUR",
-  "GBP",
-  "JPY",
-  "CAD",
-  "AUD",
-  "PHP",
-  "SGD",
-  "HKD",
-  "INR",
-  "MXN",
-  "BRL",
-  "CHF",
-];
 
 export default function OnboardingWizard() {
   const { user } = useAuth();
@@ -258,7 +243,7 @@ function StepPreferences({
           onChange={(event) => onChange({ currency: event.target.value })}
           className="h-11 w-full rounded-md border border-border bg-neutral-900 px-3 text-sm text-neutral-100 focus:border-accent focus:outline-none"
         >
-          {COMMON_CURRENCIES.map((currency) => (
+          {REPORTING_CURRENCY_OPTIONS.map((currency) => (
             <option key={currency} value={currency}>
               {currency}
             </option>

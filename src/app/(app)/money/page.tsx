@@ -33,7 +33,6 @@ import {
   budgetsPath,
   expensePath,
   expensesPath,
-  profilePath,
 } from "@/lib/db/paths";
 import type { BudgetDoc, ExpenseDoc } from "@/lib/db/types";
 import Skeleton from "@/components/ui/Skeleton";
@@ -90,16 +89,10 @@ function defaultBudgetName(mode: BudgetMode, startDate: string, endDate: string)
 export default function FinancePage() {
   const { uid, profile } = useUserData();
   const { activeDate, hasActiveDay } = useActiveDay();
-  const userCurrency = "PHP";
+  const userCurrency = profile?.currency ?? "PHP";
   const today = activeDate;
   const currentMonthStart = useMemo(() => monthStartFor(today), [today]);
   const currentMonthEnd = useMemo(() => monthEndFor(today), [today]);
-
-  useEffect(() => {
-    if (uid && profile && profile.currency !== "PHP") {
-      void setDoc(profilePath(uid), { currency: "PHP" }, { merge: true });
-    }
-  }, [uid, profile]);
 
   const [activeTab, setActiveTab] = useState<"spending" | "accounts" | "investments">("spending");
   const [hideAmounts, setHideAmounts] = useState<boolean>(() => {

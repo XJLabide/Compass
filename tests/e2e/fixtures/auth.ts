@@ -202,14 +202,17 @@ export async function signInWithoutOnboarding(
  */
 export async function completeOnboarding(
   page: Page,
-  options: { required?: boolean } = {},
+  options: { requireWizard?: boolean; currency?: string } = {},
 ): Promise<void> {
   const wizard = page.getByText(/welcome to compass/i);
-  if (!options.required && !(await wizard.count())) return;
+  if (!options.requireWizard && !(await wizard.count())) return;
   await expect(wizard).toBeVisible({ timeout: 10_000 });
 
   for (let step = 1; step <= 2; step++) {
     await expect(page.getByText(new RegExp(`step ${step} of 3`, "i"))).toBeVisible();
+    if (step === 2 && options.currency) {
+      await page.getByLabel(/reporting currency/i).selectOption(options.currency);
+    }
     await page.getByRole("button", { name: /^next$/i }).click();
   }
   await expect(page.getByText(/step 3 of 3/i)).toBeVisible();

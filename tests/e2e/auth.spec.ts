@@ -48,7 +48,7 @@ test("signed-in user can complete onboarding", async ({ page }) => {
   expect(profileBeforeOnboarding.status()).toBe(404);
   await expect(page.getByText(/step 1 of 3/i)).toBeVisible({ timeout: 10_000 });
 
-  await completeOnboarding(page, { required: true });
+  await completeOnboarding(page, { requireWizard: true, currency: "EUR" });
   await expect(page.getByText(/welcome to compass/i)).not.toBeVisible();
 
   const profileResponse = await page.request.get(
@@ -63,7 +63,7 @@ test("signed-in user can complete onboarding", async ({ page }) => {
   expect(profile.fields?.onboarded?.booleanValue).toBe(true);
   expect(profile.fields?.unitSystem?.stringValue).toBe("imperial");
   expect(profile.fields?.timezone?.stringValue).toEqual(expect.any(String));
-  expect(profile.fields?.currency?.stringValue).toBe("PHP");
+  expect(profile.fields?.currency?.stringValue).toBe("EUR");
   // The owner can set these later in Settings; first-run setup leaves them unset.
   expect(profile.fields?.proteinTargetG?.integerValue).toBe("0");
   expect(profile.fields?.calorieTargetKcal).toBeUndefined();
@@ -76,4 +76,32 @@ test("signed-in user can complete onboarding", async ({ page }) => {
     { headers },
   );
   expect(programResponse.status()).toBe(404);
+
+  await page.goto("/money");
+  await expect(page.getByRole("heading", { name: "Finances" })).toBeVisible();
+  await expect(page.getByText("€0.00").first()).toBeVisible();
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(`${baseUrl}/profile/profile`, { headers });
+      const savedProfile = (await response.json()) as {
+        fields?: Record<string, Record<string, unknown>>;
+      };
+      return savedProfile.fields?.currency?.stringValue;
+    })
+    .toBe("EUR");
+
+  await page.goto("/settings");
+  await page.getByLabel(/reporting currency/i).selectOption("USD");
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(`${baseUrl}/profile/profile`, { headers });
+      const savedProfile = (await response.json()) as {
+        fields?: Record<string, Record<string, unknown>>;
+      };
+      return savedProfile.fields?.currency?.stringValue;
+    })
+    .toBe("USD");
+
+  await page.goto("/money");
+  await expect(page.getByText("$0.00").first()).toBeVisible();
 });

@@ -26,6 +26,7 @@ import {
   Tag,
   Target,
   User as UserIcon,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -43,6 +44,7 @@ import TimezoneSelect, {
 } from "@/components/settings/TimezoneSelect";
 import UnitToggle from "@/components/settings/UnitToggle";
 import { computeLocalDate } from "@/lib/workout/scheduling";
+import { REPORTING_CURRENCY_OPTIONS } from "@/lib/money/currency";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -149,6 +151,14 @@ export default function SettingsPage() {
     [profile, persist],
   );
 
+  const handleCurrencyChange = useCallback(
+    (next: string) => {
+      if (profile?.currency === next) return;
+      void persist({ currency: next });
+    },
+    [profile, persist],
+  );
+
   const handleProteinCommit = useCallback(
     (next: number) => {
       if (profile?.proteinTargetG === next) return;
@@ -210,6 +220,7 @@ export default function SettingsPage() {
   const settingsTz = profile?.timezone ?? detectedTz ?? "UTC";
   const today = computeLocalDate(new Date(), settingsTz);
   const currency = profile?.currency ?? "PHP";
+  const supportedCurrencies: readonly string[] = REPORTING_CURRENCY_OPTIONS;
   // Disable inputs only while we haven't yet heard back from the snapshot.
   // After loading, even a missing profile doc renders the form with sensible
   // defaults so the user can configure their preferences.
@@ -305,7 +316,7 @@ export default function SettingsPage() {
             id="preferences"
             icon={Ruler}
             title="Preferences"
-            subtitle="Display units and the timezone used for daily logs."
+            subtitle="Display units, timezone, and reporting currency."
           >
             <div className="grid gap-5 lg:grid-cols-2">
               <SettingBlock
@@ -330,6 +341,31 @@ export default function SettingsPage() {
                   onChange={handleTimezoneChange}
                   disabled={disabled}
                 />
+              </SettingBlock>
+              <SettingBlock
+                icon={Wallet}
+                title="Reporting currency"
+                detail="Used to display your consolidated finances."
+              >
+                <label htmlFor="settings-reporting-currency" className="sr-only">
+                  Reporting currency
+                </label>
+                <select
+                  id="settings-reporting-currency"
+                  value={currency}
+                  onChange={(event) => handleCurrencyChange(event.target.value)}
+                  disabled={disabled}
+                  className="h-11 w-full rounded-md border border-border bg-neutral-900 px-3 text-sm text-neutral-100 focus:border-accent focus:outline-none disabled:opacity-50"
+                >
+                  {!supportedCurrencies.includes(currency) ? (
+                    <option value={currency}>{currency}</option>
+                  ) : null}
+                  {REPORTING_CURRENCY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </SettingBlock>
             </div>
           </SettingsPanel>
