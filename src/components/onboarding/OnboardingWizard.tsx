@@ -56,7 +56,8 @@ export default function OnboardingWizard() {
 
   const onboarded =
     completed || (profile?.onboarded === true && !saving && !error);
-  const shouldShow = profileLoaded && Boolean(user) && !onboarded;
+  const shouldShow =
+    profileLoaded && Boolean(user) && Boolean(profile) && !onboarded;
   useBodyScrollLock(shouldShow);
   // Wait for first-run seeding to create the full profile before allowing the
   // owner to complete onboarding. Otherwise a partial merge could win the race.
