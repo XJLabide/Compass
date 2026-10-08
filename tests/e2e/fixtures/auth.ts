@@ -177,10 +177,13 @@ export async function signInAs(
 }
 
 /** Sign in without seeding a profile — for tests that exercise the wizard itself. */
-export async function signInWithoutOnboarding(page: Page): Promise<string> {
-  const uid = await ensureTestUser();
+export async function signInWithoutOnboarding(
+  page: Page,
+  email = TEST_EMAIL,
+): Promise<string> {
+  const uid = await ensureTestUser(email);
   await page.goto("/login");
-  await page.getByPlaceholder(/you@example/i).fill(TEST_EMAIL);
+  await page.getByPlaceholder(/you@example/i).fill(email);
   await page.getByPlaceholder(/•+/).fill(TEST_PASSWORD);
   await page.getByRole("button", { name: /^sign in$/i }).click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), {
@@ -193,20 +196,23 @@ export async function signInWithoutOnboarding(page: Page): Promise<string> {
  * Finish the onboarding wizard with defaults. Use in tests where we need a
  * seeded profile so the dashboard renders against real data.
  *
- * Walks the 5 steps using the visible "Step N of 5" text as a sync barrier
+ * Walks the three steps using the visible "Step N of 3" text as a sync barrier
  * between clicks — Playwright otherwise races React's re-render and ends up
  * clicking the same Step 1 Next button repeatedly.
  */
-export async function completeOnboarding(page: Page): Promise<void> {
+export async function completeOnboarding(
+  page: Page,
+  options: { required?: boolean } = {},
+): Promise<void> {
   const wizard = page.getByText(/welcome to compass/i);
-  if (!(await wizard.count())) return;
+  if (!options.required && !(await wizard.count())) return;
   await expect(wizard).toBeVisible({ timeout: 10_000 });
 
-  for (let step = 1; step <= 4; step++) {
-    await expect(page.getByText(new RegExp(`step ${step} of 5`, "i"))).toBeVisible();
+  for (let step = 1; step <= 2; step++) {
+    await expect(page.getByText(new RegExp(`step ${step} of 3`, "i"))).toBeVisible();
     await page.getByRole("button", { name: /^next$/i }).click();
   }
-  await expect(page.getByText(/step 5 of 5/i)).toBeVisible();
+  await expect(page.getByText(/step 3 of 3/i)).toBeVisible();
   await page.getByRole("button", { name: /finish setup/i }).click();
   await expect(wizard).not.toBeVisible({ timeout: 10_000 });
 }
