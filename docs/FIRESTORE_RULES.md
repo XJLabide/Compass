@@ -6,11 +6,13 @@ Source of truth: [`firestore.rules`](../firestore.rules).
 
 - **Default-deny** at the root. Anything not explicitly matched is denied.
 - All app data lives under `users/{uid}/...`. Access requires both:
-  1. `request.auth.uid == uid` (you can only touch your own subtree), AND
-  2. `request.auth.token.email` is on the hard-coded allowlist (`allowed()` in
-     the rules file). This is the same allowlist enforced at the app shell.
+  1. `request.auth != null`, AND
+  2. `request.auth.uid == uid` (you can only touch your own subtree).
 - Per-collection write validators enforce field shapes (numeric ranges,
   required fields). Anything that fails validation is rejected at write time.
+- Firestore rules do not enforce an email allowlist. Do not rely on client-side
+  email checks to protect another user's data; ownership is enforced by UID.
+- `integrationSecrets` and `oauthStates` deny all client reads and writes.
 
 ## Collections
 
@@ -22,6 +24,16 @@ Source of truth: [`firestore.rules`](../firestore.rules).
 | `users/{uid}/sessions/{sessionId}`   | `sessionValid`    | `localDate`, `name`, `sets is list`, optional `durationMin`. |
 | `users/{uid}/daily/{YYYY-MM-DD}`     | `dailyValid`      | See ranges below.                                            |
 | `users/{uid}/prs/{prId}`             | `prValid`         | `weightKg >= 0`, `reps >= 0`, `e1RMKg >= 0`.                 |
+| `users/{uid}/todos/{todoId}`          | `todoValid`       | Validates title, completion state, and optional project metadata. |
+| `users/{uid}/projects/{projectId}`    | `projectValid`    | Requires an ordered column list and bounded metadata.        |
+| `users/{uid}/expenses/{expenseId}`    | `expenseValid`    | Income/expense values, category, and local date.             |
+| `users/{uid}/budgets/{budgetId}`      | `budgetValid`     | Mode, amount, date range, and active state.                   |
+| `users/{uid}/recurringFees/{feeId}`   | `recurringFeeValid` | Amount, currency, cadence, and billing fields.             |
+| `users/{uid}/goals/{goalId}`          | `goalValid`       | Goal fields and nested metric shapes.                         |
+| `users/{uid}/calendarItems/{itemId}`  | `calendarItemValid` | Class, event, or task fields.                                |
+| `users/{uid}/routines/{routineId}`    | `routineValid`    | Routine fields and schedule metadata.                        |
+| `users/{uid}/accounts/{accountId}`    | Owner-only        | Read/write ownership is enforced; no field validator.       |
+| `users/{uid}/portfolio/{holdingId}`   | Owner-only        | Read/write ownership is enforced; no field validator.       |
 
 ### `daily` field ranges
 
@@ -62,55 +74,24 @@ firebase use <project-id>
 firebase deploy --only firestore:rules
 ```
 
-## Editing the allowlist
-
-The allowlist is intentionally **hard-coded in `firestore.rules`** for v1. To
-add or remove a user:
-
-1. Open `firestore.rules`.
-2. Find the `allowed()` function:
-
-   ```
-   function allowed() {
-     return [
-       'labide.xj@gmail.com'
-     ];
-   }
-   ```
-
-3. Add or remove the email from the list. Keep them lowercase to match what
-   Firebase Auth stores in `request.auth.token.email`.
-4. Commit the change.
-5. Redeploy:
-
-   ```bash
-   firebase deploy --only firestore:rules
-   ```
-
-The app-level allowlist (used by the (app) shell to gate UI) lives separately
-in the app config — keep the two in sync.
-
 ## Local testing
 
-The rules test suite lives in [`tests/firestore-rules.test.ts`](../tests/firestore-rules.test.ts)
-and uses `@firebase/rules-unit-testing` against the Firestore emulator.
+`npm run dev` starts Auth and Firestore emulators under the demo project
+`demo-compass-local`. It connects to database `p-tracker`, which loads the
+checked-in `firestore.rules` file. Local reads and writes stay in the emulator.
 
 ```bash
-# Start the emulator in one terminal:
-firebase emulators:start --only firestore
-
-# In another terminal, run the rules tests:
-npx jest tests/firestore-rules.test.ts
-# or, if you wire it into `npm test`:
-npm test -- tests/firestore-rules.test.ts
+npm run dev
+# In another terminal, verify the Finance transaction query and rules:
+npm run verify:firestore-rules
 ```
 
-The tests cover:
+The smoke check uses an emulator Auth user and the same `p-tracker` database as
+the app. It verifies that the owner query succeeds, a cross-user query fails,
+and an invalid transaction write is rejected. The separate Playwright setup
+uses `demo-compass-e2e`; both local paths use demo IDs and cannot mutate
+production Firestore.
 
-- Unauthenticated reads/writes are denied on every path.
-- A signed-in (allowlisted) user **cannot** read another uid's data.
-- An allowlisted user **can** write valid `profile`, `daily`, `sessions`,
-  `exercises`, `program`, and `prs` documents to their own subtree.
-- Invalid `daily` writes are rejected (e.g. `sleepHours: 30`,
-  `bodyweightKg: -5`, `mood: 9`).
-- A signed-in user whose email is **not** on the allowlist is denied.
+Do not run `firebase deploy` as part of local verification. Production rule
+deployment remains an explicit operation against the configured `.firebaserc`
+project.

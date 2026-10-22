@@ -1,11 +1,6 @@
 /**
- * Firestore security-rules tests.
- *
- * Run against the Firestore emulator:
- *   firebase emulators:exec --only firestore "npx jest tests/firestore-rules.test.ts"
- *
- * Or, with the emulator already running on the default port (8080):
- *   npx jest tests/firestore-rules.test.ts
+ * Jest-style Firestore rules tests retained for a future test-runner setup.
+ * The runnable emulator smoke check is `npm run verify:firestore-rules`.
  */
 import {
   assertFails,
@@ -22,7 +17,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-const PROJECT_ID = "personal-tracker-rules-test";
+const PROJECT_ID = "demo-compass-rules";
 const USER_EMAIL = "user@example.com";
 
 let env: RulesTestEnvironment;
@@ -33,7 +28,7 @@ beforeAll(async () => {
     firestore: {
       rules: readFileSync(resolve(__dirname, "../firestore.rules"), "utf8"),
       host: "127.0.0.1",
-      port: 8080,
+      port: 8281,
     },
   });
 });

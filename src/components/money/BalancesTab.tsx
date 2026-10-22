@@ -25,6 +25,7 @@ export default function BalancesTab({
   hideAmounts?: boolean;
 }) {
   const [accounts, setAccounts] = useState<AccountRow[] | null>(null);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editAccount, setEditAccount] = useState<AccountRow | null>(null);
 
@@ -37,18 +38,26 @@ export default function BalancesTab({
   // Subscribe to user accounts
   useEffect(() => {
     setAccounts(null);
+    setAccountsError(null);
     if (!uid) return;
-    const unsub = onSnapshot(accountsPath(uid), (snap) => {
-      const rows = snap.docs.flatMap((d) => {
-        const data = d.data();
-        if (isLegacySeededAccount(data)) {
-          void deleteDoc(d.ref);
-          return [];
-        }
-        return [{ id: d.id, data }];
-      });
-      setAccounts(rows);
-    });
+    const unsub = onSnapshot(
+      accountsPath(uid),
+      (snap) => {
+        const rows = snap.docs.flatMap((d) => {
+          const data = d.data();
+          if (isLegacySeededAccount(data)) {
+            void deleteDoc(d.ref);
+            return [];
+          }
+          return [{ id: d.id, data }];
+        });
+        setAccounts(rows);
+      },
+      (err) => {
+        setAccountsError(err.message);
+        setAccounts([]);
+      },
+    );
     return unsub;
   }, [uid, userCurrency]);
 
@@ -137,7 +146,11 @@ export default function BalancesTab({
       </div>
 
       {/* Account Cards Grid */}
-      {accounts.length === 0 ? (
+      {accountsError ? (
+        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+          Could not load accounts: {accountsError}
+        </div>
+      ) : accounts.length === 0 ? (
         <div className="rounded-xl border border-border/50 p-6 text-center text-xs text-muted">
           No accounts added yet.
         </div>

@@ -12,7 +12,7 @@ Everything here is one-time setup unless noted. Subsequent deploys are just
 2. [Enable Auth providers (Google + Email/Password)](#2-enable-auth-providers)
 3. [Create the Firestore database](#3-create-the-firestore-database)
 4. [Register a web app and grab the config](#4-register-a-web-app)
-5. [Configure local `.env.local` and run dev](#5-configure-local-envlocal)
+5. [Run the isolated local development environment](#5-run-the-isolated-local-development-environment)
 6. [Deploy `firestore.rules`](#6-deploy-firestorerules)
 7. [Link the GitHub repo to Vercel](#7-link-the-github-repo-to-vercel)
 8. [Set Vercel env vars](#8-set-vercel-env-vars)
@@ -71,43 +71,25 @@ Firebase shows a `firebaseConfig` object. You'll need these six values:
 These are safe to commit to a public repo via env vars — Firebase web config
 is not a secret. Access control is enforced by Auth + Firestore rules.
 
-## 5. Configure local `.env.local`
+## 5. Run the isolated local development environment
 
-```bash
-cp .env.local.example .env.local
-```
+`npm run dev` starts Compass with the Auth and Firestore emulators. It uses the
+`demo-compass-local` project ID, the `p-tracker` database, and the rules in
+`firestore.rules`; local reads and writes stay in the emulator.
 
-Open `.env.local` and paste the six `NEXT_PUBLIC_FIREBASE_*` values from the
-previous step.
+The command prints a local-only sign-in account. Do not copy production
+Firebase settings into local test configuration. In development, direct
+`next dev` startup fails closed unless emulator mode is enabled.
 
-Set the allowlist to your own email (lowercase):
-
-```
-NEXT_PUBLIC_ALLOWED_EMAILS=you@example.com
-```
-
-Multiple emails are comma-separated, case-insensitive:
-
-```
-NEXT_PUBLIC_ALLOWED_EMAILS=you@example.com,partner@example.com
-```
-
-Run:
-
-```bash
-npm install
-npm run dev
-```
-
-Open <http://localhost:3000>, sign in with Google or email/password, and you
-should land on the dashboard. If the email isn't on the allowlist you'll get
-bounced to `/not-authorized`.
+For the live Firebase environment, set the web app config and email allowlist
+in Vercel as described in [section 8](#8-set-vercel-env-vars).
 
 ## 6. Deploy `firestore.rules`
 
-The rules in [`firestore.rules`](../firestore.rules) hard-code the same
-allowlist. Until you edit and deploy them, **no writes will succeed in
-production** even with a valid sign-in.
+The rules in [`firestore.rules`](../firestore.rules) grant access only when the
+Firebase Auth UID matches the `{uid}` in the document path. They do not enforce
+an email allowlist. Local development and verification use the Firestore
+emulator; deploying rules is a separate production operation.
 
 ### One-time CLI setup
 
@@ -125,22 +107,6 @@ firebase use --add
 
 This writes a `.firebaserc` at the repo root (gitignored is fine — it's just
 your local project alias).
-
-### Edit the allowlist
-
-Open `firestore.rules` and update the `allowed()` function with your email(s),
-matching whatever you put in `NEXT_PUBLIC_ALLOWED_EMAILS`:
-
-```
-function allowed() {
-  return [
-    'you@example.com'
-  ];
-}
-```
-
-Keep emails **lowercase** — that's what Firebase Auth stores in
-`request.auth.token.email`.
 
 ### Deploy
 
@@ -183,6 +149,7 @@ for all three is fine for a single-user app):
 | `NEXT_PUBLIC_FIREBASE_API_KEY`            | from Firebase config                               |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`        | Local: `<project>.firebaseapp.com`; production PWA: your deployed app domain |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID`         | `<project-id>`                                     |
+| `NEXT_PUBLIC_FIREBASE_DB_ID`              | `p-tracker` (the named Firestore database configured by this repo) |
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`     | `<project>.appspot.com`                            |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`| from Firebase config                               |
 | `NEXT_PUBLIC_FIREBASE_APP_ID`             | from Firebase config                               |

@@ -6,11 +6,11 @@ and the [Firebase Local Emulator Suite](https://firebase.google.com/docs/emulato
 ## How it works
 
 1. `tests/e2e/global-setup.ts` spawns `firebase emulators:start --only auth,firestore`
-   and waits for both ports (Auth 9099, Firestore 8080) to accept connections.
+   using the `demo-compass-e2e` project and waits for both emulator ports.
 2. Playwright then boots `next dev -p 3100` with `NEXT_PUBLIC_USE_EMULATORS=true`
    so the app connects to the emulators instead of production.
-   Ports: **Auth 9099**, **Firestore 8181** (8080 is intentionally avoided —
-   commonly occupied by other dev tools like Tomcat), **UI 4001**.
+   Ports: **Auth 9299** and **Firestore 8281**. The app and emulator use a demo
+   project ID so tests cannot reach live Firebase resources.
 3. Each test starts with `clearEmulators()` (REST DELETE to both emulators) so
    state is isolated between tests.
 4. `signIn()` REST-creates the test user on the auth emulator (idempotent),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import {
   addDoc,
   deleteDoc,
@@ -16,7 +17,6 @@ import {
   ArrowUpRight,
   CalendarDays,
   TrendingUp,
-  Trash2,
   Wallet,
   DollarSign,
   Eye,
@@ -43,6 +43,7 @@ import RecurringFeesSection, {
 import { displayCategory, listExpenseCategories } from "@/lib/money/categories";
 import PortfolioTab from "@/components/money/PortfolioTab";
 import BalancesTab from "@/components/money/BalancesTab";
+import TransactionRow from "@/components/money/TransactionRow";
 import { formatCurrencyAmount, getCurrencySymbol } from "@/lib/money/currency";
 
 const EMPTY_RECURRING_SUMMARY: RecurringSummary = {
@@ -50,6 +51,22 @@ const EMPTY_RECURRING_SUMMARY: RecurringSummary = {
   activeCount: 0,
   dueSoonCount: 0,
 };
+const WRITE_ACK_GUARD_MS = 1200;
+const TRANSACTION_LOAD_TIMEOUT_MS = 10_000;
+
+function waitForWriteAcknowledgement(
+  write: Promise<unknown>,
+): Promise<"saved" | "pending"> {
+  let timeoutId: number | undefined;
+  return Promise.race([
+    write.then(() => "saved" as const),
+    new Promise<"pending">((resolve) => {
+      timeoutId = window.setTimeout(() => resolve("pending"), WRITE_ACK_GUARD_MS);
+    }),
+  ]).finally(() => {
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+  });
+}
 
 function formatMoney(minor: number, currency: string, hideAmounts: boolean = false): string {
   return formatCurrencyAmount(minor / 100, currency, 2, hideAmounts);
@@ -111,6 +128,7 @@ export default function FinancePage() {
   // Spending state
   const [budgets, setBudgets] = useState<BudgetRow[] | null>(null);
   const [rows, setRows] = useState<ExpenseRow[] | null>(null);
+  const [transactionsError, setTransactionsError] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [budgetError, setBudgetError] = useState<string | null>(null);
   const [entryError, setEntryError] = useState<string | null>(null);
@@ -122,6 +140,7 @@ export default function FinancePage() {
   const [entryDate, setEntryDate] = useState(today);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [deletedExpense, setDeletedExpense] = useState<ExpenseRow | null>(null);
+  const [transactionReloadKey, setTransactionReloadKey] = useState(0);
   const [recurringSummary, setRecurringSummary] = useState<RecurringSummary>(EMPTY_RECURRING_SUMMARY);
   const [adding, setAdding] = useState(false);
   const [savingBudget, setSavingBudget] = useState(false);
@@ -181,7 +200,9 @@ export default function FinancePage() {
 
   // Subscribe to expenses and income inside the active budget period.
   useEffect(() => {
+    let receivedSnapshot = false;
     setRows(null);
+    setTransactionsError(null);
     if (!uid) return;
     const q = query(
       expensesPath(uid),
@@ -189,19 +210,33 @@ export default function FinancePage() {
       where("localDate", "<=", periodEnd),
       orderBy("localDate", "desc"),
     );
+    const timeoutId = window.setTimeout(() => {
+      if (receivedSnapshot) return;
+      setRows([]);
+      setTransactionsError(
+        "Recent transactions have not responded yet. Check your Firestore connection and try again.",
+      );
+    }, TRANSACTION_LOAD_TIMEOUT_MS);
     const unsub = onSnapshot(
       q,
       (snap) => {
+        receivedSnapshot = true;
+        window.clearTimeout(timeoutId);
         setRows(snap.docs.map((d) => ({ id: d.id, data: d.data() })));
-        setPageError(null);
+        setTransactionsError(null);
       },
       (err) => {
-        setPageError(err.message);
+        receivedSnapshot = true;
+        window.clearTimeout(timeoutId);
+        setTransactionsError(err.message);
         setRows([]);
       },
     );
-    return unsub;
-  }, [uid, periodEnd, periodStart]);
+    return () => {
+      window.clearTimeout(timeoutId);
+      unsub();
+    };
+  }, [uid, periodEnd, periodStart, transactionReloadKey]);
 
   const { periodIncomeMinor, periodExpenseMinor } = useMemo(() => {
     if (!rows) return { periodIncomeMinor: 0, periodExpenseMinor: 0 };
@@ -348,28 +383,49 @@ export default function FinancePage() {
           updatedAt: serverTimestamp() as any,
         };
 
+        let write: Promise<unknown>;
         if (editingExpenseId) {
-          await setDoc(expensePath(uid, editingExpenseId), payload as Partial<ExpenseDoc>, {
+          write = setDoc(expensePath(uid, editingExpenseId), payload as Partial<ExpenseDoc>, {
             merge: true,
           });
         } else {
-          await addDoc(expensesPath(uid), {
+          write = addDoc(expensesPath(uid), {
             ...payload,
             createdAt: serverTimestamp() as any,
           } as ExpenseDoc);
         }
 
+        const writeStatus = await waitForWriteAcknowledgement(write);
+
         setAmount("");
         setNote("");
         setEditingExpenseId(null);
         setDeletedExpense(null);
-        setEntryNotice(
+        const successNotice =
           localDate < periodStart || localDate > periodEnd
             ? `Saved for ${localDate}. It is outside the current budget period, so it will not appear in this list.`
             : editingExpenseId
               ? "Entry updated."
-              : "Entry saved.",
-        );
+              : "Entry saved.";
+
+        if (writeStatus === "pending") {
+          const pendingNotice = `${successNotice} Saved locally; syncing to Firestore.`;
+          setEntryNotice(pendingNotice);
+          void write
+            .then(() => {
+              setEntryNotice((current) =>
+                current === pendingNotice ? successNotice : current,
+              );
+            })
+            .catch((err) => {
+              setEntryError(
+                err instanceof Error ? err.message : "Failed to save entry.",
+              );
+              setEntryNotice(null);
+            });
+        } else {
+          setEntryNotice(successNotice);
+        }
       } catch (err) {
         setEntryError(err instanceof Error ? err.message : "Failed to save entry.");
       } finally {
@@ -847,9 +903,30 @@ export default function FinancePage() {
 
           {/* Transactions History */}
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-neutral-200">Recent Transactions</h3>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-neutral-200">Recent Transactions</h3>
+              <Link
+                href="/money/transactions"
+                className="text-xs font-semibold text-accent transition hover:text-neutral-100"
+              >
+                View all transactions
+              </Link>
+            </div>
 
-            {!rows ? (
+            {transactionsError ? (
+              <div className="flex flex-col gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <p role="alert" className="text-sm text-red-300">
+                  Could not load transactions: {transactionsError}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setTransactionReloadKey((key) => key + 1)}
+                  className="shrink-0 self-start text-sm font-semibold text-red-200 underline underline-offset-4 hover:text-white sm:self-auto"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : !rows ? (
               <Skeleton className="h-24 w-full" />
             ) : rows.length === 0 ? (
               <div className="rounded-xl border border-border/50 p-6 text-center text-xs text-muted">
@@ -857,65 +934,16 @@ export default function FinancePage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {rows.map((r) => {
-                  const isInc = r.data.kind === "income";
-                  return (
-                    <div
-                      key={r.id}
-                      className="flex items-center justify-between rounded-xl border border-border/60 bg-neutral-900/30 p-3.5"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                            isInc
-                              ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                              : "border border-rose-500/30 bg-rose-500/10 text-rose-400"
-                          }`}
-                        >
-                          {isInc ? (
-                            <ArrowDownRight className="h-4 w-4" />
-                          ) : (
-                            <ArrowUpRight className="h-4 w-4" />
-                          )}
-                        </div>
-                        <div>
-                          <span className="font-semibold text-sm text-neutral-100">
-                            {displayCategory(r.data.category)}
-                          </span>
-                          <p className="text-xs text-muted">{r.data.localDate}</p>
-                          {r.data.note ? (
-                            <p className="text-xs text-neutral-300">{r.data.note}</p>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-4">
-                        <span
-                          className={`font-semibold text-sm ${
-                            isInc ? "text-emerald-400" : "text-neutral-100"
-                          }`}
-                        >
-                          {isInc ? "+" : "-"}
-                          {formatMoney(r.data.amountMinor, userCurrency, hideAmounts)}
-                        </span>
-                        <button
-                          onClick={() => handleEditExpense(r)}
-                          className="text-muted hover:text-accent transition"
-                          title="Edit entry"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteExpense(r)}
-                          className="text-muted hover:text-rose-400 transition"
-                          title="Delete entry"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                {rows.slice(0, 5).map((row) => (
+                  <TransactionRow
+                    key={row.id}
+                    row={row}
+                    fallbackCurrency={userCurrency}
+                    hideAmounts={hideAmounts}
+                    onEdit={handleEditExpense}
+                    onDelete={handleDeleteExpense}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -966,6 +994,7 @@ export default function FinancePage() {
           />
         </div>
       )}
+
     </section>
   );
 }

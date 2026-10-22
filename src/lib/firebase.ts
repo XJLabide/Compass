@@ -73,12 +73,27 @@ const DB_ID = process.env.NEXT_PUBLIC_FIREBASE_DB_ID || "(default)";
 
 /**
  * When `NEXT_PUBLIC_USE_EMULATORS === "true"`, the app connects to the local
- * Firebase emulator suite (Auth on 9099, Firestore on 8080) instead of the
+ * Firebase emulator suite (Auth on 9299, Firestore on 8281) instead of the
  * production project. Used by Playwright e2e tests to keep prod data isolated.
  */
 const USE_EMULATORS = process.env.NEXT_PUBLIC_USE_EMULATORS === "true";
 const EMULATOR_HOST =
   process.env.NEXT_PUBLIC_EMULATOR_HOST || "127.0.0.1";
+const isLocalHostname =
+  typeof window !== "undefined" &&
+  ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+
+if ((process.env.NODE_ENV !== "production" || isLocalHostname) && !USE_EMULATORS) {
+  throw new Error(
+    "Local development must use the Firebase emulators. Start Compass with `npm run dev`.",
+  );
+}
+
+if (process.env.NODE_ENV === "production" && USE_EMULATORS) {
+  throw new Error(
+    "Firebase emulators cannot be enabled in a production build.",
+  );
+}
 
 function init(): FirebaseHandles {
   if (handles) return handles;
@@ -123,10 +138,10 @@ function init(): FirebaseHandles {
   // Hook emulators (idempotent — Firebase SDK no-ops on duplicate calls).
   if (USE_EMULATORS && isNewApp) {
     const firestorePort = Number(
-      process.env.NEXT_PUBLIC_EMULATOR_FIRESTORE_PORT || "8181",
+      process.env.NEXT_PUBLIC_EMULATOR_FIRESTORE_PORT || "8281",
     );
     const authPort = Number(
-      process.env.NEXT_PUBLIC_EMULATOR_AUTH_PORT || "9099",
+      process.env.NEXT_PUBLIC_EMULATOR_AUTH_PORT || "9299",
     );
     try {
       connectAuthEmulator(auth, `http://${EMULATOR_HOST}:${authPort}`, {

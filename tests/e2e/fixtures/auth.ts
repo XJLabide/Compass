@@ -7,7 +7,7 @@ import { expect, type Page } from "@playwright/test";
 export const TEST_EMAIL = "test@compass.test";
 export const TEST_PASSWORD = "test-password-123";
 
-const PROJECT_ID = "personal-tracker-32b2a";
+const PROJECT_ID = "demo-compass-e2e";
 const OWNER_TOKEN_HEADER = { Authorization: "Bearer owner" };
 
 export async function readFirestoreFields(
@@ -15,7 +15,7 @@ export async function readFirestoreFields(
   documentPath: string,
 ): Promise<Record<string, Record<string, unknown>> | null> {
   const url =
-    `http://127.0.0.1:8181/v1/projects/${PROJECT_ID}/databases/p-tracker/documents/` +
+    `http://127.0.0.1:8281/v1/projects/${PROJECT_ID}/databases/p-tracker/documents/` +
     documentPath;
   const response = await page.request.get(url, {
     headers: OWNER_TOKEN_HEADER,
@@ -39,11 +39,11 @@ export async function readFirestoreFields(
 export async function clearEmulators(): Promise<void> {
   await Promise.all([
     fetch(
-      `http://127.0.0.1:9099/emulator/v1/projects/${PROJECT_ID}/accounts`,
+      `http://127.0.0.1:9299/emulator/v1/projects/${PROJECT_ID}/accounts`,
       { method: "DELETE" },
     ),
     fetch(
-      `http://127.0.0.1:8181/emulator/v1/projects/${PROJECT_ID}/databases/p-tracker/documents`,
+      `http://127.0.0.1:8281/emulator/v1/projects/${PROJECT_ID}/databases/p-tracker/documents`,
       { method: "DELETE" },
     ),
   ]);
@@ -63,7 +63,7 @@ export async function ensureTestUser(
   // EMAIL_EXISTS which we work around by signing in instead. Returns the localId
   // (uid) so callers can seed Firestore for that user.
   const signUpRes = await fetch(
-    `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=test-api-key`,
+    `http://127.0.0.1:9299/identitytoolkit.googleapis.com/v1/accounts:signUp?key=test-api-key`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -80,7 +80,7 @@ export async function ensureTestUser(
   }
   // EMAIL_EXISTS — sign in instead to grab the uid.
   const signInRes = await fetch(
-    `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=test-api-key`,
+    `http://127.0.0.1:9299/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=test-api-key`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -113,7 +113,7 @@ export async function ensureTestUser(
  * `fields` map and applies the values as-is, no rule enforcement.
  */
 export async function seedOnboardedProfile(uid: string): Promise<void> {
-  const url = `http://127.0.0.1:8181/v1/projects/${PROJECT_ID}/databases/p-tracker/documents/users/${uid}/profile/profile`;
+  const url = `http://127.0.0.1:8281/v1/projects/${PROJECT_ID}/databases/p-tracker/documents/users/${uid}/profile/profile`;
   const now = new Date().toISOString();
   const res = await fetch(url, {
     method: "PATCH",

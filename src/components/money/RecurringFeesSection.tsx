@@ -115,6 +115,7 @@ export default function RecurringFeesSection({
   const [billingDay, setBillingDay] = useState("1");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const canManage = variant === "manage";
 
   const categoryOptions = useMemo(
@@ -123,14 +124,19 @@ export default function RecurringFeesSection({
   );
 
   useEffect(() => {
+    setRows(null);
+    setLoadError(null);
     const q = query(recurringFeesPath(uid), orderBy("createdAt", "desc"));
     const unsub = onSnapshot(
       q,
       (snap) => {
         setRows(snap.docs.map((d) => ({ id: d.id, data: d.data() })));
+        setLoadError(null);
         setError(null);
       },
-      (err) => setError(err.message),
+      (err) => {
+        setLoadError(err.message);
+      },
     );
     return () => unsub();
   }, [uid]);
@@ -321,7 +327,11 @@ export default function RecurringFeesSection({
       ) : null}
 
       <ul className="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border">
-        {rows === null ? (
+        {loadError ? (
+          <li role="alert" className="px-3 py-3 text-sm text-red-300">
+            Could not load recurring fees: {loadError}
+          </li>
+        ) : rows === null ? (
           <li className="px-3 py-3 text-sm text-muted">Loading fees…</li>
         ) : activeRows.length === 0 ? (
           <li className="px-3 py-4 text-sm text-muted">

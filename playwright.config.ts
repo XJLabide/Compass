@@ -54,13 +54,15 @@ export default defineConfig({
       // Load test env vars into the dev server so the app uses the emulators.
       NEXT_PUBLIC_FIREBASE_API_KEY: "test-api-key",
       NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "localhost",
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: "personal-tracker-32b2a",
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: "demo-compass-e2e",
       NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "test.appspot.com",
       NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000",
       NEXT_PUBLIC_FIREBASE_APP_ID: "1:000:web:test",
       NEXT_PUBLIC_FIREBASE_DB_ID: "p-tracker",
       NEXT_PUBLIC_USE_EMULATORS: "true",
       NEXT_PUBLIC_EMULATOR_HOST: "127.0.0.1",
+      NEXT_PUBLIC_EMULATOR_FIRESTORE_PORT: "8281",
+      NEXT_PUBLIC_EMULATOR_AUTH_PORT: "9299",
     },
   },
 });

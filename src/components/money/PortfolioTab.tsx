@@ -51,6 +51,7 @@ export default function PortfolioTab({
   hideAmounts?: boolean;
 }) {
   const [holdings, setHoldings] = useState<HoldingRow[] | null>(null);
+  const [holdingsError, setHoldingsError] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
   const [usdToPhpRate, setUsdToPhpRate] = useState<number>(58.5);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
@@ -68,19 +69,27 @@ export default function PortfolioTab({
   // 1. Subscribe to user's portfolio holdings
   useEffect(() => {
     setHoldings(null);
+    setHoldingsError(null);
     setQuotes({});
     if (!uid) return;
-    const unsub = onSnapshot(portfolioPath(uid), (snap) => {
-      const rows = snap.docs.flatMap((d) => {
-        const data = d.data() as PortfolioHoldingDoc & { usdAmount?: number };
-        if (isLegacySeededPortfolioHolding(data)) {
-          void deleteDoc(d.ref);
-          return [];
-        }
-        return [{ id: d.id, data }];
-      });
-      setHoldings(rows);
-    });
+    const unsub = onSnapshot(
+      portfolioPath(uid),
+      (snap) => {
+        const rows = snap.docs.flatMap((d) => {
+          const data = d.data() as PortfolioHoldingDoc & { usdAmount?: number };
+          if (isLegacySeededPortfolioHolding(data)) {
+            void deleteDoc(d.ref);
+            return [];
+          }
+          return [{ id: d.id, data }];
+        });
+        setHoldings(rows);
+      },
+      (err) => {
+        setHoldingsError(err.message);
+        setHoldings([]);
+      },
+    );
     return unsub;
   }, [uid]);
 
@@ -283,6 +292,12 @@ export default function PortfolioTab({
 
   return (
     <div className="space-y-6">
+      {holdingsError ? (
+        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+          Could not load investments: {holdingsError}
+        </div>
+      ) : null}
+
       {/* Portfolio Header Metric Card */}
       <div className="rounded-xl border border-border bg-neutral-900/60 p-5 backdrop-blur-md">
         <div className="flex items-start justify-between">
@@ -291,22 +306,27 @@ export default function PortfolioTab({
               Stock & ETF Portfolio Value
             </span>
             <h2 className="mt-1 text-3xl font-bold tracking-tight text-neutral-100">
-              {formatCurrencyAmount(portfolioStats.totalValueInPhp, "PHP", 2, hideAmounts)}
+              {holdingsError
+                ? "—"
+                : formatCurrencyAmount(portfolioStats.totalValueInPhp, "PHP", 2, hideAmounts)}
             </h2>
             <span className="text-xs text-muted font-mono mt-0.5 block">
-              {hideAmounts
-                ? "$ •••••• USD"
-                : `$${portfolioStats.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`}{" "}
+              {holdingsError
+                ? "Portfolio value unavailable"
+                : hideAmounts
+                  ? "$ •••••• USD"
+                  : `$${portfolioStats.totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`}{" "}
               · Live Rate: 1 USD = ₱{usdToPhpRate.toFixed(2)} PHP
             </span>
           </div>
           <div className="flex items-center gap-2">
             <button
+              disabled={Boolean(holdingsError)}
               onClick={() => {
                 const symbols = Array.from(new Set(holdings.map((h) => h.data.ticker)));
                 void fetchQuotes(symbols);
               }}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-neutral-800 text-muted transition hover:text-neutral-100"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-neutral-800 text-muted transition hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
               title="Refresh Quotes"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loadingQuotes ? "animate-spin" : ""}`} />
@@ -322,22 +342,26 @@ export default function PortfolioTab({
         </div>
 
         {/* Daily P&L Badge */}
-        <div className="mt-3 flex items-center gap-2">
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-              isGain
-                ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border border-rose-500/30 bg-rose-500/10 text-rose-400"
-            }`}
-          >
-            {isGain ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-            {isGain ? "+" : ""}
-            {formatCurrencyAmount(portfolioStats.todayChangeInPhp, "PHP", 2, hideAmounts)} (
-            {isGain ? "+" : ""}
-            {portfolioStats.todayChangePct.toFixed(2)}%)
-          </span>
-          <span className="text-xs text-muted">Today&apos;s Market Change</span>
-        </div>
+        {holdingsError ? (
+          <p className="mt-3 text-xs text-muted">Market change unavailable.</p>
+        ) : (
+          <div className="mt-3 flex items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                isGain
+                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                  : "border border-rose-500/30 bg-rose-500/10 text-rose-400"
+              }`}
+            >
+              {isGain ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+              {isGain ? "+" : ""}
+              {formatCurrencyAmount(portfolioStats.todayChangeInPhp, "PHP", 2, hideAmounts)} (
+              {isGain ? "+" : ""}
+              {portfolioStats.todayChangePct.toFixed(2)}%)
+            </span>
+            <span className="text-xs text-muted">Today&apos;s Market Change</span>
+          </div>
+        )}
       </div>
 
       {/* Asset Allocation & Holdings Section */}
@@ -346,11 +370,13 @@ export default function PortfolioTab({
         <div className="space-y-3 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-neutral-200">Your Holdings</h3>
-            <span className="text-xs text-muted">{holdings.length} Positions</span>
+            <span className="text-xs text-muted">
+              {holdingsError ? "— positions" : `${holdings.length} Positions`}
+            </span>
           </div>
 
           <div className="space-y-2">
-            {holdings.length === 0 ? (
+            {holdingsError ? null : holdings.length === 0 ? (
               <div className="rounded-xl border border-border/60 bg-neutral-900/30 p-6 text-center text-xs text-muted">
                 No portfolio positions yet.
               </div>

@@ -39,8 +39,12 @@ Compass is a personal tracker PWA focused on daily execution, fitness, nutrition
 
 - `/today`: daily command center for active day, routines, todos, daily log, workout/nutrition shortcuts.
 - `/`: home/dashboard overview.
+- `/check-in`: focused daily check-in page.
+- `/history` and `/history/[date]`: workout/session history and date detail.
+- `/exercise/[id]`: exercise detail/history.
 - `/goals`: long/short-term goals grouped by life area and priority.
 - `/calendar`: month-based planning page for classes, events, and due-date todos.
+- `/projects`: project boards for development and content work, with customizable columns and project-linked todo cards.
 - `/nutrition`: nutrition logging and daily nutrition state.
 - `/fitness`: fitness overview with workout/running/sports entry points.
 - `/fitness/running`: running activity logging.
@@ -50,6 +54,7 @@ Compass is a personal tracker PWA focused on daily execution, fitness, nutrition
 - `/workout/program`: active program editor.
 - `/todos`: todos and routines hub.
 - `/money`: finances, budgets, balances, recurring fees, portfolio.
+- `/money/transactions`: full transaction history with search and income/expense filtering.
 - `/nori`: Nori chat assistant page.
 - `/settings`: profile/settings, notifications, day window, custom categories, danger zone.
 
@@ -211,6 +216,22 @@ Notes:
 - Todo model already supports `dueDate`, `priority`, `done`, `completedAt`, and optional recurrence.
 - Calendar should not duplicate the deeper todo editor.
 
+## Projects
+
+Primary files:
+
+- `src/app/(app)/projects/page.tsx`
+- `src/lib/projects/kanban.ts`
+
+Behavior and model:
+
+- Projects are user-owned Firestore documents at `users/{uid}/projects/{projectId}`.
+- A project can be a development or content project. Development projects can store a repository URL and tech stack; content projects can store a topic and platforms.
+- Each project has ordered, customizable columns. New projects start with Backlog, Todo, Doing, and Done.
+- Project cards reuse the existing todo documents at `users/{uid}/todos/{todoId}` with optional `projectId`, `projectColumnId`, `projectOrder`, and `projectCompletedColumnId` fields.
+- The board supports drag-and-drop card ordering and column movement. Completing a project card uses the existing todo completion behavior.
+- Project data is covered by the same owner-scoped Firestore rules as other user data.
+
 ## Today Page
 
 Primary file:
@@ -252,6 +273,7 @@ Notes:
 Primary files:
 
 - `src/app/(app)/money/page.tsx`
+- `src/app/(app)/money/transactions/page.tsx`
 - `src/components/money/BalancesTab.tsx`
 - `src/components/money/BudgetSection.tsx`
 - `src/components/money/PortfolioTab.tsx`
@@ -261,6 +283,7 @@ Notes:
 
 - Money tracker uses typed Firestore docs for accounts, portfolio holdings, expenses, budgets, and recurring fees.
 - Currency helpers live in `src/lib/money/`.
+- Recent Transactions shows the five latest entries; View all transactions opens the full, searchable `/money/transactions` page.
 
 ## Nori
 
@@ -279,15 +302,17 @@ Notes:
 
 ## Testing And QA Commands
 
-Use these commands after meaningful app changes:
+Available verification commands:
 
 ```bash
 npm run typecheck
 npm run lint
-npm run test:e2e -- --project=desktop-chromium tests/e2e/calendar.spec.ts
-npm run test:e2e -- --project=desktop-chromium tests/e2e/goals.spec.ts
 npm run build
 ```
+
+Playwright E2E tests are available through `npm run test:e2e`, but do not run
+Playwright unless the user explicitly asks for it. Prefer typecheck, lint, and
+build for default verification. Relevant E2E specs live in `tests/e2e/`.
 
 For local development:
 
@@ -305,8 +330,10 @@ Before `npm run build`, stop any active dev server on port 3000 if needed. The d
 
 ## Known Local Git State Notes
 
-- At the time this overview was created, `projectinfo.md` existed as an untracked file and should not be modified or committed unless the user explicitly asks.
-- Recent pushed commit for Calendar page: `becfce8 Add calendar planning as a first-class page`.
+- Check `git status --short` before editing. Local changes may include user-owned work; preserve them and avoid reverting or overwriting them.
+- New accounts are initialized with an owner-only profile document. Existing user data is not imported, and workout programs remain an explicit user choice.
+- Onboarding collects profile preferences, including reporting currency. Profile seeding uses a transaction to avoid racing onboarding writes.
+- Recent committed work includes project boards linked to todos, a private first-run account setup, reporting currency preferences, and onboarding/profile-seeding race protection. Confirm current `git log` before treating this list as exhaustive.
 
 ## How Future Assistants Should Start
 

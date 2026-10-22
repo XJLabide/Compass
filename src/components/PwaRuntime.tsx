@@ -7,7 +7,25 @@ export default function PwaRuntime() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") return;
+    if (process.env.NODE_ENV !== "production") {
+      if (!("serviceWorker" in navigator)) return;
+
+      void navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) =>
+          Promise.all(registrations.map((registration) => registration.unregister())),
+        );
+      if ("caches" in window) {
+        void caches.keys().then((keys) =>
+          Promise.all(
+            keys
+              .filter((key) => key.startsWith("compass-shell-"))
+              .map((key) => caches.delete(key)),
+          ),
+        );
+      }
+      return;
+    }
     if (!("serviceWorker" in navigator)) return;
 
     let disposed = false;

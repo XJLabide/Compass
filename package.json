@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:clean": "rm -rf .next && next dev",
+    "dev": "node scripts/dev-local.mjs",
+    "dev:next": "next dev",
+    "dev:local-server": "node scripts/prepare-local-dev.mjs && next dev",
+    "dev:clean": "node scripts/dev-local.mjs --clean",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "verify:firestore-rules": "node scripts/verify-firestore-rules.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:install": "playwright install --with-deps chromium"

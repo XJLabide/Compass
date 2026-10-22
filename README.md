@@ -16,8 +16,9 @@ a home-screen app on iOS and Android.
 
 ## Quick start
 
-Requires Node 18+ and an npm 9+ install. You also need a Firebase project — see
-[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) if you don't have one yet.
+Requires Node 18+, npm 9+, Java, and the Firebase CLI. Local development uses
+the Firebase Auth and Firestore emulators with a demo project ID, so it does
+not connect to the production Firebase project.
 
 ```bash
 # 1. Clone and install
@@ -25,23 +26,30 @@ git clone <your-fork-url> personal-tracker
 cd personal-tracker
 npm install
 
-# 2. Configure environment
-cp .env.local.example .env.local
-# Fill in NEXT_PUBLIC_FIREBASE_* values from your Firebase project's
-# web app config, and add your email to NEXT_PUBLIC_ALLOWED_EMAILS.
-
-# 3. Run the dev server
+# 2. Run the dev server and local Firebase emulators
 npm run dev
-# Open http://localhost:3000 and sign in with an allowlisted email.
+# Open http://localhost:3000 and sign in with the local credentials printed
+# by the command.
 ```
 
-That's it for local dev. The first sign-in writes a profile doc into Firestore
-under `users/{uid}/profile`.
+The local server uses `demo-compass-local`, Firestore database `p-tracker`, and
+the rules from `firestore.rules`. Direct `next dev` startup fails closed unless
+emulators are enabled. Use Vercel's environment variables for production
+Firebase settings; do not use a production project ID for local test data.
+
+To verify transaction permissions and the Finance list query against the
+emulator while `npm run dev` is running:
+
+```bash
+npm run verify:firestore-rules
+```
 
 ## Environment variables
 
-All Firebase values come from your Firebase web app config
+Firebase web app values come from your Firebase web app config
 (Project settings → General → Your apps → SDK setup and configuration).
+`NEXT_PUBLIC_FIREBASE_DB_ID` is the Firestore database name configured
+separately; this repo uses `p-tracker`.
 
 | Variable                                  | Description                                                |
 | ----------------------------------------- | ---------------------------------------------------------- |
@@ -51,6 +59,7 @@ All Firebase values come from your Firebase web app config
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`     | `<project-id>.appspot.com`                                 |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`| Numeric sender ID                                          |
 | `NEXT_PUBLIC_FIREBASE_APP_ID`             | Firebase app ID (`1:...:web:...`)                          |
+| `NEXT_PUBLIC_FIREBASE_DB_ID`              | Firestore database ID (`p-tracker`)                        |
 
 For installed iOS PWAs, Google sign-in uses Firebase redirect auth. On Vercel,
 set `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` to the deployed app domain and add that
@@ -61,6 +70,7 @@ exact domain in Firebase Auth authorized domains.
 | Command            | What it does                                  |
 | ------------------ | --------------------------------------------- |
 | `npm run dev`      | Next.js dev server on port 3000               |
+| `npm run verify:firestore-rules` | Checks owner query access, cross-user denial, and invalid transaction writes against the running emulator |
 | `npm run build`    | Production build (also catches type errors)   |
 | `npm run start`    | Run the production build locally              |
 | `npm run lint`     | ESLint (Next config)                          |
